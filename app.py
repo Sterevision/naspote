@@ -48,18 +48,7 @@ def verify_telegram_init_data(init_data: str, bot_token: str) -> dict | None:
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        # Проверка Bearer токена из Telegram
-        auth_header = request.headers.get('Authorization')
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
-            try:
-                sb = get_supabase(access_token=token)
-                sb.table("profiles").select("id").eq("id", session.get("user_id")).single().execute()
-                session["access_token"] = token
-                return view(*args, **kwargs)
-            except: pass
-
-        if "access_token" not in session:
+        if "access_token" not in session:  # НЕ должно быть пробела
             return jsonify({"error": "unauthorized"}), 401 if request.path.startswith("/api/") else redirect(url_for("login"))
         try:
             sb = get_supabase(session["access_token"], session.get("refresh_token"))
