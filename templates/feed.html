@@ -1,75 +1,79 @@
 {% extends "base.html" %}
 {% block title %}Лента — На споте{% endblock %}
 {% block content %}
-<div class="app-shell">
-    <div class="topbar">
-        <div class="brand">
-            <div class="dot"></div>
-            <span class="display">Лента</span>
-        </div>
-        <a href="{{ url_for('profile_view', username=profile.username) }}" class="avatar">
-            {% if profile.avatar_url %}
-                <img src="{{ profile.avatar_url }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
-            {% else %}
-                {{ profile.display_name[:1]|upper }}
-            {% endif %}
+<div class="profile-shell">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 class="display" style="font-size:22px;">Лента</h2>
+        <a href="{{ url_for('profile_view', username=profile.username) }}">
+            <div class="avatar">
+                {% if profile.avatar_url %}
+                    <img src="{{ profile.avatar_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                {% else %}
+                    {{ profile.display_name[:1]|upper }}
+                {% endif %}
+            </div>
         </a>
     </div>
-
-    <div class="profile-shell" style="padding-bottom: 100px;">
-        <h2 class="display" style="margin: 0 0 20px; font-size: 22px;">Что происходит рядом</h2>
-        
-        {% if spots %}
+    
+    <p class="subtitle" style="margin-bottom:24px;">Что происходит рядом</p>
+    
+    {% if spots %}
+        <div class="feed-grid">
             {% for spot in spots %}
-                <div class="friend-row" style="flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
-                    <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                        <div class="avatar" style="width: 40px; height: 40px;">
-                            {% if spot.owner and spot.owner.avatar_url %}
-                                <img src="{{ spot.owner.avatar_url }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
-                            {% else %}
-                                {{ (spot.owner.display_name if spot.owner else '?')[:1]|upper }}
-                            {% endif %}
-                        </div>
-                        <div style="flex: 1;">
-                            <div class="name">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}</div>
-                            <div class="uname">
-                                @{{ spot.owner.username if spot.owner else 'user' }} · 
-                                {% if spot.visibility == 'friends' %}🔒 Для друзей{% else %}🌍 Публично{% endif %}
+                <div class="feed-card" onclick="window.location.href='{{ url_for('map_view') }}'">
+                    <div class="thumb">
+                        {% if spot.photo_url %}
+                            <img src="{{ spot.photo_url }}" style="width:100%;height:100%;object-fit:cover;">
+                        {% else %}📍{% endif %}
+                    </div>
+                    <div class="info">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <div class="avatar" style="width:24px;height:24px;font-size:11px;">
+                                {% if spot.owner and spot.owner.avatar_url %}
+                                    <img src="{{ spot.owner.avatar_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                                {% else %}
+                                    {{ (spot.owner.display_name if spot.owner else '?')[:1]|upper }}
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div style="font-size:12px;font-weight:700;">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}</div>
+                                <div style="font-size:10px;color:var(--text-faint);">
+                                    @{{ spot.owner.username if spot.owner else 'user' }} · 
+                                    {% if spot.visibility == 'friends' %}🔒 Для друзей{% else %}🌍 Публично{% endif %}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div style="width: 100%;">
-                        <h4 style="margin: 0 0 6px; font-size: 16px;">{{ spot.title }}</h4>
+                        <p class="t">{{ spot.title }}</p>
                         {% if spot.description %}
-                            <p style="margin: 0 0 10px; color: var(--text-muted); font-size: 14px; line-height: 1.4;">{{ spot.description }}</p>
+                            <p class="d" style="margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ spot.description }}</p>
                         {% endif %}
-                        
-                        {% if spot.photo_url %}
-                            <img src="{{ spot.photo_url }}" style="width: 100%; border-radius: var(--radius-md); margin-bottom: 12px; object-fit: cover; max-height: 300px;">
-                        {% endif %}
-                        
-                        <a href="{{ url_for('map_view') }}" class="btn btn-ghost btn-sm" style="width: 100%; justify-content: center;">
-                            📍 Показать на карте
-                        </a>
                     </div>
                 </div>
             {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <div class="em">📰</div>
-                <p>Пока ничего нет.<br>Добавь друзей или оставь первую метку!</p>
-            </div>
-        {% endif %}
-    </div>
-
-    <!-- Нижнее меню для единообразия -->
-    <div class="bottom-nav">
-        <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span><span>Карта</span></a>
-        <a href="{{ url_for('feed_view') }}" class="nav-item active"><span class="ic">📰</span><span>Лента</span></a>
-        <a href="{{ url_for('friends_view') }}" class="nav-item"><span class="ic">🤝</span><span>Друзья</span></a>
-        <a href="{{ url_for('messages_view') }}" class="nav-item"><span class="ic">💬</span><span>Чаты</span></a>
-        <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item"><span class="ic">👤</span><span>Профиль</span></a>
-    </div>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="em">📰</div>
+            <p>Пока ничего нет.<br>Добавь друзей или оставь первую метку!</p>
+        </div>
+    {% endif %}
 </div>
+
+<nav class="bottom-nav">
+    <a href="{{ url_for('map_view') }}" class="nav-item">
+        <span class="ic">🗺️</span><span>Карта</span>
+    </a>
+    <a href="{{ url_for('feed_view') }}" class="nav-item active">
+        <span class="ic">📰</span><span>Лента</span>
+    </a>
+    <a href="{{ url_for('friends_view') }}" class="nav-item">
+        <span class="ic">🤝</span><span>Друзья</span>
+    </a>
+    <a href="{{ url_for('messages_view') }}" class="nav-item">
+        <span class="ic">💬</span><span>Чаты</span>
+    </a>
+    <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item">
+        <span class="ic">👤</span><span>Профиль</span>
+    </a>
+</nav>
 {% endblock %}

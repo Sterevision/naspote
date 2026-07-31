@@ -3,15 +3,13 @@
 {% block content %}
 <div class="landing">
     <div class="live-ticker">
-        <div class="live-ticker-dot"></div>
-        <span>Люди оставляют метки прямо сейчас</span>
+        <span class="live-ticker-dot"></span>
+        Люди оставляют метки прямо сейчас
     </div>
     
     <div class="logo-mark"></div>
     
-    <h1>
-        <span class="display">На</span> <span class="accent">споте</span>
-    </h1>
+    <h1 class="display">На<span class="accent">споте</span></h1>
     
     <p class="subtitle">
         Карта, а не лента. Оставляешь метку — где ты и что тут происходит — 
@@ -19,7 +17,9 @@
     </p>
     
     <div class="cta-row">
-        <a href="{{ url_for('register') }}" class="btn btn-primary">Создать профиль <span>→</span></a>
+        <a href="{{ url_for('register') }}" class="btn btn-primary">
+            Создать профиль <span>→</span>
+        </a>
         <a href="{{ url_for('login') }}" class="btn btn-ghost">Войти</a>
     </div>
     
@@ -30,20 +30,19 @@
             <p>Оставляй геолокационные или ручные метки, чтобы показать, где ты или где весело.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-ic pink">🔒</div>
+            <div class="feature-ic violet">🔒</div>
             <h3>Приватность</h3>
             <p>Решай сам: метку видят все или только твои проверенные друзья.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-ic violet">🏢</div>
+            <div class="feature-ic pink">🏢</div>
             <h3>Для заведений</h3>
             <p>Создай страницу заведения, получай отметки от гостей и управляй своим профилем.</p>
         </div>
     </div>
     
     <div class="landing-org-cta">
-        <span>Ты владелец заведения?</span>
-        <a href="{{ url_for('register') }}">Зарегистрируй страницу →</a>
+        Ты владелец заведения? <a href="{{ url_for('register') }}">Зарегистрируй страницу →</a>
     </div>
 </div>
 {% endblock %}
