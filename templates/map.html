@@ -1,49 +1,52 @@
 {% extends "base.html" %}
 {% block title %}Карта — На споте{% endblock %}
+
 {% block content %}
-<div class="map-wrap">
-    <div id="map"></div>
+<div class="app-shell">
+    <div class="map-wrap">
+        <div id="map"></div>
 
-    <!-- Компактные плавающие кнопки СЛЕВА -->
-    <div class="fab-column">
-        <button id="openManualAdd" class="fab-mini" title="Поставить вручную">✋</button>
-        <button id="openAddSpot" class="fab-main" title="Оставить метку">📍</button>
+        <!-- Компактные плавающие кнопки СЛЕВА -->
+        <div class="fab-column">
+            <button id="openManualAdd" class="fab-mini" title="Поставить вручную">✋</button>
+            <button id="openAddSpot" class="fab-main" title="Оставить метку">📍</button>
+        </div>
+
+        <!-- Легенда справа -->
+        <button id="legendBtn" class="legend-btn">🎨</button>
+        <div id="legendPanel" class="legend-panel">
+            <div class="legend-row"><span class="legend-dot mint"></span> Открытая метка</div>
+            <div class="legend-row"><span class="legend-dot violet"></span> Только для друзей</div>
+            <div class="legend-row"><span class="legend-dot pink"></span> Твоя метка</div>
+            <div class="legend-row"><span class="legend-dot amber"></span> Поставлена вручную</div>
+        </div>
+
+        <!-- Баннер ручного режима -->
+        <div id="manualModeBanner" class="manual-mode-banner">
+            ✋ Тапни в нужное место на карте
+            <button id="cancelManualMode" class="btn-close-banner">✕</button>
+        </div>
     </div>
 
-    <!-- Легенда справа -->
-    <button id="legendBtn" class="legend-btn">🎨</button>
-    <div id="legendPanel" class="legend-panel">
-        <div class="legend-row"><span class="legend-dot mint"></span> Открытая метка</div>
-        <div class="legend-row"><span class="legend-dot violet"></span> Только для друзей</div>
-        <div class="legend-row"><span class="legend-dot pink"></span> Твоя метка</div>
-        <div class="legend-row"><span class="legend-dot amber"></span> Поставлена вручную</div>
-    </div>
-
-    <!-- Баннер ручного режима -->
-    <div id="manualModeBanner" class="manual-mode-banner">
-        ✋ Тапни в нужное место на карте
-        <button id="cancelManualMode" class="btn-close-banner">✕</button>
-    </div>
+    <!-- Нижняя навигация -->
+    <nav class="bottom-nav">
+        <a href="{{ url_for('map_view') }}" class="nav-item active">
+            <span class="ic">🗺️</span><span>Карта</span>
+        </a>
+        <a href="{{ url_for('feed_view') }}" class="nav-item">
+            <span class="ic">📰</span><span>Лента</span>
+        </a>
+        <a href="{{ url_for('friends_view') }}" class="nav-item">
+            <span class="ic">🤝</span><span>Друзья</span>
+        </a>
+        <a href="{{ url_for('messages_view') }}" class="nav-item">
+            <span class="ic">💬</span><span>Чаты</span>
+        </a>
+        <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item">
+            <span class="ic">👤</span><span>Профиль</span>
+        </a>
+    </nav>
 </div>
-
-<!-- Нижняя навигация -->
-<nav class="bottom-nav">
-    <a href="{{ url_for('map_view') }}" class="nav-item active">
-        <span class="ic">🗺️</span><span>Карта</span>
-    </a>
-    <a href="{{ url_for('feed_view') }}" class="nav-item">
-        <span class="ic">📰</span><span>Лента</span>
-    </a>
-    <a href="{{ url_for('friends_view') }}" class="nav-item">
-        <span class="ic">🤝</span><span>Друзья</span>
-    </a>
-    <a href="{{ url_for('messages_view') }}" class="nav-item">
-        <span class="ic">💬</span><span>Чаты</span>
-    </a>
-    <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item">
-        <span class="ic"></span><span>Профиль</span>
-    </a>
-</nav>
 
 <!-- Модалка добавления метки -->
 <div id="addSpotOverlay" class="sheet-overlay">
@@ -88,12 +91,12 @@
             <div class="field">
                 <label>Настроение</label>
                 <div class="mood-row">
-                    <div class="mood-chip" data-mood="🎉 Тусим" data-categories="Клуб ,Вечеринка ">🎉 Тусим</div>
-                    <div class="mood-chip" data-mood="🍸 Расслабон" data-categories="Бар ,Ресторан ">🍸 Расслабон</div>
-                    <div class="mood-chip" data-mood="🎨 Культурно" data-categories="Выставка/галерея "> Культурно</div>
-                    <div class="mood-chip" data-mood=" На природе" data-categories="Природа ,Спорт "> На природе</div>
-                    <div class="mood-chip" data-mood="🎤 Караоке" data-categories="Караоке "> Караоке</div>
-                    <div class="mood-chip" data-mood=" Движ" data-categories="Коворкинг ,Другое ">⚡ Движ</div>
+                    <div class="mood-chip" data-mood="🎉 Тусим" data-categories="Клуб,Вечеринка">🎉 Тусим</div>
+                    <div class="mood-chip" data-mood="🍸 Расслабон" data-categories="Бар,Ресторан">🍸 Расслабон</div>
+                    <div class="mood-chip" data-mood="🎨 Культурно" data-categories="Выставка/галерея">🎨 Культурно</div>
+                    <div class="mood-chip" data-mood="🌿 На природе" data-categories="Природа,Спорт">🌿 На природе</div>
+                    <div class="mood-chip" data-mood="🎤 Караоке" data-categories="Караоке">🎤 Караоке</div>
+                    <div class="mood-chip" data-mood="⚡ Движ" data-categories="Коворкинг,Другое">⚡ Движ</div>
                 </div>
                 <input type="hidden" id="moodInput" name="mood">
             </div>
@@ -141,7 +144,7 @@
 
             <div class="field" style="margin-top:12px;">
                 <label>Фото</label>
-                <div id="photoDrop" class="photo-drop"> Прикрепить фото места</div>
+                <div id="photoDrop" class="photo-drop">📷 Прикрепить фото места</div>
                 <input type="file" id="photoInput" name="photo" accept="image/*" style="display:none;">
                 <div id="photoLabel" style="font-size:12px;color:var(--text-muted);margin-top:4px;"></div>
             </div>
@@ -149,8 +152,8 @@
             <div class="field" style="margin-top:16px;">
                 <label>Кто увидит метку?</label>
                 <div class="visibility-toggle">
-                    <div class="vis-option pub selected" data-vis="public"> Всем видно</div>
-                    <div class="vis-option priv" data-vis="friends"> Только друзьям</div>
+                    <div class="vis-option pub selected" data-vis="public">🌍 Всем видно</div>
+                    <div class="vis-option priv" data-vis="friends">🔒 Только друзьям</div>
                 </div>
                 <input type="hidden" id="visibilityInput" name="visibility" value="public">
             </div>
@@ -171,4 +174,8 @@
 <script>
     window.CURRENT_USER_ID = "{{ profile.id }}";
 </script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/map.js') }}?v=2.1"></script>
 {% endblock %}
