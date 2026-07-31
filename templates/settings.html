@@ -10,6 +10,7 @@
     
     <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="form_name" value="profile">
+        <input type="hidden" name="account_type" value="{{ profile.account_type }}">
         
         <div class="avatar-upload-row">
             <div class="avatar-preview" {% if profile.avatar_url %}style="background-image:url({{ profile.avatar_url }});"{% endif %}>
