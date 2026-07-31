@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Регистрация — На споте{% endblock %}
+{% block content %}
+<div class="auth-shell">
+    <div class="auth-card">
+        <h2 class="display">Создать профиль</h2>
+        <p class="hint">14–40 лет, любишь спонтанные тусовки — тебе сюда.</p>
+        
+        <form method="POST">
+            <div class="account-type-toggle">
+                <div class="type-option selected" data-type="person" id="typePerson">
+                    <span class="ic">🙋</span>
+                    Я — человек
+                </div>
+                <div class="type-option" data-type="organization" id="typeOrg">
+                    <span class="ic">🏢</span>
+                    Я — заведение
+                </div>
+            </div>
+            
+            <input type="hidden" name="account_type" id="accountTypeInput" value="person">
+            
+            <div class="field">
+                <label>Имя пользователя</label>
+                <input type="text" name="username" required pattern="[a-zA-Z0-9_]+" 
+                       placeholder="только латиница, цифры, _">
+            </div>
+            
+            <div class="field">
+                <label>Как тебя показывать друзьям</label>
+                <input type="text" name="display_name" placeholder="Имя или название заведения">
+            </div>
+            
+            <div id="orgFields" style="display:none;">
+                <div class="field">
+                    <label>Категория заведения</label>
+                    <select name="category">
+                        <option value="">—</option>
+                        {% for c in categories %}
+                            <option value="{{ c }}">{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="field">
+                    <label>Адрес заведения</label>
+                    <input type="text" name="address" placeholder="ул. Примерная, 1">
+                </div>
+                
+                <div class="field">
+                    <label>Координаты на карте</label>
+                    <input type="hidden" name="org_lat" id="orgLat">
+                    <input type="hidden" name="org_lng" id="orgLng">
+                    <button type="button" class="btn btn-ghost btn-sm" id="detectLocation">
+                        📍 Определить моё местоположение
+                    </button>
+                </div>
+            </div>
+            
+            <div class="field">
+                <label>Email</label>
+                <input type="email" name="email" required autocomplete="email">
+            </div>
+            
+            <div class="field">
+                <label>Пароль</label>
+                <input type="password" name="password" required minlength="6" 
+                       autocomplete="new-password">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">
+                Зарегистрироваться
+            </button>
+        </form>
+        
+        <div class="switch-link">
+            Уже есть аккаунт? 
+            <a href="{{ url_for('login') }}">Войти</a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.type-option').forEach((el) => {
+    el.addEventListener('click', () => {
+        document.querySelectorAll('.type-option').forEach((o) => o.classList.remove('selected'));
+        el.classList.add('selected');
+        const type = el.dataset.type;
+        document.getElementById('accountTypeInput').value = type;
+        document.getElementById('orgFields').style.display = type === 'organization' ? 'block' : 'none';
+    });
+});
+
+document.getElementById('detectLocation').addEventListener('click', () => {
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            document.getElementById('orgLat').value = pos.coords.latitude;
+            document.getElementById('orgLng').value = pos.coords.longitude;
+            alert('✅ Координаты определены!');
+        },
+        () => alert('Не удалось определить местоположение')
+    );
+});
+</script>
+{% endblock %}

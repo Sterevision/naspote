@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Карта — На споте{% endblock %}
+{% block content %}
+<div class="app-shell">
+    <div class="topbar">
+        <div class="brand">
+            <div class="dot"></div>
+            <span class="display">На споте</span>
+        </div>
+        <div class="topbar-actions">
+            <span class="level-badge" id="levelBadge" style="display:none;"></span>
+            <button class="legend-btn" id="legendBtn">🎨</button>
+            <a href="{{ url_for('profile_view', username=profile.username) }}" class="avatar">
+                {% if profile.avatar_url %}
+                    <img src="{{ profile.avatar_url }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                {% else %}
+                    {{ profile.display_name[:1]|upper }}
+                {% endif %}
+            </a>
+        </div>
+    </div>
+
+    <div class="legend-panel" id="legendPanel">
+        <div class="legend-row"><div class="legend-dot mint"></div><span>Открытая метка</span></div>
+        <div class="legend-row"><div class="legend-dot violet"></div><span>Только для друзей</span></div>
+        <div class="legend-row"><div class="legend-dot pink"></div><span>Твоя метка</span></div>
+        <div class="legend-row"><div class="legend-dot amber"></div><span>Поставлена вручную</span></div>
+    </div>
+
+    <div class="manual-mode-banner" id="manualModeBanner">
+        <span>✋ Тапни в нужное место на карте</span>
+        <button class="btn-close-banner" id="cancelManualMode">✕</button>
+    </div>
+
+    <div class="map-wrap">
+        <div id="map"></div>
+    </div>
+
+    <div class="fab-row">
+        <button class="fab-secondary" id="openManualAdd" title="Поставить вручную">✋</button>
+        <button class="fab-add" id="openAddSpot">📍 Оставить метку</button>
+    </div>
+
+    <div class="bottom-nav">
+        <a href="{{ url_for('map_view') }}" class="nav-item active"><span class="ic">🗺️</span><span>Карта</span></a>
+        <a href="{{ url_for('feed_view') }}" class="nav-item"><span class="ic">📰</span><span>Лента</span></a>
+        <a href="{{ url_for('friends_view') }}" class="nav-item"><span class="ic">🤝</span><span>Друзья</span></a>
+        <a href="{{ url_for('messages_view') }}" class="nav-item"><span class="ic">💬</span><span>Чаты</span></a>
+        <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item"><span class="ic">👤</span><span>Профиль</span></a>
+    </div>
+</div>
+
+<!-- Bottom sheet: карточка спота -->
+<div class="sheet-overlay" id="spotSheetOverlay">
+    <div class="sheet">
+        <div class="sheet-handle"></div>
+        <button class="sheet-close" id="closeSheet">✕</button>
+        <div id="spotSheetContent"></div>
+    </div>
+</div>
+
+<!-- Модалка: добавить метку -->
+<div class="modal-overlay" id="addSpotOverlay">
+    <div class="modal-card">
+        <h3 class="display" id="addSpotTitle">Позови сюда людей</h3>
+        <p class="hint" id="addSpotHint">Метка появится там, где ты сейчас находишься.</p>
+        
+        <form id="addSpotForm" enctype="multipart/form-data">
+            <input type="hidden" name="lat" id="latInput">
+            <input type="hidden" name="lng" id="lngInput">
+            <input type="hidden" name="placement_type" id="placementTypeInput" value="geo">
+            <input type="hidden" name="organization_id" id="organizationIdInput">
+            
+            <div class="field">
+                <label>Что тут происходит?</label>
+                <input type="text" name="title" required placeholder="Пара слов для тех, кто заглянет">
+            </div>
+            
+            <div class="field">
+                <label>Описание (необязательно)</label>
+                <textarea name="description" placeholder="Расскажи подробнее..."></textarea>
+            </div>
+
+            <div class="field">
+                <label>Сколько метка провисит на карте?</label>
+                <div class="duration-toggle">
+                    <div class="duration-option" data-h="1">1 ч</div>
+                    <div class="duration-option" data-h="3">3 ч</div>
+                    <div class="duration-option selected" data-h="6">6 ч</div>
+                    <div class="duration-option" data-h="12">12 ч</div>
+                    <div class="duration-option" data-h="24">24 ч</div>
+                </div>
+                <input type="hidden" name="duration_hours" id="durationInput" value="6">
+            </div>
+
+            {% if profile.account_type == 'person' %}
+                <div class="one-spot-hint">✨ У тебя может быть только одна активная метка — эта заменит предыдущую.</div>
+            {% endif %}
+
+            <div class="field">
+                <label>Настроение</label>
+                <input type="hidden" name="mood" id="moodInput" value="">
+                <div class="mood-row">
+                    <div class="mood-chip" data-mood="🎉" data-categories="Вечеринка,Клуб">🎉 Тусим</div>
+                    <div class="mood-chip" data-mood="🍸" data-categories="Бар,Ресторан">🍸 Расслабон</div>
+                    <div class="mood-chip" data-mood="🎨" data-categories="Выставка/галерея">🎨 Культурно</div>
+                    <div class="mood-chip" data-mood="🌿" data-categories="Природа">🌿 На природе</div>
+                    <div class="mood-chip" data-mood="🎤" data-categories="Караоке">🎤 Караоке</div>
+                    <div class="mood-chip" data-mood="⚡" data-categories="Спорт">⚡ Движ</div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Категория</label>
+                <select name="category" id="categorySelect">
+                    <option value="">Без категории</option>
+                    {% for c in categories %}
+                        <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field">
+                <label class="checkbox-inline">
+                    <input type="checkbox" id="waveToggle">
+                    🌊 Сделать волной (короткое живое событие с обратным отсчётом)
+                </label>
+                <div class="wave-options" id="waveOptions" style="display:none;">
+                    <input type="hidden" name="wave_enabled" id="waveEnabledInput" value="false">
+                    <div class="field" style="margin-top:12px;">
+                        <label>Волна активна (часов)</label>
+                        <input type="number" name="wave_hours" min="0.25" max="12" step="0.25" value="1">
+                    </div>
+                    <div class="field">
+                        <label>Лимит людей (необязательно)</label>
+                        <input type="number" name="wave_max_people" min="1" placeholder="Без лимита">
+                    </div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Голосовая заметка (необязательно)</label>
+                <input type="hidden" name="voice_url" id="voiceUrlInput" value="">
+                <button type="button" class="btn btn-ghost btn-block" id="voiceRecordBtn">🎤 Записать голосовое</button>
+                <div class="voice-status" id="voiceRecordingStatus"></div>
+            </div>
+
+            <div class="field">
+                <label>Отметить заведение (необязательно)</label>
+                <input type="text" id="orgSearchInput" placeholder="Начни вводить название...">
+                <div class="org-search-results" id="orgSearchResults"></div>
+                <div class="org-selected-chip" id="orgSelectedChip" style="display:none;"></div>
+            </div>
+
+            <div class="photo-drop" id="photoDrop">
+                <span id="photoLabel">📷 Прикрепить фото места</span>
+                <input type="file" name="photo" id="photoInput" accept="image/*" style="display:none;">
+            </div>
+
+            <div class="field">
+                <label>Кто увидит метку?</label>
+                <div class="visibility-toggle">
+                    <div class="vis-option pub selected" data-vis="public">🌍 Всем видно</div>
+                    <div class="vis-option priv" data-vis="friends">🔒 Только друзьям</div>
+                </div>
+                <input type="hidden" name="visibility" id="visibilityInput" value="public">
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:24px;">
+                <button type="button" class="btn btn-ghost" id="cancelAddSpot" style="flex:1;">Отмена</button>
+                <button type="submit" class="btn btn-primary" style="flex:2;">Оставить метку</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    window.CURRENT_USER_ID = "{{ profile.id }}";
+</script>
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+{% endblock %}

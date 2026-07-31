@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Лента — На споте{% endblock %}
+{% block content %}
+<div class="app-shell">
+    <div class="topbar">
+        <div class="brand">
+            <div class="dot"></div>
+            <span class="display">Лента</span>
+        </div>
+        <a href="{{ url_for('profile_view', username=profile.username) }}" class="avatar">
+            {% if profile.avatar_url %}
+                <img src="{{ profile.avatar_url }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+            {% else %}
+                {{ profile.display_name[:1]|upper }}
+            {% endif %}
+        </a>
+    </div>
+
+    <div class="profile-shell" style="padding-bottom: 100px;">
+        <h2 class="display" style="margin: 0 0 20px; font-size: 22px;">Что происходит рядом</h2>
+        
+        {% if spots %}
+            {% for spot in spots %}
+                <div class="friend-row" style="flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                        <div class="avatar" style="width: 40px; height: 40px;">
+                            {% if spot.owner and spot.owner.avatar_url %}
+                                <img src="{{ spot.owner.avatar_url }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                            {% else %}
+                                {{ (spot.owner.display_name if spot.owner else '?')[:1]|upper }}
+                            {% endif %}
+                        </div>
+                        <div style="flex: 1;">
+                            <div class="name">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}</div>
+                            <div class="uname">
+                                @{{ spot.owner.username if spot.owner else 'user' }} · 
+                                {% if spot.visibility == 'friends' %}🔒 Для друзей{% else %}🌍 Публично{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="width: 100%;">
+                        <h4 style="margin: 0 0 6px; font-size: 16px;">{{ spot.title }}</h4>
+                        {% if spot.description %}
+                            <p style="margin: 0 0 10px; color: var(--text-muted); font-size: 14px; line-height: 1.4;">{{ spot.description }}</p>
+                        {% endif %}
+                        
+                        {% if spot.photo_url %}
+                            <img src="{{ spot.photo_url }}" style="width: 100%; border-radius: var(--radius-md); margin-bottom: 12px; object-fit: cover; max-height: 300px;">
+                        {% endif %}
+                        
+                        <a href="{{ url_for('map_view') }}" class="btn btn-ghost btn-sm" style="width: 100%; justify-content: center;">
+                            📍 Показать на карте
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div class="em">📰</div>
+                <p>Пока ничего нет.<br>Добавь друзей или оставь первую метку!</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Нижнее меню для единообразия -->
+    <div class="bottom-nav">
+        <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span><span>Карта</span></a>
+        <a href="{{ url_for('feed_view') }}" class="nav-item active"><span class="ic">📰</span><span>Лента</span></a>
+        <a href="{{ url_for('friends_view') }}" class="nav-item"><span class="ic">🤝</span><span>Друзья</span></a>
+        <a href="{{ url_for('messages_view') }}" class="nav-item"><span class="ic">💬</span><span>Чаты</span></a>
+        <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item"><span class="ic">👤</span><span>Профиль</span></a>
+    </div>
+</div>
+{% endblock %}

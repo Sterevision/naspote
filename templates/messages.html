@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Сообщения — На споте{% endblock %}
+{% block content %}
+<div class="app-shell">
+    <div class="topbar">
+        <div class="brand">
+            <div class="dot"></div>
+            <span class="display">Сообщения</span>
+        </div>
+        <a href="{{ url_for('profile_view', username=profile.username) }}" class="avatar">
+            {% if profile.avatar_url %}
+                <img src="{{ profile.avatar_url }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+            {% else %}
+                {{ profile.display_name[:1]|upper }}
+            {% endif %}
+        </a>
+    </div>
+
+    <div class="profile-shell" style="padding-bottom: 100px;">
+        <div id="friendsList" style="margin-bottom: 20px;">
+            <p style="color: var(--text-muted); font-size: 14px; text-align: center; padding: 20px;">Загрузка друзей...</p>
+        </div>
+        
+        <div id="chatWindow" style="display: none; background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--radius-lg); padding: 16px; height: 400px; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--stroke);">
+                <button class="btn btn-ghost btn-sm" onclick="closeChat()" style="padding: 4px 8px;">←</button>
+                <div id="chatHeader" style="font-weight: 700; font-size: 15px;"></div>
+            </div>
+            
+            <div id="chatMessages" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; padding-right: 4px;">
+                <!-- Сообщения появятся здесь -->
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="messageInput" placeholder="Написать сообщение..." 
+                       style="flex: 1; background: var(--bg-elevated); border: 1px solid var(--stroke); border-radius: var(--radius-sm); padding: 10px 14px; color: var(--text-primary); font-size: 14px; outline: none;">
+                <button class="btn btn-primary btn-sm" onclick="sendMessage()" style="padding: 10px 16px;">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span><span>Карта</span></a>
+        <a href="{{ url_for('feed_view') }}" class="nav-item"><span class="ic">📰</span><span>Лента</span></a>
+        <a href="{{ url_for('friends_view') }}" class="nav-item"><span class="ic">🤝</span><span>Друзья</span></a>
+        <a href="{{ url_for('messages_view') }}" class="nav-item active"><span class="ic">💬</span><span>Чаты</span></a>
+        <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item"><span class="ic">👤</span><span>Профиль</span></a>
+    </div>
+</div>
+
+<script>
+    window.CURRENT_USER_ID = "{{ profile.id }}";
+    let currentFriendId = null;
+
+    async function loadFriends() {
+        try {
+            const res = await fetch('/api/friends_list');
+            const friends = await res.json();
+            const box = document.getElementById('friendsList');
+            
+            if (!friends || friends.length === 0) {
+                box.innerHTML = '<div class="empty-state"><div class="em">🤝</div><p>У вас пока нет друзей.<br><a href="/friends" style="color: var(--mint);">Найти друзей</a></p></div>';
+                return;
+            }
+            
+            box.innerHTML = friends.map(f => `
+                <div class="friend-row" onclick="openChat('${f.id}', '${f.display_name.replace(/'/g, "\\'")}')" style="cursor: pointer; transition: border-color 0.15s;">
+                    <div class="avatar" style="width: 40px; height: 40px;">
+                        ${f.avatar_url ? `<img src="${f.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : f.display_name.slice(0,1).toUpperCase()}
+                    </div>
+                    <div class="info">
+                        <div class="name">${f.display_name}</div>
+                        <div class="uname">@${f.username}</div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (e) {
+            console.error("Ошибка загрузки друзей:", e);
+        }
+    }
+
+    function openChat(friendId, name) {
+        currentFriendId = friendId;
+        document.getElementById('friendsList').style.display = 'none';
+        document.getElementById('chatWindow').style.display = 'flex';
+        document.getElementById('chatHeader').textContent = name;
+        loadMessages();
+    }
+
+    function closeChat() {
+        currentFriendId = null;
+        document.getElementById('chatWindow').style.display = 'none';
+        document.getElementById('friendsList').style.display = 'block';
+    }
+
+    async function loadMessages() {
+        if (!currentFriendId) return;
+        try {
+            const res = await fetch(`/api/messages/${currentFriendId}`);
+            const msgs = await res.json();
+            const box = document.getElementById('chatMessages');
+            
+            box.innerHTML = msgs.map(m => {
+                const isMe = m.sender_id === window.CURRENT_USER_ID;
+                return `<div style="align-self: ${isMe ? 'flex-end' : 'flex-start'}; 
+                            background: ${isMe ? 'var(--mint-dim)' : 'var(--surface-2)'}; 
+                            color: ${isMe ? 'var(--mint)' : 'var(--text-primary)'}; 
+                            padding: 10px 14px; border-radius: 16px; max-width: 80%; font-size: 14px; line-height: 1.4;">
+                            ${m.text}
+                        </div>`;
+            }).join('');
+            
+            box.scrollTop = box.scrollHeight;
+        } catch (e) {
+            console.error("Ошибка загрузки сообщений:", e);
+        }
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text || !currentFriendId) return;
+        
+        try {
+            await fetch(`/api/messages/${currentFriendId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text})
+            });
+            input.value = '';
+            await loadMessages();
+        } catch (e) {
+            console.error("Ошибка отправки:", e);
+        }
+    }
+
+    // Отправка по Enter
+    document.getElementById('messageInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+    // Загрузка при старте
+    loadFriends();
+</script>
+{% endblock %}

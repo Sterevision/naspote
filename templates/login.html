@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Вход — На споте{% endblock %}
+{% block content %}
+<div class="auth-shell">
+    <div class="auth-card">
+        <h2 class="display">С возвращением</h2>
+        <p class="hint">Войди, чтобы увидеть, где сейчас весело.</p>
+        
+        <form method="POST">
+            <div class="field">
+                <label>Email</label>
+                <input type="email" name="email" required autocomplete="email">
+            </div>
+            
+            <div class="field">
+                <label>Пароль</label>
+                <input type="password" name="password" required autocomplete="current-password">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">
+                Войти
+            </button>
+        </form>
+        
+        <div class="switch-link">
+            Ещё нет аккаунта? 
+            <a href="{{ url_for('register') }}">Зарегистрироваться</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
