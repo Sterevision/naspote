@@ -1,439 +1,321 @@
-// ---------------------------------------------------------------
-//  НА СПОТЕ v2.0 — логика карты + волны + голосовые + коллабы + TG Auth
-// ---------------------------------------------------------------
-let map;
-let markersLayer;
-let manualModeActive = false;
-let selectedOrg = null;
-let userCoords = null;
-let selectedMood = null;
-let waveTimerIntervals = {};
+(function () {
+    const CURRENT_USER_ID = window.CURRENT_USER_ID;
+    let map, userMarker, markersLayer;
+    let manualMode = false;
+    let pendingLat = null, pendingLng = null;
 
-// --- TELEGRAM WEB APP INIT ---
-(function initTelegramWebApp() {
-    if (!window.Telegram || !window.Telegram.WebApp) return;
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    
-    // Тема
-    document.documentElement.setAttribute('data-theme', tg.colorScheme === 'light' ? 'light' : 'dark');
+    // ========== ИНИЦИАЛИЗАЦИЯ КАРТЫ ==========
+    function initMap() {
+        map = L.map('map', { zoomControl: false, attributionControl: false }).setView([55.751244, 37.618423], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+        markersLayer = L.layerGroup().addTo(map);
+        L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // Бесшовный вход
-    if (tg.initData && tg.initDataUnsafe?.user) {
-        checkSessionOrAuth(tg.initData);
-    }
-})();
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function (pos) {
+                const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                map.setView([lat, lng], 15);
+                userMarker = L.circleMarker([lat, lng], {
+                    radius: 8, color: '#00f5b5', fillColor: '#00f5b5', fillOpacity: 0.9, weight: 2
+                }).addTo(map).bindPopup('Вы здесь');
+                pendingLat = lat;
+                pendingLng = lng;
+            }, function () {
+                pendingLat = 55.751244;
+                pendingLng = 37.618423;
+            });
+        }
 
-async function checkSessionOrAuth(initData) {
-    try {
-        // Проверяем локальную сессию
-        const sessionRes = await fetch('/api/check-session');
-        const sessionData = await sessionRes.json();
-        if (sessionData.logged_in) return;
-
-        // Если сессии нет — пробуем авторизацию через Telegram
-        const authRes = await fetch('/api/telegram-auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ init_data: initData })
+        map.on('click', function (e) {
+            if (manualMode) {
+                pendingLat = e.latlng.lat;
+                pendingLng = e.latlng.lng;
+                manualMode = false;
+                document.getElementById('manualModeBanner').classList.remove('open');
+                openAddSheet(pendingLat, pendingLng, 'manual');
+            }
         });
-        const authData = await authRes.json();
-        
-        if (authData.ok && authData.access_token) {
-            sessionStorage.setItem('access_token', authData.access_token);
-            sessionStorage.setItem('refresh_token', authData.refresh_token);
-            sessionStorage.setItem('user_id', authData.user_id);
-            window.location.reload(); // Перезагрузка для применения сессии
-        }
-    } catch (e) { console.warn('TG Auth check failed:', e); }
-}
-
-// Перехват fetch для отправки токенов
-const originalFetch = window.fetch;
-window.fetch = async function(url, options = {}) {
-    const token = sessionStorage.getItem('access_token');
-    if (token && typeof url === 'string' && url.startsWith('/api/')) {
-        options.headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
     }
-    return originalFetch(url, options);
-};
 
-function initMap(centerLat, centerLng) {
-    map = L.map('map', { zoomControl: false }).setView([centerLat, centerLng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-    markersLayer = L.layerGroup().addTo(map);
-    
-    map.on('click', (e) => {
-        if (manualModeActive) {
-            exitManualMode();
-            startAddSpotFlow({ lat: e.latlng.lat, lng: e.latlng.lng, placementType: 'manual' });
-        }
-    });
-    
-    loadSpots();
-    loadMyAchievements();
-}
+    // ========== ЗАГРУЗКА СПОТОВ ==========
+    async function loadSpots() {
+        try {
+            const res = await fetch('/api/spots');
+            if (!res.ok) return;
+            const spots = await res.json();
+            markersLayer.clearLayers();
+            spots.forEach(function (spot) {
+                let color = '#00f5b5';
+                let cls = 'spot-pin';
+                if (spot.owner_id === CURRENT_USER_ID) { color = '#ff3d81'; cls += ' mine'; }
+                else if (spot.visibility === 'friends') { color = '#a78bfa'; cls += ' private'; }
+                if (spot.placement_type === 'manual') { color = '#ffb020'; cls += ' amber'; }
 
-navigator.geolocation.getCurrentPosition(
-    (pos) => { userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude }; initMap(pos.coords.latitude, pos.coords.longitude); },
-    () => initMap(55.751244, 37.618423),
-    { enableHighAccuracy: true, timeout: 5000 }
-);
-
-function timeAgo(iso) {
-    const diffMs = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return 'только что';
-    if (mins < 60) return `${mins} мин назад`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} ч назад`;
-    return `${Math.floor(hrs / 24)} дн назад`;
-}
-
-function timeLeft(iso) {
-    if (!iso) return null;
-    const diffMs = new Date(iso).getTime() - Date.now();
-    if (diffMs <= 0) return 'исчезает...';
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 60) return `${mins} мин`;
-    const hrs = Math.floor(mins / 60);
-    const remMins = mins % 60;
-    return `${hrs}ч ${remMins ? remMins + 'м' : ''}`.trim();
-}
-
-async function loadSpots() {
-    const res = await fetch('/api/spots');
-    const spots = await res.json();
-    markersLayer.clearLayers();
-    Object.values(waveTimerIntervals).forEach(clearInterval);
-    waveTimerIntervals = {};
-    
-    spots.forEach((spot) => {
-        const isMine = spot.owner_id === window.CURRENT_USER_ID;
-        let cls = '';
-        if (spot.placement_type === 'manual') cls = 'amber';
-        else if (isMine) cls = 'mine';
-        else if (spot.visibility === 'friends') cls = 'private';
-        
-        const isWave = spot.wave_ends_at && new Date(spot.wave_ends_at) > new Date();
-        const waveClass = isWave ? 'wave-marker' : '';
-        
-        const icon = L.divIcon({ className: '', html: `<div class="spot-pin ${cls} ${waveClass}"></div>`, iconSize: [32, 32] });
-        const marker = L.marker([spot.lat, spot.lng], { icon }).addTo(markersLayer);
-        marker.on('click', () => openSpotSheet(spot));
-    });
-}
-
-async function openSpotSheet(spot) {
-    const owner = spot.owner || {};
-    const org = spot.organization || null;
-    const isMine = spot.owner_id === window.CURRENT_USER_ID;
-    
-    const visBadge = spot.visibility === 'friends' ? '<span class="badge badge-private">🔒 Только друзьям</span>' : '<span class="badge badge-public">🌍 Открыто всем</span>';
-    const liveBadge = spot.is_live ? '<span class="badge badge-live">● Сейчас тут</span>' : '';
-    const manualBadge = spot.placement_type === 'manual' ? '<span class="badge badge-manual">✋ Вручную</span>' : '';
-    const left = timeLeft(spot.expires_at);
-    const timerBadge = left ? `<span class="badge badge-timer">⏳ ${left}</span>` : '';
-    const categoryBadge = spot.category ? `<span class="badge badge-category">${spot.category}</span>` : '';
-    const moodBadge = spot.mood ? `<span class="badge badge-mood">${spot.mood}</span>` : '';
-    
-    const orgBlock = org ? `<a href="/profile/${org.username}" class="org-tag-block"><span class="org-tag-icon">🏢</span><div><div class="org-tag-name">${org.display_name} ${org.is_verified ? '✅' : ''}</div><div class="org-tag-category">${org.category || 'Заведение'}</div></div></a>` : '';
-    
-    document.getElementById('spotSheetContent').innerHTML = `
-        ${spot.photo_url ? `<img class="spot-photo" src="${spot.photo_url}">` : ''}
-        <div class="spot-header">
-            <div class="avatar">${(owner.display_name || '?').slice(0,1).toUpperCase()}</div>
-            <div class="spot-owner"><span class="name">${owner.display_name || 'Кто-то'}</span><span class="call">зовёт тебя сюда · ${timeAgo(spot.created_at)}</span></div>
-        </div>
-        <h3 class="spot-title">${spot.title}</h3>
-        <p class="spot-desc">${spot.description || ''}</p>
-        ${orgBlock}
-        ${spot.wave_ends_at ? renderWaveTimer(spot) : ''}
-        ${spot.voice_url ? `<div class="voice-note"><button class="play-btn" onclick="playVoice('${spot.voice_url}')">▶️</button><div class="waveform">🎤 Голосовое сообщение</div><span class="duration">0:15</span></div>` : ''}
-        <div id="socialProofContainer"></div>
-        <div id="collabContainer"></div>
-        <div style="display:flex;gap:8px;margin:16px 0;flex-wrap:wrap;">${liveBadge}${visBadge}${manualBadge}${timerBadge}${categoryBadge}${moodBadge}</div>
-        ${!isMine && !spot.wave_ends_at ? `<button class="btn btn-primary btn-block" onclick="joinCollab(${spot.id})">🤝 Присоединиться</button>` : ''}
-        ${isMine ? `<button class="btn btn-ghost btn-block" onclick="deleteSpot(${spot.id})">Убрать метку</button>` : ''}
-        <div class="comments-block">
-            <h4 class="comments-title">Комментарии</h4>
-            <div id="commentsList_${spot.id}" class="comments-list"></div>
-            <div class="comments-input-row">
-                <input type="text" id="commentInput_${spot.id}" placeholder="Написать..." class="comments-input">
-                <button class="btn btn-primary btn-sm" onclick="addComment(${spot.id})">➤</button>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('spotSheetOverlay').classList.add('open');
-    loadComments(spot.id);
-    loadSocialProof(spot.id);
-    loadCollaborators(spot.id);
-    if (spot.wave_ends_at) startWaveTimer(spot.id, spot.wave_ends_at);
-}
-
-async function loadComments(spotId) {
-    const box = document.getElementById(`commentsList_${spotId}`);
-    if (!box) return;
-    try {
-        const res = await fetch(`/api/spots/${spotId}/comments`);
-        const comments = await res.json();
-        box.innerHTML = comments.length 
-            ? comments.map(c => `<div class="comment-row"><span class="comment-author">${(c.user?.display_name) || 'Кто-то'}</span>: ${c.text}</div>`).join('')
-            : '<div class="comments-empty">Пока нет комментариев</div>';
-    } catch (e) { box.innerHTML = '<div class="comments-empty">Не удалось загрузить</div>'; }
-}
-
-async function addComment(spotId) {
-    const input = document.getElementById(`commentInput_${spotId}`);
-    if (!input) return;
-    const text = input.value.trim();
-    if (!text) return;
-    try {
-        await fetch(`/api/spots/${spotId}/comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
-        input.value = '';
-        loadComments(spotId);
-    } catch (e) { alert('Ошибка отправки'); }
-}
-
-function renderWaveTimer(spot) {
-    return `<div class="wave-timer" id="waveTimer_${spot.id}"><div class="wave-icon">🌊</div><div class="wave-countdown" id="waveCountdown_${spot.id}">—</div><div class="wave-progress"><div class="wave-bar" id="waveBar_${spot.id}" style="width: 100%"></div></div><div style="font-size:12px;color:var(--text-muted);margin-top:8px;">${spot.wave_max_people ? `Лимит: ${spot.wave_max_people}` : 'Волна идёт!'}</div></div>`;
-}
-
-function startWaveTimer(spotId, endsAtIso) {
-    const endsAt = new Date(endsAtIso).getTime();
-    const totalDuration = endsAt - Date.now();
-    function update() {
-        const remaining = endsAt - Date.now();
-        if (remaining <= 0) { document.getElementById(`waveCountdown_${spotId}`).textContent = 'Завершено'; clearInterval(waveTimerIntervals[spotId]); return; }
-        const mins = Math.floor(remaining / 60000);
-        const secs = Math.floor((remaining % 60000) / 1000);
-        document.getElementById(`waveCountdown_${spotId}`).textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-        document.getElementById(`waveBar_${spotId}`).style.width = `${(remaining / totalDuration) * 100}%`;
+                const icon = L.divIcon({
+                    className: '',
+                    html: '<div class="' + cls + '" style="background:' + color + ';box-shadow:0 0 12px ' + color + ';"></div>',
+                    iconSize: [22, 22], iconAnchor: [11, 11]
+                });
+                const marker = L.marker([spot.lat, spot.lng], { icon: icon }).addTo(markersLayer);
+                marker.on('click', function () { openSpotSheet(spot); });
+            });
+        } catch (e) { console.error('loadSpots error:', e); }
     }
-    update();
-    waveTimerIntervals[spotId] = setInterval(update, 1000);
-}
 
-async function loadSocialProof(spotId) {
-    try {
-        const res = await fetch(`/api/spots/${spotId}/social-proof`);
-        const data = await res.json();
-        const container = document.getElementById('socialProofContainer');
-        if (!container || (data.friends_count === 0 && data.total_today === 0)) { if(container) container.innerHTML=''; return; }
-        const avatars = (data.friends || []).map(f => {
-            const name = f.owner?.display_name || '?';
-            return f.owner?.avatar_url ? `<img src="${f.owner.avatar_url}" class="avatar-mini">` : `<div class="avatar-mini">${name.slice(0,1).toUpperCase()}</div>`;
-        }).join('');
-        container.innerHTML = `<div class="social-proof"><div class="avatars-stack">${avatars}</div><div class="social-text">${data.friends_count > 0 ? `<strong>${data.friends_count} друзей</strong> были здесь сегодня` : `<strong>${data.total_today}</strong> человек отметились`}<span class="muted"> · за 24ч</span></div></div>`;
-    } catch (e) {}
-}
+    // ========== ПРОСМОТР СПОТА ==========
+    function openSpotSheet(spot) {
+        const overlay = document.getElementById('spotSheetOverlay');
+        const content = document.getElementById('spotSheetContent');
+        const isMine = spot.owner_id === CURRENT_USER_ID;
+        let html = '<div class="sheet-handle"></div>';
+        html += '<button class="sheet-close" onclick="document.getElementById(\'spotSheetOverlay\').classList.remove(\'open\')">✕</button>';
+        html += '<h3 class="display" style="font-size:20px;margin-bottom:4px;">' + escHtml(spot.title) + '</h3>';
+        if (spot.owner) {
+            html += '<p class="hint" style="margin-bottom:12px;">' + escHtml(spot.owner.display_name || '') + ' · @' + escHtml(spot.owner.username || '') + '</p>';
+        }
+        if (spot.description) {
+            html += '<p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px;">' + escHtml(spot.description) + '</p>';
+        }
+        if (spot.mood) {
+            html += '<p style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">Настроение: ' + escHtml(spot.mood) + '</p>';
+        }
+        if (spot.category) {
+            html += '<span class="chip" style="margin-bottom:12px;">' + escHtml(spot.category) + '</span>';
+        }
+        if (spot.photo_url) {
+            html += '<img src="' + spot.photo_url + '" style="width:100%;border-radius:12px;margin:12px 0;">';
+        }
+        if (spot.voice_url) {
+            html += '<audio controls src="' + spot.voice_url + '" style="width:100%;margin:8px 0;"></audio>';
+        }
+        html += '<div style="margin-top:16px;">';
+        html += '<h4 style="font-size:14px;margin-bottom:8px;">Комментарии</h4>';
+        html += '<div id="spotComments" style="max-height:200px;overflow-y:auto;margin-bottom:8px;"></div>';
+        html += '<div style="display:flex;gap:8px;">';
+        html += '<input type="text" id="commentInput" placeholder="Написать..." style="flex:1;">';
+        html += '<button class="btn btn-primary btn-sm" id="sendComment">➤</button>';
+        html += '</div></div>';
+        if (isMine) {
+            html += '<button class="btn btn-ghost btn-block" style="color:var(--pink);margin-top:16px;" id="deleteSpotBtn">🗑 Удалить метку</button>';
+        }
+        content.innerHTML = html;
+        overlay.classList.add('open');
 
-async function loadCollaborators(spotId) {
-    try {
-        const res = await fetch(`/api/spots/${spotId}/collaborators`);
-        const collabs = await res.json();
-        const container = document.getElementById('collabContainer');
-        if (!container || collabs.length === 0) { if(container) container.innerHTML=''; return; }
-        const avatars = collabs.map(c => {
-            const name = c.profiles?.display_name || '?';
-            return c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="collab-avatar">` : `<div class="collab-avatar">${name.slice(0,1).toUpperCase()}</div>`;
-        }).join('');
-        container.innerHTML = `<div class="collaborators"><div class="collab-avatars">${avatars}</div><div class="collab-text">${collabs.length} человек сейчас тут</div></div>`;
-    } catch (e) {}
-}
+        loadComments(spot.id);
 
-async function joinCollab(spotId) {
-    try { await fetch(`/api/spots/${spotId}/collaborate`, { method: 'POST' }); loadCollaborators(spotId); alert('Присоединился! 🎉'); } catch (e) { alert('Ошибка'); }
-}
-async function deleteSpot(id) {
-    if (!confirm('Убрать метку?')) return;
-    await fetch(`/api/spots/${id}`, { method: 'DELETE' });
-    document.getElementById('spotSheetOverlay').classList.remove('open');
-    loadSpots();
-}
+        document.getElementById('sendComment').addEventListener('click', function () {
+            sendComment(spot.id);
+        });
+        if (isMine) {
+            document.getElementById('deleteSpotBtn').addEventListener('click', function () {
+                deleteSpot(spot.id);
+            });
+        }
+    }
 
-document.getElementById('closeSheet')?.addEventListener('click', () => document.getElementById('spotSheetOverlay').classList.remove('open'));
-document.getElementById('spotSheetOverlay')?.addEventListener('click', (e) => { if (e.target.id === 'spotSheetOverlay') e.currentTarget.classList.remove('open'); });
+    async function loadComments(spotId) {
+        try {
+            const res = await fetch('/api/spots/' + spotId + '/comments');
+            const comments = await res.json();
+            const container = document.getElementById('spotComments');
+            if (!container) return;
+            if (!comments.length) {
+                container.innerHTML = '<p style="color:var(--text-faint);font-size:13px;">Пока нет комментариев</p>';
+                return;
+            }
+            container.innerHTML = comments.map(function (c) {
+                const name = c.user ? c.user.display_name : 'Аноним';
+                return '<div style="margin-bottom:8px;"><strong style="font-size:13px;">' + escHtml(name) + '</strong><p style="font-size:13px;color:var(--text-secondary);">' + escHtml(c.text) + '</p></div>';
+            }).join('');
+        } catch (e) { }
+    }
 
-// Голосовые
-let mediaRecorder; let voiceChunks = [];
-async function startVoiceRecording() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream); voiceChunks = [];
-        mediaRecorder.ondataavailable = e => voiceChunks.push(e.data);
-        mediaRecorder.onstop = async () => {
-            const blob = new Blob(voiceChunks, { type: 'audio/webm' });
-            const formData = new FormData(); formData.append('voice', blob, 'voice.webm');
+    async function sendComment(spotId) {
+        const input = document.getElementById('commentInput');
+        const text = input.value.trim();
+        if (!text) return;
+        try {
+            await fetch('/api/spots/' + spotId + '/comments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            input.value = '';
+            loadComments(spotId);
+        } catch (e) { }
+    }
+
+    async function deleteSpot(spotId) {
+        if (!confirm('Удалить метку?')) return;
+        try {
+            await fetch('/api/spots/' + spotId, { method: 'DELETE' });
+            document.getElementById('spotSheetOverlay').classList.remove('open');
+            loadSpots();
+        } catch (e) { }
+    }
+
+    // ========== ДОБАВЛЕНИЕ СПОТА ==========
+    function openAddSheet(lat, lng, placementType) {
+        document.getElementById('latInput').value = lat;
+        document.getElementById('lngInput').value = lng;
+        document.getElementById('placementTypeInput').value = placementType || 'geo';
+        document.getElementById('addSpotOverlay').classList.add('open');
+    }
+
+    function initAddForm() {
+        // Кнопки открытия
+        document.getElementById('openAddSpot').addEventListener('click', function () {
+            openAddSheet(pendingLat || 55.751244, pendingLng || 37.618423, 'geo');
+        });
+        document.getElementById('openManualAdd').addEventListener('click', function () {
+            manualMode = true;
+            document.getElementById('manualModeBanner').classList.add('open');
+        });
+        document.getElementById('cancelManualMode').addEventListener('click', function () {
+            manualMode = false;
+            document.getElementById('manualModeBanner').classList.remove('open');
+        });
+
+        // Закрытие
+        document.getElementById('closeSheet').addEventListener('click', closeAddSheet);
+        document.getElementById('cancelAddSpot').addEventListener('click', closeAddSheet);
+        document.getElementById('addSpotOverlay').addEventListener('click', function (e) {
+            if (e.target === this) closeAddSheet();
+        });
+        document.getElementById('spotSheetOverlay').addEventListener('click', function (e) {
+            if (e.target === this) this.classList.remove('open');
+        });
+
+        // Длительность
+        document.querySelectorAll('.duration-option').forEach(function (opt) {
+            opt.addEventListener('click', function () {
+                document.querySelectorAll('.duration-option').forEach(function (o) { o.classList.remove('selected'); });
+                opt.classList.add('selected');
+                document.getElementById('durationInput').value = opt.dataset.h;
+            });
+        });
+
+        // Настроение
+        document.querySelectorAll('.mood-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                document.querySelectorAll('.mood-chip').forEach(function (c) { c.classList.remove('selected'); });
+                chip.classList.add('selected');
+                document.getElementById('moodInput').value = chip.dataset.mood;
+                var cats = (chip.dataset.categories || '').split(',');
+                var sel = document.getElementById('categorySelect');
+                if (cats.length && cats[0]) {
+                    for (var i = 0; i < sel.options.length; i++) {
+                        if (cats.indexOf(sel.options[i].value) !== -1) { sel.selectedIndex = i; break; }
+                    }
+                }
+            });
+        });
+
+        // Видимость
+        document.querySelectorAll('.vis-option').forEach(function (opt) {
+            opt.addEventListener('click', function () {
+                document.querySelectorAll('.vis-option').forEach(function (o) { o.classList.remove('selected'); });
+                opt.classList.add('selected');
+                document.getElementById('visibilityInput').value = opt.dataset.vis;
+            });
+        });
+
+        // Волна
+        document.getElementById('waveToggle').addEventListener('change', function () {
+            document.getElementById('waveOptions').style.display = this.checked ? 'block' : 'none';
+            document.getElementById('waveEnabledInput').value = this.checked ? 'true' : 'false';
+        });
+
+        // Фото
+        document.getElementById('photoDrop').addEventListener('click', function () {
+            document.getElementById('photoInput').click();
+        });
+        document.getElementById('photoInput').addEventListener('change', function () {
+            if (this.files.length) {
+                document.getElementById('photoLabel').textContent = '📎 ' + this.files[0].name;
+            }
+        });
+
+        // Поиск организаций
+        var orgTimeout;
+        document.getElementById('orgSearchInput').addEventListener('input', function () {
+            clearTimeout(orgTimeout);
+            var q = this.value.trim();
+            var results = document.getElementById('orgSearchResults');
+            if (!q) { results.innerHTML = ''; return; }
+            orgTimeout = setTimeout(async function () {
+                try {
+                    var res = await fetch('/api/organizations/search?q=' + encodeURIComponent(q));
+                    var orgs = await res.json();
+                    results.innerHTML = orgs.map(function (o) {
+                        return '<div class="org-result" data-id="' + o.id + '" data-name="' + escHtml(o.display_name) + '">' +
+                            '<strong>' + escHtml(o.display_name) + '</strong>' +
+                            (o.category ? ' · ' + escHtml(o.category) : '') +
+                            (o.address ? '<br><small>' + escHtml(o.address) + '</small>' : '') +
+                            '</div>';
+                    }).join('');
+                    results.querySelectorAll('.org-result').forEach(function (el) {
+                        el.addEventListener('click', function () {
+                            document.getElementById('organizationIdInput').value = el.dataset.id;
+                            document.getElementById('orgSelectedChip').textContent = '🏢 ' + el.dataset.name;
+                            document.getElementById('orgSelectedChip').style.display = 'block';
+                            document.getElementById('orgSearchInput').value = '';
+                            results.innerHTML = '';
+                        });
+                    });
+                } catch (e) { }
+            }, 300);
+        });
+
+        // Отправка формы
+        document.getElementById('addSpotForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            var formData = new FormData(this);
             try {
-                const res = await fetch('/api/spots/voice', { method: 'POST', body: formData });
-                const { url } = await res.json();
-                document.getElementById('voiceUrlInput').value = url;
-                document.getElementById('voiceRecordingStatus').textContent = '✅ Записано';
-                document.getElementById('voiceRecordBtn').textContent = '🎤 Перезаписать';
-            } catch (e) { document.getElementById('voiceRecordingStatus').textContent = ' Ошибка'; }
-            stream.getTracks().forEach(t => t.stop());
-        };
-        mediaRecorder.start();
-        document.getElementById('voiceRecordBtn').textContent = '⏹️ Стоп';
-        document.getElementById('voiceRecordingStatus').textContent = '🔴 Запись...';
-        setTimeout(() => { if (mediaRecorder?.state === 'recording') mediaRecorder.stop(); }, 15000);
-    } catch (e) { alert('Нет доступа к микрофону'); }
-}
-document.addEventListener('click', (e) => {
-    if (e.target?.id === 'voiceRecordBtn') {
-        if (mediaRecorder?.state === 'recording') mediaRecorder.stop(); else startVoiceRecording();
+                var res = await fetch('/api/spots', { method: 'POST', body: formData });
+                if (res.ok) {
+                    closeAddSheet();
+                    this.reset();
+                    loadSpots();
+                } else {
+                    var err = await res.json();
+                    alert(err.error || 'Ошибка');
+                }
+            } catch (e) { alert('Ошибка сети'); }
+        });
     }
-});
-function playVoice(url) { new Audio(url).play(); }
 
-// Достижения
-async function loadMyAchievements() {
-    try {
-        const res = await fetch('/api/profile/achievements');
-        const data = await res.json();
-        const badge = document.getElementById('levelBadge');
-        if (badge && data.level > 1) { badge.textContent = `⚡ Lvl ${data.level}`; badge.style.display = 'inline-flex'; }
-    } catch (e) {}
-}
-
-// Легенда
-document.getElementById('legendBtn')?.addEventListener('click', () => document.getElementById('legendPanel').classList.toggle('open'));
-
-// Ручной режим
-function enterManualMode() { manualModeActive = true; document.getElementById('manualModeBanner').classList.add('open'); document.getElementById('map').style.cursor = 'crosshair'; }
-function exitManualMode() { manualModeActive = false; document.getElementById('manualModeBanner').classList.remove('open'); document.getElementById('map').style.cursor = ''; }
-document.getElementById('openManualAdd')?.addEventListener('click', enterManualMode);
-document.getElementById('cancelManualMode')?.addEventListener('click', exitManualMode);
-
-// Добавление метки
-document.getElementById('openAddSpot')?.addEventListener('click', () => {
-    navigator.geolocation.getCurrentPosition(
-        (pos) => startAddSpotFlow({ lat: pos.coords.latitude, lng: pos.coords.longitude, placementType: 'geo' }),
-        () => startAddSpotFlow({ lat: map.getCenter().lat, lng: map.getCenter().lng, placementType: 'geo' })
-    );
-});
-
-function startAddSpotFlow({ lat, lng, placementType }) {
-    document.getElementById('latInput').value = lat;
-    document.getElementById('lngInput').value = lng;
-    document.getElementById('placementTypeInput').value = placementType;
-    const title = document.getElementById('addSpotTitle');
-    const hint = document.getElementById('addSpotHint');
-    if (placementType === 'manual') { title.textContent = 'Отметить точку вручную'; hint.textContent = 'Точка поставлена по клику.'; }
-    else { title.textContent = 'Позови сюда людей'; hint.textContent = 'Метка появится там, где ты сейчас.'; }
-    searchOrganizations('', lat, lng);
-    document.getElementById('addSpotOverlay').classList.add('open');
-}
-
-document.getElementById('cancelAddSpot')?.addEventListener('click', () => document.getElementById('addSpotOverlay').classList.remove('open'));
-
-document.querySelectorAll('.vis-option').forEach(el => el.addEventListener('click', () => {
-    document.querySelectorAll('.vis-option').forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
-    document.getElementById('visibilityInput').value = el.dataset.vis;
-}));
-
-document.querySelectorAll('.duration-option').forEach(el => el.addEventListener('click', () => {
-    document.querySelectorAll('.duration-option').forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
-    document.getElementById('durationInput').value = el.dataset.h;
-}));
-
-document.querySelectorAll('.mood-chip').forEach(el => el.addEventListener('click', () => {
-    document.querySelectorAll('.mood-chip').forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
-    selectedMood = el.dataset.mood;
-    document.getElementById('moodInput').value = selectedMood;
-    const cats = el.dataset.categories?.split(',') || [];
-    if (cats.length) {
-        const sel = document.getElementById('categorySelect');
-        for (const cat of cats) for (const opt of sel.options) if (opt.value === cat.trim()) { sel.value = cat.trim(); return; }
-    }
-}));
-
-document.getElementById('waveToggle')?.addEventListener('change', (e) => {
-    const opts = document.getElementById('waveOptions');
-    if (opts) opts.style.display = e.target.checked ? 'block' : 'none';
-    const inp = document.getElementById('waveEnabledInput');
-    if (inp) inp.value = e.target.checked ? 'true' : 'false';
-});
-
-document.getElementById('photoDrop')?.addEventListener('click', () => document.getElementById('photoInput').click());
-document.getElementById('photoInput')?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    document.getElementById('photoLabel').textContent = file ? `✅ ${file.name}` : '📷 Прикрепить фото места';
-});
-
-let orgSearchTimeout;
-document.getElementById('orgSearchInput')?.addEventListener('input', (e) => {
-    clearTimeout(orgSearchTimeout);
-    orgSearchTimeout = setTimeout(() => {
-        const lat = document.getElementById('latInput').value;
-        const lng = document.getElementById('lngInput').value;
-        searchOrganizations(e.target.value.trim(), lat, lng);
-    }, 250);
-});
-
-async function searchOrganizations(q, lat, lng) {
-    const params = new URLSearchParams();
-    if (q) params.set('q', q);
-    if (lat) params.set('lat', lat);
-    if (lng) params.set('lng', lng);
-    const res = await fetch(`/api/organizations/search?${params.toString()}`);
-    const orgs = await res.json();
-    const box = document.getElementById('orgSearchResults');
-    if (!orgs.length) { box.innerHTML = q ? '<p class="org-empty">Ничего не найдено</p>' : ''; return; }
-    box.innerHTML = orgs.map(o => `<div class="org-result-row" onclick='selectOrg(${JSON.stringify(o).replace(/'/g, "&#39;")})'><span class="org-tag-icon"></span><div><div class="org-tag-name">${o.display_name} ${o.is_verified ? '✅' : ''}</div><div class="org-tag-category">${o.category || ''} ${o.address ? '· '+o.address : ''}</div></div></div>`).join('');
-}
-
-function selectOrg(org) {
-    selectedOrg = org;
-    document.getElementById('organizationIdInput').value = org.id;
-    document.getElementById('orgSearchInput').style.display = 'none';
-    document.getElementById('orgSearchResults').innerHTML = '';
-    const chip = document.getElementById('orgSelectedChip');
-    chip.style.display = 'flex';
-    chip.innerHTML = `<span>🏢 ${org.display_name}</span><button type="button" onclick="clearOrgSelection()">✕</button>`;
-    const catSel = document.getElementById('categorySelect');
-    if (org.category && !catSel.value) catSel.value = org.category;
-}
-function clearOrgSelection() {
-    selectedOrg = null;
-    document.getElementById('organizationIdInput').value = '';
-    document.getElementById('orgSearchInput').style.display = 'block';
-    document.getElementById('orgSearchInput').value = '';
-    document.getElementById('orgSelectedChip').style.display = 'none';
-}
-
-document.getElementById('addSpotForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
-    formData.set('is_live', 'true');
-    const btn = form.querySelector('button[type="submit"]');
-    btn.disabled = true; btn.textContent = 'Публикуем...';
-    try {
-        const res = await fetch('/api/spots', { method: 'POST', body: formData });
-        if (!res.ok) throw new Error('failed');
+    function closeAddSheet() {
         document.getElementById('addSpotOverlay').classList.remove('open');
-        form.reset();
-        document.getElementById('photoLabel').textContent = '📷 Прикрепить фото места';
-        document.querySelectorAll('.duration-option').forEach(o => o.classList.remove('selected'));
-        document.querySelector('.duration-option[data-h="6"]')?.classList.add('selected');
-        document.querySelectorAll('.mood-chip').forEach(o => o.classList.remove('selected'));
-        document.getElementById('moodInput').value = '';
-        document.getElementById('voiceUrlInput').value = '';
-        document.getElementById('voiceRecordingStatus').textContent = '';
-        document.getElementById('voiceRecordBtn').textContent = '🎤 Записать голосовое';
-        document.getElementById('waveToggle').checked = false;
-        document.getElementById('waveOptions').style.display = 'none';
-        document.getElementById('waveEnabledInput').value = 'false';
-        clearOrgSelection();
+    }
+
+    // ========== ЛЕГЕНДА ==========
+    function initLegend() {
+        var btn = document.getElementById('legendBtn');
+        var panel = document.getElementById('legendPanel');
+        if (btn && panel) {
+            btn.addEventListener('click', function () {
+                panel.classList.toggle('open');
+            });
+        }
+    }
+
+    // ========== УТИЛИТЫ ==========
+    function escHtml(str) {
+        if (!str) return '';
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ========== ЗАПУСК ==========
+    document.addEventListener('DOMContentLoaded', function () {
+        initMap();
         loadSpots();
-        loadMyAchievements();
-    } catch (err) { alert('Не получилось оставить метку'); } finally { btn.disabled = false; btn.textContent = 'Оставить метку'; }
-});
+        initAddForm();
+        initLegend();
+        setInterval(loadSpots, 30000);
+    });
+})();
