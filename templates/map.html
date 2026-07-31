@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block title %}Карта — На споте{% endblock %}
-
 {% block content %}
 <div class="map-wrap">
     <div id="map"></div>
@@ -33,7 +32,7 @@
         <span class="ic">🗺️</span><span>Карта</span>
     </a>
     <a href="{{ url_for('feed_view') }}" class="nav-item">
-        <span class="ic"></span><span>Лента</span>
+        <span class="ic">📰</span><span>Лента</span>
     </a>
     <a href="{{ url_for('friends_view') }}" class="nav-item">
         <span class="ic">🤝</span><span>Друзья</span>
@@ -42,11 +41,11 @@
         <span class="ic">💬</span><span>Чаты</span>
     </a>
     <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item">
-        <span class="ic">👤</span><span>Профиль</span>
+        <span class="ic"></span><span>Профиль</span>
     </a>
 </nav>
 
-<!-- Модалка добавления метки (без изменений структуры, только классы) -->
+<!-- Модалка добавления метки -->
 <div id="addSpotOverlay" class="sheet-overlay">
     <div class="sheet">
         <div class="sheet-handle"></div>
@@ -91,10 +90,10 @@
                 <div class="mood-row">
                     <div class="mood-chip" data-mood="🎉 Тусим" data-categories="Клуб ,Вечеринка ">🎉 Тусим</div>
                     <div class="mood-chip" data-mood="🍸 Расслабон" data-categories="Бар ,Ресторан ">🍸 Расслабон</div>
-                    <div class="mood-chip" data-mood="🎨 Культурно" data-categories="Выставка/галерея ">🎨 Культурно</div>
-                    <div class="mood-chip" data-mood="🌿 На природе" data-categories="Природа ,Спорт "> На природе</div>
-                    <div class="mood-chip" data-mood="🎤 Караоке" data-categories="Караоке ">🎤 Караоке</div>
-                    <div class="mood-chip" data-mood="⚡ Движ" data-categories="Коворкинг ,Другое ">⚡ Движ</div>
+                    <div class="mood-chip" data-mood="🎨 Культурно" data-categories="Выставка/галерея "> Культурно</div>
+                    <div class="mood-chip" data-mood=" На природе" data-categories="Природа ,Спорт "> На природе</div>
+                    <div class="mood-chip" data-mood="🎤 Караоке" data-categories="Караоке "> Караоке</div>
+                    <div class="mood-chip" data-mood=" Движ" data-categories="Коворкинг ,Другое ">⚡ Движ</div>
                 </div>
                 <input type="hidden" id="moodInput" name="mood">
             </div>
@@ -142,7 +141,7 @@
 
             <div class="field" style="margin-top:12px;">
                 <label>Фото</label>
-                <div id="photoDrop" class="photo-drop">📷 Прикрепить фото места</div>
+                <div id="photoDrop" class="photo-drop"> Прикрепить фото места</div>
                 <input type="file" id="photoInput" name="photo" accept="image/*" style="display:none;">
                 <div id="photoLabel" style="font-size:12px;color:var(--text-muted);margin-top:4px;"></div>
             </div>
