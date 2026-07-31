@@ -197,7 +197,7 @@ def settings_view():
     profile = sb.table("profiles").select("*").eq("id", uid).single().execute()
     return redirect(url_for("profile_view", username=profile.data["username"]))
 
---- API ---
+   # --- API ---
 @app.route("/api/check-session")
 def api_check_session():
     if "access_token" in session and "user_id" in session:
