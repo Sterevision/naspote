@@ -1,121 +1,52 @@
 {% extends "base.html" %}
 {% block title %}{{ profile.display_name }} — На споте{% endblock %}
 {% block content %}
-<div class="profile-shell">
-    {% if profile.account_type == 'organization' %}
-        <div class="org-cover"></div>
-    {% endif %}
-    
-    <div class="{% if profile.account_type == 'organization' %}org-shell{% endif %}">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <a href="{{ url_for('map_view') }}" class="btn btn-ghost btn-sm">← Карта</a>
-            <div style="display:flex;gap:8px;">
-                {% if is_me %}
-                    <a href="{{ url_for('settings_view') }}" class="btn btn-ghost btn-sm">⚙️ Настроить</a>
-                {% elif profile.account_type == 'person' %}
-                    {% if friend_status is none %}
-                        <button class="btn btn-primary btn-sm">Добавить в друзья</button>
-                    {% elif friend_status.status == 'pending' %}
-                        <button class="btn btn-ghost btn-sm" disabled>Заявка отправлена</button>
-                    {% elif friend_status.status == 'accepted' %}
-                        <button class="btn btn-ghost btn-sm" disabled>✓ Вы друзья</button>
-                    {% endif %}
-                {% endif %}
+<div class="list-page">
+    <div class="card" style="text-align:center;margin-bottom:16px;">
+        <div class="avatar" style="width:84px;height:84px;font-size:34px;margin:0 auto 12px;">
+            {% if profile.avatar_url %}<img src="{{ profile.avatar_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">{% else %}{{ profile.display_name[:1]|upper }}{% endif %}
+        </div>
+        <h2 class="display" style="font-size:24px;">{{ profile.display_name }}</h2>
+        <p class="hint">@{{ profile.username }}{% if profile.age %} · {{ profile.age }} лет{% endif %}</p>
+        {% if profile.bio %}<p style="margin-top:10px;">{{ profile.bio }}</p>{% endif %}
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">
+            {% if is_me %}
+                <a href="{{ url_for('settings_view') }}" class="btn btn-soft btn-sm">⚙️ Настройки</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm" style="border:2px solid var(--line);">Выйти</a>
+            {% elif friend_status is none %}
+                <button class="btn btn-primary btn-sm" onclick="addFriend('{{ profile.username }}', this)">🤝 Добавить в друзья</button>
+            {% elif friend_status.status == 'accepted' %}
+                <span class="btn btn-green btn-sm">✓ Вы друзья</span>
+            {% else %}
+                <span class="btn btn-soft btn-sm">Заявка отправлена</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="section-title">Метки · {{ spots|length }}</div>
+    {% if spots %}
+        {% for spot in spots %}
+        <div class="row-card">
+            <div class="avatar">📍</div>
+            <div class="info"><div class="name">{{ spot.title }}</div>
+                <div class="sub">{% if spot.visibility == 'friends' %}🤝 Только друзья{% else %}🌍 Видят все{% endif %}</div>
             </div>
         </div>
-        
-        {% if profile.account_type == 'organization' %}
-            <div class="profile-header">
-                <div class="profile-avatar-lg org-avatar">
-                    {% if profile.avatar_url %}
-                        <img src="{{ profile.avatar_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    {% else %}🏢{% endif %}
-                </div>
-                <div style="flex:1;">
-                    <h2 class="profile-name">{{ profile.display_name }} {% if profile.is_verified %}<span class="verified-tick">✅</span>{% endif %}</h2>
-                    <p class="profile-username">@{{ profile.username }}</p>
-                    {% if profile.category %}<p style="color:var(--text-muted);font-size:13px;">{{ profile.category }}</p>{% endif %}
-                </div>
-            </div>
-            
-            {% if profile.address %}<p class="org-address-row">📍 {{ profile.address }}</p>{% endif %}
-            {% if profile.bio %}<p class="subtitle">{{ profile.bio }}</p>{% endif %}
-            
-            <div class="org-stats-row">
-                <div class="org-stat">
-                    <span class="num">{{ tagged_spots|length }}</span>
-                    <span class="lbl">людей отметились</span>
-                </div>
-                <div class="org-stat">
-                    <span class="num">{{ spots|length }}</span>
-                    <span class="lbl">публикаций от нас</span>
-                </div>
-            </div>
-            
-            {% if spots %}
-                <h3 class="section-title">Публикации заведения</h3>
-                <div class="feed-grid">
-                    {% for spot in spots %}
-                        <div class="feed-card">
-                            <div class="thumb">
-                                {% if spot.photo_url %}
-                                    <img src="{{ spot.photo_url }}" style="width:100%;height:100%;object-fit:cover;">
-                                {% else %}🏢{% endif %}
-                            </div>
-                            <div class="info">
-                                <p class="t">{{ spot.title }}</p>
-                                <p class="d">От заведения</p>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% else %}
-            <div class="profile-header">
-                <div class="profile-avatar-lg">
-                    {% if profile.avatar_url %}
-                        <img src="{{ profile.avatar_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    {% else %}{{ profile.display_name[:1]|upper }}{% endif %}
-                </div>
-                <div>
-                    <h2 class="profile-name">{{ profile.display_name }}</h2>
-                    <p class="profile-username">@{{ profile.username }}</p>
-                    {% if profile.age %}<span style="color:var(--text-muted);font-size:13px;"> · {{ profile.age }} лет</span>{% endif %}
-                    {% if profile.location %}<span style="color:var(--text-muted);font-size:13px;"> · 📍 {{ profile.location }}</span>{% endif %}
-                </div>
-            </div>
-            
-            {% if profile.bio %}<p class="subtitle">{{ profile.bio }}</p>{% endif %}
-            
-            <h3 class="section-title">Где {{ 'ты' if is_me else 'он(а)' }} отмечал{{ '' if is_me else 'а' }}сь · {{ spots|length }} меток</h3>
-            
-            {% if spots %}
-                <div class="feed-grid">
-                    {% for spot in spots %}
-                        <div class="feed-card">
-                            <div class="thumb">
-                                {% if spot.photo_url %}
-                                    <img src="{{ spot.photo_url }}" style="width:100%;height:100%;object-fit:cover;">
-                                {% else %}📍{% endif %}
-                            </div>
-                            <div class="info">
-                                <p class="t">{{ spot.title }}</p>
-                                <p class="d">
-                                    {% if spot.placement_type == 'manual' %}✋ Вручную
-                                    {% elif spot.visibility == 'friends' %}🔒 Только друзьям
-                                    {% else %}🌍 Открыто всем{% endif %}
-                                </p>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="empty-state">
-                    <div class="em">🗺️</div>
-                    <p>{{ 'Скучно? Самое время оставить метку и позвать друзей' if is_me else 'Пока нет открытых меток' }}</p>
-                </div>
-            {% endif %}
-        {% endif %}
-    </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state"><div class="em">🗺️</div><p>Меток пока нет.</p></div>
+    {% endif %}
 </div>
+<nav class="bottom-nav">
+    <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span>Карта</a>
+    <a href="{{ url_for('feed_view') }}" class="nav-item"><span class="ic">📰</span>Лента</a>
+    <a href="{{ url_for('friends_view') }}" class="nav-item"><span class="ic">🤝</span>Друзья</a>
+    <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item active"><span class="ic">👤</span>Профиль</a>
+</nav>
+<script>
+async function addFriend(username, btn) {
+    await fetch('/api/friends/' + username + '/add', { method: 'POST' });
+    btn.outerHTML = '<span class="btn btn-soft btn-sm">Заявка отправлена</span>';
+}
+</script>
 {% endblock %}

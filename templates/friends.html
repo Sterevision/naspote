@@ -1,120 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Друзья — На споте{% endblock %}
 {% block content %}
-<div class="friends-shell">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <a href="{{ url_for('map_view') }}" class="btn btn-ghost btn-sm">← Карта</a>
-        <h2 class="display" style="font-size:22px;">Друзья</h2>
-        <div style="width:60px;"></div>
-    </div>
-    
-    <div class="search-box">
-        <input type="text" id="friendSearch" placeholder="🔍 Найти друзей по username..." style="flex:1;">
-    </div>
-    
-    <div id="searchResults" style="margin-bottom:20px;"></div>
-    
+<div class="list-page">
+    <div class="page-head"><h2 class="display" style="font-size:24px;">🤝 Друзья</h2></div>
+    <div class="field"><input type="text" id="friendSearch" placeholder="🔍 Найти человека по имени..."></div>
+    <div id="searchResults"></div>
+
     {% if incoming %}
-        <h3 class="section-title">Заявки в друзья · {{ incoming|length }}</h3>
+    <div class="section-title">Хотят добавить вас · {{ incoming|length }}</div>
         {% for req in incoming %}
-            <div class="friend-row">
-                <div class="avatar">
-                    {% if req.requester.avatar_url %}
-                        <img src="{{ req.requester.avatar_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    {% else %}
-                        {{ req.requester.display_name[:1]|upper }}
-                    {% endif %}
-                </div>
-                <div class="info">
-                    <div class="name">{{ req.requester.display_name }}</div>
-                    <div class="uname">@{{ req.requester.username }}</div>
-                </div>
-                <div class="friend-actions">
-                    <button class="btn btn-primary btn-sm">✓</button>
-                    <button class="btn btn-ghost btn-sm">✕</button>
-                </div>
-            </div>
+        <div class="row-card">
+            <div class="avatar">{{ req.requester.display_name[:1]|upper }}</div>
+            <div class="info"><div class="name">{{ req.requester.display_name }}</div><div class="sub">@{{ req.requester.username }}</div></div>
+            <button class="btn btn-green btn-sm" onclick="acceptReq({{ req.id }})">✓</button>
+        </div>
         {% endfor %}
     {% endif %}
-    
-    <h3 class="section-title">Друзья · {{ accepted|length }}</h3>
-    
+
+    <div class="section-title">Ваши друзья · {{ accepted|length }}</div>
     {% if accepted %}
         {% for f in accepted %}
-            {% set friend = f.requester if f.requester_id != my_id else f.addressee %}
-            <div class="friend-row">
-                <div class="avatar">
-                    {% if friend.avatar_url %}
-                        <img src="{{ friend.avatar_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    {% else %}
-                        {{ friend.display_name[:1]|upper }}
-                    {% endif %}
-                </div>
-                <div class="info">
-                    <div class="name">{{ friend.display_name }}</div>
-                    <div class="uname">@{{ friend.username }}</div>
-                </div>
-                <a href="{{ url_for('profile_view', username=friend.username) }}" class="btn btn-ghost btn-sm">Профиль →</a>
-            </div>
+        {% set friend = f.requester if f.requester_id != my_id else f.addressee %}
+        <div class="row-card">
+            <div class="avatar">{{ friend.display_name[:1]|upper }}</div>
+            <div class="info"><div class="name">{{ friend.display_name }}</div><div class="sub">@{{ friend.username }}</div></div>
+            <a class="btn btn-soft btn-sm" href="{{ url_for('profile_view', username=friend.username) }}">Профиль</a>
+        </div>
         {% endfor %}
     {% else %}
-        <div class="empty-state">
-            <div class="em">🤝</div>
-            <p>Пока нет друзей. Найди кого-нибудь через поиск!</p>
-        </div>
+        <div class="empty-state"><div class="em"></div><p>Пока нет друзей.<br>Найдите близких через поиск!</p></div>
     {% endif %}
 </div>
-
 <nav class="bottom-nav">
-    <a href="{{ url_for('map_view') }}" class="nav-item">
-        <span class="ic">🗺️</span><span>Карта</span>
-    </a>
-    <a href="{{ url_for('feed_view') }}" class="nav-item">
-        <span class="ic">📰</span><span>Лента</span>
-    </a>
-    <a href="{{ url_for('friends_view') }}" class="nav-item active">
-        <span class="ic">🤝</span><span>Друзья</span>
-    </a>
-    <a href="{{ url_for('messages_view') }}" class="nav-item">
-        <span class="ic">💬</span><span>Чаты</span>
-    </a>
-    <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item">
-        <span class="ic">👤</span><span>Профиль</span>
-    </a>
+    <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span>Карта</a>
+    <a href="{{ url_for('feed_view') }}" class="nav-item"><span class="ic">📰</span>Лента</a>
+    <a href="{{ url_for('friends_view') }}" class="nav-item active"><span class="ic">🤝</span>Друзья</a>
+    <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item"><span class="ic">👤</span>Профиль</a>
 </nav>
-
 <script>
-const searchInput = document.getElementById('friendSearch');
-const searchResults = document.getElementById('searchResults');
-
-let searchTimeout;
-searchInput?.addEventListener('input', (e) => {
-    clearTimeout(searchTimeout);
-    const q = e.target.value.trim();
-    if (!q) { searchResults.innerHTML = ''; return; }
-    
-    searchTimeout = setTimeout(async () => {
-        const res = await fetch(`/api/search_users?q=${encodeURIComponent(q)}`);
-        const users = await res.json();
-        
-        if (!users.length) {
-            searchResults.innerHTML = '<p style="color:var(--text-faint);font-size:13px;">Никого не найдено</p>';
-            return;
-        }
-        
-        searchResults.innerHTML = users.map(u => `
-            <div class="friend-row">
-                <div class="avatar">
-                    ${u.avatar_url ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : u.display_name?.[0]?.toUpperCase() || '?'}
-                </div>
-                <div class="info">
-                    <div class="name">${u.display_name}</div>
-                    <div class="uname">@${u.username}</div>
-                </div>
-                <a href="/profile/${u.username}" class="btn btn-primary btn-sm">Открыть</a>
-            </div>
-        `).join('');
+var t;
+document.getElementById('friendSearch').addEventListener('input', function () {
+    clearTimeout(t);
+    var q = this.value.trim();
+    var box = document.getElementById('searchResults');
+    if (!q) { box.innerHTML = ''; return; }
+    t = setTimeout(async function () {
+        var res = await fetch('/api/search_users?q=' + encodeURIComponent(q));
+        var users = await res.json();
+        box.innerHTML = users.length ? '<div class="section-title">Найдены</div>' + users.map(function (u) {
+            return '<div class="row-card"><div class="avatar">' + (u.display_name || '?')[0].toUpperCase() + '</div><div class="info"><div class="name">' + u.display_name + '</div><div class="sub">@' + u.username + '</div></div><button class="btn btn-primary btn-sm" onclick="addFriend(\'' + u.username + '\', this)">+</button></div>';
+        }).join('') : '';
     }, 300);
 });
+async function addFriend(username, btn) {
+    await fetch('/api/friends/' + username + '/add', { method: 'POST' });
+    btn.textContent = '✓'; btn.disabled = true;
+}
+async function acceptReq(id) {
+    await fetch('/api/friends/' + id + '/accept', { method: 'POST' });
+    location.reload();
+}
 </script>
 {% endblock %}

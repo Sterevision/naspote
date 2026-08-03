@@ -1,58 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Сообщения — На споте{% endblock %}
 {% block content %}
-<div class="friends-shell">
-    <h2 class="display" style="margin-bottom:24px;">Сообщения</h2>
-    
-    <div class="search-box">
-        <a href="{{ url_for('profile_view', username=profile.username) }}" style="display:flex;align-items:center;">
-            <div class="avatar">
-                {% if profile.avatar_url %}
-                    <img src="{{ profile.avatar_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                {% else %}
-                    {{ profile.display_name[:1]|upper }}
-                {% endif %}
-            </div>
-        </a>
-    </div>
-    
-    <div id="friendsList">
-        <div class="empty-state">
-            <div class="em">💬</div>
-            <p>Загрузка друзей...</p>
-        </div>
-    </div>
+<div class="list-page">
+    <div class="page-head"><h2 class="display" style="font-size:24px;">💬 Сообщения</h2></div>
+    <p class="subtitle">Выберите друга, чтобы написать</p>
+    <div id="friendsList"><p class="hint">Загрузка...</p></div>
 </div>
-
-<div id="chatOverlay" class="modal-overlay">
-    <div class="modal-card" style="height:80vh;display:flex;flex-direction:column;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--stroke);">
-            <h3 id="chatFriendName" class="display" style="font-size:18px;"></h3>
-            <button id="closeChat" class="btn btn-ghost btn-sm">✕</button>
-        </div>
-        <div id="messagesContainer" style="flex:1;overflow-y:auto;padding:16px 0;"></div>
-        <div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--stroke);">
-            <input type="text" id="messageInput" placeholder="Сообщение..." style="flex:1;">
-            <button id="sendMessage" class="btn btn-primary btn-sm">➤</button>
-        </div>
-    </div>
-</div>
-
-<nav class="bottom-nav">
-    <a href="{{ url_for('map_view') }}" class="nav-item">
-        <span class="ic">🗺️</span><span>Карта</span>
-    </a>
-    <a href="{{ url_for('feed_view') }}" class="nav-item">
-        <span class="ic">📰</span><span>Лента</span>
-    </a>
-    <a href="{{ url_for('friends_view') }}" class="nav-item">
-        <span class="ic">🤝</span><span>Друзья</span>
-    </a>
-    <a href="{{ url_for('messages_view') }}" class="nav-item active">
-        <span class="ic">💬</span><span>Чаты</span>
-    </a>
-    <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item">
-        <span class="ic">👤</span><span>Профиль</span>
-    </a>
-</nav>
+<script>
+(async function () {
+    var res = await fetch('/api/friends_list');
+    var friends = await res.json();
+    var box = document.getElementById('friendsList');
+    box.innerHTML = friends.length ? friends.map(function (f) {
+        return '<a class="row-card" href="/profile/' + f.username + '"><div class="avatar">' + (f.display_name || '?')[0].toUpperCase() + '</div><div class="info"><div class="name">' + f.display_name + '</div><div class="sub">Открыть профиль ✉️</div></div></a>';
+    }).join('') : '<div class="empty-state"><div class="em">💬</div><p>Сначала добавьте друзей!</p></div>';
+})();
+</script>
 {% endblock %}

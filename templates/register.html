@@ -1,90 +1,33 @@
 {% extends "base.html" %}
 {% block title %}Регистрация — На споте{% endblock %}
 {% block content %}
-<div class="auth-shell">
-    <div class="auth-card">
-        <h2 class="display">Создать профиль</h2>
-        <p class="hint">14–40 лет, любишь спонтанные тусовки — тебе сюда.</p>
-        
-        <form method="POST">
-            <div class="account-type-toggle">
-                <div class="type-option selected" data-type="person">
-                    <span class="ic">🙋</span>
-                    <span>Я — человек</span>
-                </div>
-                <div class="type-option" data-type="organization">
-                    <span class="ic">🏢</span>
-                    <span>Я — заведение</span>
-                </div>
-            </div>
-            <input type="hidden" id="accountTypeInput" name="account_type" value="person">
-            
+<div class="center-page">
+    <div class="auth-box card">
+        <div class="logo-circle">🌱</div>
+        <h1 class="display" style="text-align:center;">Создать профиль</h1>
+        <form method="POST" style="margin-top:24px;">
             <div class="field">
-                <label>Имя пользователя</label>
-                <input type="text" name="username" placeholder="Как тебя показывать друзьям" required>
-            </div>
-            <div class="field">
-                <label>Отображаемое имя</label>
-                <input type="text" name="display_name" placeholder="Как тебя звать">
-            </div>
-            
-            <div class="org-fields" style="display:none;">
-                <div class="field">
-                    <label>Категория заведения</label>
-                    <select name="category">
-                        <option value="">—</option>
-                        {% for c in categories %}
-                            <option value="{{ c }}">{{ c }}</option>
-                        {% endfor %}
-                    </select>
+                <label>Кто вы?</label>
+                <div class="visibility-toggle">
+                    <div class="vis-option selected" onclick="pickType(this,'person')">🙋 Человек</div>
+                    <div class="vis-option" onclick="pickType(this,'organization')">🏢 Заведение</div>
                 </div>
-                <div class="field">
-                    <label>Адрес заведения</label>
-                    <input type="text" name="address">
-                </div>
-                <div class="field">
-                    <label>Координаты на карте</label>
-                    <input type="text" id="orgCoords" placeholder="55.751244, 37.618423">
-                    <button type="button" id="getOrgLocation" class="btn btn-ghost btn-sm" style="margin-top:8px;">📍 Определить моё местоположение</button>
-                    <input type="hidden" name="org_lat" id="orgLat">
-                    <input type="hidden" name="org_lng" id="orgLng">
-                </div>
+                <input type="hidden" id="accountTypeInput" name="account_type" value="person">
             </div>
-            
-            <div class="field">
-                <label>Email</label>
-                <input type="email" name="email" required>
-            </div>
-            <div class="field">
-                <label>Пароль</label>
-                <input type="password" name="password" required>
-            </div>
-            <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
+            <div class="field"><label>Ваше имя</label><input type="text" name="display_name" placeholder="Например: Мария" required></div>
+            <div class="field"><label>Имя пользователя (латиницей)</label><input type="text" name="username" placeholder="Например: maria" required></div>
+            <div class="field"><label>Email</label><input type="email" name="email" required></div>
+            <div class="field"><label>Пароль</label><input type="password" name="password" required></div>
+            <button type="submit" class="btn btn-green btn-block">Зарегистрироваться</button>
         </form>
-        
         <p class="switch-link">Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a></p>
     </div>
 </div>
-
 <script>
-document.querySelectorAll('.type-option').forEach(opt => {
-    opt.addEventListener('click', () => {
-        document.querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
-        opt.classList.add('selected');
-        const type = opt.dataset.type;
-        document.getElementById('accountTypeInput').value = type;
-        document.querySelector('.org-fields').style.display = type === 'organization' ? 'block' : 'none';
-    });
-});
-
-document.getElementById('getOrgLocation')?.addEventListener('click', () => {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            document.getElementById('orgLat').value = pos.coords.latitude;
-            document.getElementById('orgLng').value = pos.coords.longitude;
-            document.getElementById('orgCoords').value = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-        });
-    }
-});
+function pickType(el, type) {
+    document.querySelectorAll('.vis-option').forEach(function(o){o.classList.remove('selected');});
+    el.classList.add('selected');
+    document.getElementById('accountTypeInput').value = type;
+}
 </script>
 {% endblock %}
