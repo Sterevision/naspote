@@ -1,16 +1,72 @@
 (function () {
+    'use strict';
+
+    function addBadge(link) {
+        if (!link) {
+            return;
+        }
+
+        if (link.querySelector('.nav-badge')) {
+            return;
+        }
+
+        var badge = document.createElement('span');
+        badge.className = 'nav-badge';
+
+        var icon = link.querySelector('.ic');
+
+        if (icon) {
+            icon.insertAdjacentElement('afterend', badge);
+        } else {
+            link.appendChild(badge);
+        }
+    }
+
+    function updateBadges() {
+        var bottomNav = document.querySelector('.bottom-nav');
+
+        if (!bottomNav) {
+            return;
+        }
+
+        fetch('/api/messages/unread_count', {
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    return null;
+                }
+
+                return response.json();
+            })
+            .then(function (data) {
+                if (!data) {
+                    return;
+                }
+
+                var friendsLink = document.querySelector('.bottom-nav a[href="/friends"]');
+                var messagesLink = document.querySelector('.bottom-nav a[href="/messages"]');
+
+                if (data.friend_requests > 0) {
+                    addBadge(friendsLink);
+                }
+
+                if (data.messages > 0) {
+                    addBadge(messagesLink);
+                }
+            })
+            .catch(function () {
+                // silent
+            });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
-        if (!document.querySelector('.bottom-nav')) return;
-        fetch('/api/messages/unread_count').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
-            if (!d) return;
-            var friendsNav = document.getElementById('navFriends');
-            var msgNav = document.getElementById('navMessages');
-            if (friendsNav && d.friend_requests > 0 && !friendsNav.querySelector('.nav-badge')) {
-                friendsNav.querySelector('.ic').insertAdjacentHTML('afterend', '<span class="nav-badge"></span>');
+        updateBadges();
+
+        setInterval(function () {
+            if (!document.hidden) {
+                updateBadges();
             }
-            if (msgNav && d.messages > 0 && !msgNav.querySelector('.nav-badge')) {
-                msgNav.querySelector('.ic').insertAdjacentHTML('afterend', '<span class="nav-badge"></span>');
-            }
-        }).catch(function () {});
+        }, 60000);
     });
 })();

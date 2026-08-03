@@ -1,49 +1,60 @@
 {% extends "base.html" %}
+
 {% block title %}{{ friend.display_name }} — Картометр{% endblock %}
+
 {% block content %}
 <div class="chat-shell">
     <div class="chat-head">
-        <a href="{{ url_for('messages_view') }}" class="icon-btn">←</a>
-        <div class="avatar">{% if friend.avatar_url %}<img src="{{ friend.avatar_url }}">{% else %}{{ friend.display_name[:1]|upper }}{% endif %}</div>
-        <div class="name">{{ friend.display_name }}</div>
+        <a class="icon-btn" href="{{ url_for('messages_view') }}" aria-label="Назад">
+            ←
+        </a>
+
+        <div class="avatar">
+            {% if friend.avatar_url %}
+                <img src="{{ friend.avatar_url }}" alt="">
+            {% else %}
+                {{ friend.display_name[:1] | upper }}
+            {% endif %}
+        </div>
+
+        <div>
+            <div class="name">
+                {{ friend.display_name }}
+            </div>
+
+            <div class="hint">
+                @{{ friend.username }}
+            </div>
+        </div>
     </div>
-    <div class="chat-body" id="chatBody"><p class="hint" style="text-align:center;">Загрузка...</p></div>
-    <form class="chat-input-row" id="chatForm">
-        <input type="text" id="chatInput" placeholder="Написать сообщение..." autocomplete="off" required>
-        <button type="submit" class="chat-send">➤</button>
-    </form>
+
+    <div class="chat-body" id="chatBody">
+        <div class="empty-state">
+            <span class="em">⏳</span>
+            <p>Загрузка...</p>
+        </div>
+    </div>
+
+    <div class="chat-input-row">
+        <input
+            type="text"
+            id="chatInput"
+            placeholder="Написать сообщение..."
+            maxlength="2000"
+            autocomplete="off"
+        >
+
+        <button class="chat-send" id="chatSend" type="button" aria-label="Отправить">
+            ➤
+        </button>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-var FRIEND_ID = "{{ friend.id }}";
-var ME_ID = "{{ profile.id }}";
-var body = document.getElementById('chatBody');
-
-function esc(str) { var d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
-
-function render(list) {
-    body.innerHTML = list.length ? list.map(function (m) {
-        return '<div class="bubble ' + (m.sender_id === ME_ID ? 'mine' : 'theirs') + '">' + esc(m.text) + '</div>';
-    }).join('') : '<div class="empty-state"><div class="em">👋</div><p>Пока ничего.<br>Напишите первым!</p></div>';
-    body.scrollTop = body.scrollHeight;
-}
-
-async function load() {
-    var res = await fetch('/api/messages/' + FRIEND_ID);
-    if (!res.ok) return;
-    render(await res.json());
-}
-
-document.getElementById('chatForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
-    var input = document.getElementById('chatInput');
-    var text = input.value.trim();
-    if (!text) return;
-    input.value = '';
-    await fetch('/api/messages/' + FRIEND_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) });
-    load();
-});
-
-load();
-setInterval(load, 4000);
+    window.CHAT_FRIEND_ID = {{ friend.id | tojson }};
 </script>
+
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 {% endblock %}
