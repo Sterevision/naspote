@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Друзья — На споте{% endblock %}
+{% block title %}Друзья — Картометр{% endblock %}
 {% block content %}
 <div class="list-page">
     <div class="page-head"><h2 class="display" style="font-size:24px;">🤝 Друзья</h2></div>
@@ -12,7 +12,10 @@
         <div class="row-card">
             <div class="avatar">{{ req.requester.display_name[:1]|upper }}</div>
             <div class="info"><div class="name">{{ req.requester.display_name }}</div><div class="sub">@{{ req.requester.username }}</div></div>
-            <button class="btn btn-green btn-sm" onclick="acceptReq({{ req.id }})">✓</button>
+            <div style="display:flex;gap:6px;">
+                <button class="btn btn-green btn-sm" onclick="acceptReq({{ req.id }}, this)">✓</button>
+                <button class="btn btn-soft btn-sm" onclick="declineReq({{ req.id }}, this)">✕</button>
+            </div>
         </div>
         {% endfor %}
     {% endif %}
@@ -24,17 +27,21 @@
         <div class="row-card">
             <div class="avatar">{{ friend.display_name[:1]|upper }}</div>
             <div class="info"><div class="name">{{ friend.display_name }}</div><div class="sub">@{{ friend.username }}</div></div>
-            <a class="btn btn-soft btn-sm" href="{{ url_for('profile_view', username=friend.username) }}">Профиль</a>
+            <div style="display:flex;gap:6px;">
+                <a class="btn btn-soft btn-sm" href="{{ url_for('chat_view', username=friend.username) }}">💬</a>
+                <a class="btn btn-soft btn-sm" href="{{ url_for('profile_view', username=friend.username) }}">Профиль</a>
+            </div>
         </div>
         {% endfor %}
     {% else %}
-        <div class="empty-state"><div class="em"></div><p>Пока нет друзей.<br>Найдите близких через поиск!</p></div>
+        <div class="empty-state"><div class="em">🤝</div><p>Пока нет друзей.<br>Найдите близких через поиск!</p></div>
     {% endif %}
 </div>
 <nav class="bottom-nav">
     <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span>Карта</a>
     <a href="{{ url_for('feed_view') }}" class="nav-item"><span class="ic">📰</span>Лента</a>
-    <a href="{{ url_for('friends_view') }}" class="nav-item active"><span class="ic">🤝</span>Друзья</a>
+    <a href="{{ url_for('friends_view') }}" class="nav-item active" id="navFriends"><span class="ic">🤝</span>Друзья</a>
+    <a href="{{ url_for('messages_view') }}" class="nav-item" id="navMessages"><span class="ic">💬</span>Чаты</a>
     <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item"><span class="ic">👤</span>Профиль</a>
 </nav>
 <script>
@@ -49,15 +56,22 @@ document.getElementById('friendSearch').addEventListener('input', function () {
         var users = await res.json();
         box.innerHTML = users.length ? '<div class="section-title">Найдены</div>' + users.map(function (u) {
             return '<div class="row-card"><div class="avatar">' + (u.display_name || '?')[0].toUpperCase() + '</div><div class="info"><div class="name">' + u.display_name + '</div><div class="sub">@' + u.username + '</div></div><button class="btn btn-primary btn-sm" onclick="addFriend(\'' + u.username + '\', this)">+</button></div>';
-        }).join('') : '';
+        }).join('') : '<div class="empty-state"><div class="em">🔎</div><p>Никого не нашли</p></div>';
     }, 300);
 });
 async function addFriend(username, btn) {
-    await fetch('/api/friends/' + username + '/add', { method: 'POST' });
-    btn.textContent = '✓'; btn.disabled = true;
+    btn.disabled = true;
+    var res = await fetch('/api/friends/' + username + '/add', { method: 'POST' });
+    if (res.ok) { btn.textContent = '✓'; } else { btn.disabled = false; }
 }
-async function acceptReq(id) {
+async function acceptReq(id, btn) {
+    btn.disabled = true;
     await fetch('/api/friends/' + id + '/accept', { method: 'POST' });
+    location.reload();
+}
+async function declineReq(id, btn) {
+    btn.disabled = true;
+    await fetch('/api/friends/' + id + '/decline', { method: 'POST' });
     location.reload();
 }
 </script>

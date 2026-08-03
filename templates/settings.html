@@ -1,16 +1,80 @@
 {% extends "base.html" %}
-{% block title %}Настройки — На споте{% endblock %}
+{% block title %}Настройки — Картометр{% endblock %}
 {% block content %}
 <div class="list-page">
     <div class="page-head"><h2 class="display" style="font-size:24px;">⚙️ Настройки</h2></div>
+
     <form method="POST" enctype="multipart/form-data" class="card">
-        <div class="field"><label>Ваше имя</label><input type="text" name="display_name" value="{{ profile.display_name }}"></div>
-        <div class="field"><label>Где вы живёте</label><input type="text" name="location" value="{{ profile.location or '' }}" placeholder="Город"></div>
+        <input type="hidden" name="form_name" value="profile">
+        <input type="hidden" name="account_type" value="{{ profile.account_type }}">
+
+        <div class="avatar-upload-row">
+            <div class="avatar-preview" id="avatarPreview">
+                {% if profile.avatar_url %}<img src="{{ profile.avatar_url }}">{% else %}{{ profile.display_name[:1]|upper }}{% endif %}
+            </div>
+            <div style="flex:1;">
+                <label class="hint" style="font-weight:600;color:var(--ink-soft);">Фото профиля</label>
+                <input type="file" name="avatar" accept="image/*" style="margin-top:6px;" onchange="previewImg(this,'avatarPreview')">
+            </div>
+        </div>
+
+        {% if profile.account_type == 'organization' %}
+        <div class="field"><label>Обложка страницы</label><input type="file" name="cover" accept="image/*"></div>
+        {% endif %}
+
+        <div class="field"><label>{% if profile.account_type == 'organization' %}Название заведения{% else %}Ваше имя{% endif %}</label>
+            <input type="text" name="display_name" value="{{ profile.display_name }}"></div>
+        <div class="field"><label>Где вы {% if profile.account_type == 'organization' %}находитесь{% else %}живёте{% endif %}</label>
+            <input type="text" name="location" value="{{ profile.location or '' }}" placeholder="Город"></div>
+
+        {% if profile.account_type == 'organization' %}
+        <div class="field"><label>Категория</label>
+            <select name="category">
+                {% for c in categories %}<option value="{{ c }}" {% if profile.category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="field"><label>Адрес</label><input type="text" name="address" value="{{ profile.address or '' }}"></div>
+        {% else %}
         <div class="field"><label>Возраст</label><input type="number" name="age" value="{{ profile.age or '' }}" min="7" max="100"></div>
-        <div class="field"><label>О себе</label><textarea name="bio">{{ profile.bio or '' }}</textarea></div>
-        <div class="field"><label>Фото</label><input type="file" name="avatar" accept="image/*"></div>
+        {% endif %}
+
+        <div class="field"><label>О себе</label><textarea name="bio" placeholder="Пара слов о вас">{{ profile.bio or '' }}</textarea></div>
         <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
     </form>
+
+    {% if profile.account_type != 'organization' %}
+    <div class="section-title">Фильтр карты</div>
+    <form method="POST" class="card">
+        <input type="hidden" name="form_name" value="visibility">
+        <p class="hint" style="margin-bottom:10px;">Выбери, метки каких категорий показывать. Свои метки и метки без категории видны всегда.</p>
+        <label class="checkbox-row">
+            <input type="checkbox" name="show_all_categories" id="showAllChk" {% if not profile.visible_categories %}checked{% endif %} onchange="toggleCatList()">
+            Показывать все категории
+        </label>
+        <div id="catList" style="{% if not profile.visible_categories %}display:none;{% endif %}margin-top:6px;">
+            {% for c in categories %}
+            <label class="checkbox-row">
+                <input type="checkbox" name="visible_categories" value="{{ c }}" {% if profile.visible_categories and c in profile.visible_categories %}checked{% endif %}>
+                {{ c }}
+            </label>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-soft btn-block" style="margin-top:16px;">Сохранить фильтр</button>
+    </form>
+    {% endif %}
+
     <a href="{{ url_for('profile_view', username=profile.username) }}" class="btn btn-soft btn-block" style="margin-top:12px;">← Готово</a>
+    <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-block" style="margin-top:10px;border:1.5px solid var(--line);">Выйти</a>
 </div>
+<script>
+function previewImg(input, targetId) {
+    if (!input.files || !input.files[0]) return;
+    var reader = new FileReader();
+    reader.onload = function (e) { document.getElementById(targetId).innerHTML = '<img src="' + e.target.result + '">'; };
+    reader.readAsDataURL(input.files[0]);
+}
+function toggleCatList() {
+    document.getElementById('catList').style.display = document.getElementById('showAllChk').checked ? 'none' : 'block';
+}
+</script>
 {% endblock %}

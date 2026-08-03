@@ -1,19 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Сообщения — На споте{% endblock %}
+{% block title %}Чаты — Картометр{% endblock %}
 {% block content %}
 <div class="list-page">
-    <div class="page-head"><h2 class="display" style="font-size:24px;">💬 Сообщения</h2></div>
-    <p class="subtitle">Выберите друга, чтобы написать</p>
+    <div class="page-head"><h2 class="display" style="font-size:24px;">💬 Чаты</h2></div>
+    <p class="subtitle" style="margin-bottom:16px;">Личные сообщения с друзьями</p>
     <div id="friendsList"><p class="hint">Загрузка...</p></div>
 </div>
+<nav class="bottom-nav">
+    <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span>Карта</a>
+    <a href="{{ url_for('feed_view') }}" class="nav-item"><span class="ic">📰</span>Лента</a>
+    <a href="{{ url_for('friends_view') }}" class="nav-item" id="navFriends"><span class="ic">🤝</span>Друзья</a>
+    <a href="{{ url_for('messages_view') }}" class="nav-item active" id="navMessages"><span class="ic">💬</span>Чаты</a>
+    <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item"><span class="ic">👤</span>Профиль</a>
+</nav>
 <script>
 (async function () {
     var res = await fetch('/api/friends_list');
     var friends = await res.json();
     var box = document.getElementById('friendsList');
     box.innerHTML = friends.length ? friends.map(function (f) {
-        return '<a class="row-card" href="/profile/' + f.username + '"><div class="avatar">' + (f.display_name || '?')[0].toUpperCase() + '</div><div class="info"><div class="name">' + f.display_name + '</div><div class="sub">Открыть профиль ✉️</div></div></a>';
-    }).join('') : '<div class="empty-state"><div class="em">💬</div><p>Сначала добавьте друзей!</p></div>';
+        return '<a class="row-card" href="/messages/' + f.username + '"><div class="avatar">' +
+            (f.avatar_url ? '<img src="' + f.avatar_url + '">' : (f.display_name || '?')[0].toUpperCase()) +
+            '</div><div class="info"><div class="name">' + f.display_name + '</div><div class="sub">Открыть переписку →</div></div></a>';
+    }).join('') : '<div class="empty-state"><div class="em">💬</div><p>Сначала добавьте друзей —<br>тогда сможете им написать.</p></div>';
 })();
 </script>
 {% endblock %}

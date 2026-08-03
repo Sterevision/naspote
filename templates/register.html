@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Регистрация — На споте{% endblock %}
+{% block title %}Регистрация — Картометр{% endblock %}
 {% block content %}
 <div class="center-page">
     <div class="auth-box card">
         <div class="logo-circle">🌱</div>
-        <h1 class="display" style="text-align:center;">Создать профиль</h1>
+        <h1 class="display" style="text-align:center;font-size:26px;">Создать профиль</h1>
         <form method="POST" style="margin-top:24px;">
             <div class="field">
                 <label>Кто вы?</label>
@@ -14,10 +14,26 @@
                 </div>
                 <input type="hidden" id="accountTypeInput" name="account_type" value="person">
             </div>
-            <div class="field"><label>Ваше имя</label><input type="text" name="display_name" placeholder="Например: Мария" required></div>
-            <div class="field"><label>Имя пользователя (латиницей)</label><input type="text" name="username" placeholder="Например: maria" required></div>
-            <div class="field"><label>Email</label><input type="email" name="email" required></div>
-            <div class="field"><label>Пароль</label><input type="password" name="password" required></div>
+            <div class="field"><label id="nameLabel">Ваше имя</label><input type="text" name="display_name" id="displayNameInput" placeholder="Например: Мария" required></div>
+            <div class="field"><label>Имя пользователя (латиницей)</label><input type="text" name="username" placeholder="Например: maria" pattern="[a-zA-Z0-9_]+" required></div>
+
+            <div id="orgFields" style="display:none;">
+                <div class="field"><label>Категория заведения</label>
+                    <select name="category">
+                        {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="field"><label>Адрес</label><input type="text" name="address" placeholder="Улица, дом"></div>
+                <div class="field">
+                    <label>Координаты на карте</label>
+                    <button type="button" class="btn btn-soft btn-block" id="geoBtn" onclick="geolocate()">📍 Определить по геолокации</button>
+                    <p class="field-note" id="geoStatus">Понадобится, чтобы заведение появилось на карте и в поиске.</p>
+                </div>
+                <input type="hidden" name="org_lat" id="orgLat"><input type="hidden" name="org_lng" id="orgLng">
+            </div>
+
+            <div class="field"><label>Email</label><input type="email" name="email" required autocomplete="email"></div>
+            <div class="field"><label>Пароль</label><input type="password" name="password" required autocomplete="new-password" minlength="6"></div>
             <button type="submit" class="btn btn-green btn-block">Зарегистрироваться</button>
         </form>
         <p class="switch-link">Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a></p>
@@ -28,6 +44,20 @@ function pickType(el, type) {
     document.querySelectorAll('.vis-option').forEach(function(o){o.classList.remove('selected');});
     el.classList.add('selected');
     document.getElementById('accountTypeInput').value = type;
+    var isOrg = type === 'organization';
+    document.getElementById('orgFields').style.display = isOrg ? 'block' : 'none';
+    document.getElementById('nameLabel').textContent = isOrg ? 'Название заведения' : 'Ваше имя';
+    document.getElementById('displayNameInput').placeholder = isOrg ? 'Например: Кофейня «Утро»' : 'Например: Мария';
+}
+function geolocate() {
+    var status = document.getElementById('geoStatus');
+    if (!navigator.geolocation) { status.textContent = 'Геолокация недоступна в этом браузере.'; return; }
+    status.textContent = 'Определяем местоположение…';
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        document.getElementById('orgLat').value = pos.coords.latitude;
+        document.getElementById('orgLng').value = pos.coords.longitude;
+        status.textContent = '✓ Координаты сохранены';
+    }, function () { status.textContent = 'Не удалось определить местоположение. Можно добавить позже в настройках.'; });
 }
 </script>
 {% endblock %}

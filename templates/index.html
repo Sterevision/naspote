@@ -1,19 +1,20 @@
 {% extends "base.html" %}
-{% block title %}На споте — карта живых встреч{% endblock %}
+{% block title %}Картометр — карта живого города{% endblock %}
 {% block content %}
 <div class="center-page">
     <div class="auth-box" style="text-align:center;">
         <div class="logo-circle">📍</div>
-        <h1 class="display">На споте</h1>
-        <p class="subtitle" style="margin-top:12px;">Карта, а не лента. Оставь метку — где ты и что тут происходит — и друзья тебя найдут.</p>
+        <h1 class="display" style="font-size:34px;">Картометр</h1>
+        <p class="subtitle" style="margin-top:12px;">Не лента, а карта. Оставь метку — где ты и что тут происходит, — и друзья увидят это сразу.</p>
         <div class="cta-row">
             <a href="{{ url_for('register') }}" class="btn btn-primary btn-block">Создать профиль</a>
             <a href="{{ url_for('login') }}" class="btn btn-soft btn-block">Войти</a>
         </div>
         <div class="feature-list">
-            <div class="feature-item"><span class="em">📍</span><div><b>Метки на карте</b><span>Покажи, где ты или где весело</span></div></div>
-            <div class="feature-item"><span class="em">🤝</span><div><b>Приватность</b><span>Метку видят все или только друзья</span></div></div>
-            <div class="feature-item"><span class="em">⏳</span><div><b>Метки исчезают</b><span>Ты сам выбираешь, сколько они живут</span></div></div>
+            <div class="feature-item"><span class="em">📍</span><div><b>Метки на карте</b><span>Покажи, где ты — или где сейчас весело</span></div></div>
+            <div class="feature-item"><span class="em">🤝</span><div><b>Гибкая приватность</b><span>Метку видят все или только близкие</span></div></div>
+            <div class="feature-item"><span class="em">⏳</span><div><b>Метки живут своим временем</b><span>Сам решаешь, на сколько часов оставить след</span></div></div>
+            <div class="feature-item"><span class="em">⚡</span><div><b>Волны</b><span>Собери людей на событие прямо сейчас</span></div></div>
         </div>
     </div>
 </div>

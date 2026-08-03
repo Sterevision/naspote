@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Лента — На споте{% endblock %}
+{% block title %}Лента — Картометр{% endblock %}
 {% block content %}
 <div class="list-page">
     <div class="page-head"><h2 class="display" style="font-size:24px;">📰 Лента</h2></div>
-    <p class="subtitle" style="margin-bottom:16px;">Что происходит у друзей</p>
+    <p class="subtitle" style="margin-bottom:16px;">Что происходит у друзей прямо сейчас</p>
     {% if spots %}
         {% for spot in spots %}
         <div class="row-card">
-            <div class="avatar">{{ (spot.owner.display_name if spot.owner else '?')[:1]|upper }}</div>
+            <div class="spot-thumb">{% if spot.photo_url %}<img src="{{ spot.photo_url }}">{% else %}{{ spot.mood[:2] if spot.mood else '📍' }}{% endif %}</div>
             <div class="info">
-                <div class="name">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}</div>
-                <div class="sub"><b>{{ spot.title }}</b></div>
+                <div class="name">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}{% if spot.wave_ends_at %} <span class="hint">⚡ волна</span>{% endif %}</div>
+                <div class="sub"><b style="color:var(--ink);">{{ spot.title }}</b></div>
                 {% if spot.description %}<div class="sub">{{ spot.description }}</div>{% endif %}
             </div>
         </div>
@@ -22,7 +22,8 @@
 <nav class="bottom-nav">
     <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span>Карта</a>
     <a href="{{ url_for('feed_view') }}" class="nav-item active"><span class="ic">📰</span>Лента</a>
-    <a href="{{ url_for('friends_view') }}" class="nav-item"><span class="ic">🤝</span>Друзья</a>
+    <a href="{{ url_for('friends_view') }}" class="nav-item" id="navFriends"><span class="ic">🤝</span>Друзья</a>
+    <a href="{{ url_for('messages_view') }}" class="nav-item" id="navMessages"><span class="ic">💬</span>Чаты</a>
     <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item"><span class="ic">👤</span>Профиль</a>
 </nav>
 {% endblock %}

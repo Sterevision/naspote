@@ -2,15 +2,17 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#F5F5F7">
-    <title>{% block title %}На споте{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#F7F7F4">
+    <title>{% block title %}Картометр{% endblock %}</title>
+    <meta name="description" content="Картометр — карта живого города. Оставь метку и покажи друзьям, где сейчас интересно.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=10">
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='26' fill='%23FF4C29'/%3E%3Ccircle cx='50' cy='42' r='16' fill='white'/%3E%3Cpath d='M50 92 C 30 66 20 54 20 42 A30 30 0 0 1 80 42 C80 54 70 66 50 92Z' fill='none' stroke='white' stroke-width='7'/%3E%3C/svg%3E">
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -23,5 +25,6 @@
     {% endwith %}
     {% block content %}{% endblock %}
     {% block scripts %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/nav.js') }}?v=2"></script>
 </body>
 </html>

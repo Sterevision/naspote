@@ -170,6 +170,19 @@ def messages_view():
     return render_template("messages.html", profile=profile)
 
 
+@app.route("/messages/<username>")
+@login_required
+def chat_view(username):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    result = sb.table("profiles").select("*").eq("id", session["user_id"]).execute()
+    profile = result.data[0] if result.data else {}
+    friend_res = sb.table("profiles").select("id, username, display_name, avatar_url").eq("username", username).execute()
+    if not friend_res.data:
+        return "Пользователь не найден", 404
+    friend = friend_res.data[0]
+    return render_template("chat.html", profile=profile, friend=friend)
+
+
 @app.route("/profile/<username>")
 @login_required
 def profile_view(username):
@@ -192,7 +205,8 @@ def profile_view(username):
         if f.data:
             friend_status = f.data[0]
     return render_template("profile.html", profile=profile, spots=spots_res.data,
-                           is_me=is_me, friend_status=friend_status, tagged_spots=tagged_spots)
+                           is_me=is_me, friend_status=friend_status, tagged_spots=tagged_spots,
+                           my_id=session["user_id"])
 
 
 @app.route("/friends")
@@ -427,6 +441,51 @@ def api_friends_list():
     return jsonify(friends)
 
 
+@app.route("/api/friends/<username>/add", methods=["POST"])
+@login_required
+def api_friend_add(username):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    uid = session["user_id"]
+    target = sb.table("profiles").select("id").eq("username", username).execute()
+    if not target.data:
+        return jsonify({"error": "Пользователь не найден"}), 404
+    target_id = target.data[0]["id"]
+    if target_id == uid:
+        return jsonify({"error": "Нельзя добавить самого себя"}), 400
+    existing = sb.table("friendships").select("*").or_(
+        f"and(requester_id.eq.{uid},addressee_id.eq.{target_id}),"
+        f"and(requester_id.eq.{target_id},addressee_id.eq.{uid})").execute()
+    if existing.data:
+        return jsonify({"ok": True, "status": existing.data[0]["status"]})
+    res = sb.table("friendships").insert({"requester_id": uid, "addressee_id": target_id}).execute()
+    return jsonify({"ok": True, "status": "pending", "friendship": res.data[0]}), 201
+
+
+@app.route("/api/friends/<int:friendship_id>/accept", methods=["POST"])
+@login_required
+def api_friend_accept(friendship_id):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    sb.table("friendships").update({"status": "accepted"}).eq("id", friendship_id).eq("addressee_id", session["user_id"]).execute()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/friends/<int:friendship_id>/decline", methods=["POST"])
+@login_required
+def api_friend_decline(friendship_id):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    sb.table("friendships").delete().eq("id", friendship_id).eq("addressee_id", session["user_id"]).execute()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/friends/<int:friendship_id>", methods=["DELETE"])
+@login_required
+def api_friend_remove(friendship_id):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    uid = session["user_id"]
+    sb.table("friendships").delete().eq("id", friendship_id).or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/messages/<friend_id>", methods=["GET", "POST"])
 @login_required
 def api_messages(friend_id):
@@ -445,6 +504,16 @@ def api_messages(friend_id):
           f"and(sender_id.eq.{friend_id},receiver_id.eq.{uid})").order("created_at").execute()
     sb.table("messages").update({"is_read": True}).eq("sender_id", friend_id).eq("receiver_id", uid).eq("is_read", False).execute()
     return jsonify(res.data or [])
+
+
+@app.route("/api/messages/unread_count")
+@login_required
+def api_unread_count():
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    uid = session["user_id"]
+    res = sb.table("messages").select("id", count="exact").eq("receiver_id", uid).eq("is_read", False).execute()
+    incoming = sb.table("friendships").select("id", count="exact").eq("addressee_id", uid).eq("status", "pending").execute()
+    return jsonify({"messages": res.count or 0, "friend_requests": incoming.count or 0})
 
 
 @app.route("/api/organizations/search")

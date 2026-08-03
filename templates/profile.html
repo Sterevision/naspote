@@ -1,52 +1,131 @@
 {% extends "base.html" %}
-{% block title %}{{ profile.display_name }} — На споте{% endblock %}
+{% block title %}{{ profile.display_name }} — Картометр{% endblock %}
 {% block content %}
 <div class="list-page">
-    <div class="card" style="text-align:center;margin-bottom:16px;">
-        <div class="avatar" style="width:84px;height:84px;font-size:34px;margin:0 auto 12px;">
-            {% if profile.avatar_url %}<img src="{{ profile.avatar_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">{% else %}{{ profile.display_name[:1]|upper }}{% endif %}
+    {% if profile.account_type == 'organization' and profile.cover_url %}
+    <div class="org-cover" style="background-image:url('{{ profile.cover_url }}')"></div>
+    {% elif profile.account_type == 'organization' %}
+    <div class="org-cover"></div>
+    {% endif %}
+
+    <div class="card profile-card {% if profile.account_type == 'organization' %}org-header-card{% endif %}">
+        <div class="avatar profile-avatar-lg">
+            {% if profile.avatar_url %}<img src="{{ profile.avatar_url }}">{% else %}{{ profile.display_name[:1]|upper }}{% endif %}
         </div>
-        <h2 class="display" style="font-size:24px;">{{ profile.display_name }}</h2>
-        <p class="hint">@{{ profile.username }}{% if profile.age %} · {{ profile.age }} лет{% endif %}</p>
+        <div class="profile-name-row">
+            <h2 class="display" style="font-size:22px;">{{ profile.display_name }}</h2>
+            {% if profile.is_verified %}<span class="verified-tick">✅</span>{% endif %}
+        </div>
+        <p class="hint">@{{ profile.username }}{% if profile.age %} · {{ profile.age }} лет{% endif %}{% if profile.location %} · {{ profile.location }}{% endif %}</p>
+        {% if profile.account_type == 'organization' %}<p class="hint" style="margin-top:2px;">{{ profile.category }}{% if profile.address %} · {{ profile.address }}{% endif %}</p>{% endif %}
         {% if profile.bio %}<p style="margin-top:10px;">{{ profile.bio }}</p>{% endif %}
-        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">
+
+        {% if profile.account_type == 'organization' %}
+        <div class="org-stats-row">
+            <div class="org-stat"><span class="num">{{ spots|length }}</span><span class="lbl">публикаций</span></div>
+            <div class="org-stat"><span class="num">{{ tagged_spots|length }}</span><span class="lbl">отметились</span></div>
+        </div>
+        {% endif %}
+
+        {% if profile.account_type != 'organization' %}
+        <div id="xpWidget" style="display:none;">
+            <div class="level-badge"><span class="lv-num" id="lvNum">1</span><span id="lvLabel">Уровень 1</span></div>
+            <div class="xp-bar-wrap"><div class="xp-bar-track"><div class="xp-bar-fill" id="xpFill" style="width:0%"></div></div>
+                <div class="xp-label" id="xpLabel">0 XP</div></div>
+        </div>
+        {% endif %}
+
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;">
             {% if is_me %}
                 <a href="{{ url_for('settings_view') }}" class="btn btn-soft btn-sm">⚙️ Настройки</a>
-                <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm" style="border:2px solid var(--line);">Выйти</a>
             {% elif friend_status is none %}
                 <button class="btn btn-primary btn-sm" onclick="addFriend('{{ profile.username }}', this)">🤝 Добавить в друзья</button>
             {% elif friend_status.status == 'accepted' %}
                 <span class="btn btn-green btn-sm">✓ Вы друзья</span>
+                <a href="{{ url_for('chat_view', username=profile.username) }}" class="btn btn-soft btn-sm">💬 Написать</a>
+            {% elif friend_status.addressee_id == my_id %}
+                <button class="btn btn-primary btn-sm" onclick="acceptReq({{ friend_status.id }}, this)">✓ Принять заявку</button>
             {% else %}
                 <span class="btn btn-soft btn-sm">Заявка отправлена</span>
             {% endif %}
         </div>
     </div>
 
+    {% if profile.account_type != 'organization' %}
+    <div id="achWrap" style="display:none;">
+        <div class="section-title">Достижения</div>
+        <div class="badge-grid" id="badgeGrid"></div>
+    </div>
+    {% endif %}
+
     <div class="section-title">Метки · {{ spots|length }}</div>
     {% if spots %}
         {% for spot in spots %}
         <div class="row-card">
-            <div class="avatar">📍</div>
-            <div class="info"><div class="name">{{ spot.title }}</div>
-                <div class="sub">{% if spot.visibility == 'friends' %}🤝 Только друзья{% else %}🌍 Видят все{% endif %}</div>
+            <div class="spot-thumb">{% if spot.photo_url %}<img src="{{ spot.photo_url }}">{% else %}📍{% endif %}</div>
+            <div class="info"><div class="name">{{ spot.title }}{% if spot.category %} <span class="hint">· {{ spot.category }}</span>{% endif %}</div>
+                <div class="sub">{% if spot.visibility == 'friends' %}🤝 Только друзья{% else %}🌍 Видят все{% endif %}{% if spot.wave_ends_at %} · ⚡ волна{% endif %}</div>
             </div>
         </div>
         {% endfor %}
     {% else %}
         <div class="empty-state"><div class="em">🗺️</div><p>Меток пока нет.</p></div>
     {% endif %}
+
+    {% if profile.account_type == 'organization' %}
+    <div class="section-title">Люди отмечались здесь · {{ tagged_spots|length }}</div>
+    {% if tagged_spots %}
+        {% for spot in tagged_spots %}
+        <div class="row-card">
+            <div class="avatar">{{ (spot.owner.display_name if spot.owner else '?')[:1]|upper }}</div>
+            <div class="info"><div class="name">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}</div>
+                <div class="sub">{{ spot.title }}</div></div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state"><div class="em">👋</div><p>Пока никто не отмечался.</p></div>
+    {% endif %}
+    {% endif %}
 </div>
 <nav class="bottom-nav">
     <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span>Карта</a>
     <a href="{{ url_for('feed_view') }}" class="nav-item"><span class="ic">📰</span>Лента</a>
-    <a href="{{ url_for('friends_view') }}" class="nav-item"><span class="ic">🤝</span>Друзья</a>
+    <a href="{{ url_for('friends_view') }}" class="nav-item" id="navFriends"><span class="ic">🤝</span>Друзья</a>
     <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item active"><span class="ic">👤</span>Профиль</a>
 </nav>
 <script>
+window.IS_ME = {{ 'true' if is_me else 'false' }};
 async function addFriend(username, btn) {
-    await fetch('/api/friends/' + username + '/add', { method: 'POST' });
-    btn.outerHTML = '<span class="btn btn-soft btn-sm">Заявка отправлена</span>';
+    btn.disabled = true;
+    var res = await fetch('/api/friends/' + username + '/add', { method: 'POST' });
+    if (res.ok) { btn.outerHTML = '<span class="btn btn-soft btn-sm">Заявка отправлена</span>'; }
+    else { btn.disabled = false; }
+}
+async function acceptReq(id, btn) {
+    btn.disabled = true;
+    await fetch('/api/friends/' + id + '/accept', { method: 'POST' });
+    location.reload();
+}
+if (window.IS_ME) {
+    (async function () {
+        try {
+            var res = await fetch('/api/profile/achievements');
+            var data = await res.json();
+            var xpInLevel = data.xp % 100;
+            document.getElementById('xpWidget').style.display = 'block';
+            document.getElementById('lvNum').textContent = data.level;
+            document.getElementById('lvLabel').textContent = 'Уровень ' + data.level;
+            document.getElementById('xpFill').style.width = xpInLevel + '%';
+            document.getElementById('xpLabel').textContent = data.xp + ' XP · ещё ' + (100 - xpInLevel) + ' до уровня ' + (data.level + 1);
+            var achWrap = document.getElementById('achWrap');
+            if (data.achievements && data.achievements.length) {
+                achWrap.style.display = 'block';
+                document.getElementById('badgeGrid').innerHTML = data.achievements.map(function (a) {
+                    return '<div class="badge-item"><div class="ic">' + (a.badge_icon || '🏅') + '</div><div class="nm">' + a.badge_name + '</div></div>';
+                }).join('');
+            }
+        } catch (e) {}
+    })();
 }
 </script>
 {% endblock %}
