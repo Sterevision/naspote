@@ -1,0 +1,33 @@
+# /etc/systemd/system/kartometr.service
+# Установка:
+#   sudo cp deploy/kartometr.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable kartometr
+#   sudo systemctl start kartometr
+
+[Unit]
+Description=Kartometr Flask Application
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/kartometr
+Environment="PATH=/var/www/kartometr/venv/bin"
+ExecStart=/var/www/kartometr/venv/bin/gunicorn --config /var/www/kartometr/deploy/gunicorn.conf.py app:app
+
+Restart=always
+RestartSec=5
+
+# Безопасность systemd
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/kartometr/logs
+
+# Лимиты
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,173 @@
+ ТЕХНИЧЕСКАЯ ДОКУМЕНТАЦИЯ ПРОЕКТА «КАРТОМЕТР» (kartometr.ru)
+1. ОБЩЕЕ ОПИСАНИЕ ПРОЕКТА
+Что это: Социальное приложение «На споте» — карта живых встреч. Пользователи оставляют временные геолокационные метки на карте, показывая, где они находятся и что происходит. Другие пользователи видят эти метки и могут присоединиться.
+Стек технологий:
+Backend: Python 3.10 + Flask (фреймворк для веб-приложений)
+База данных и авторизация: Supabase (PostgreSQL + Auth + Storage)
+Карты: Leaflet.js (OpenStreetMap-тайлы Carto Voyager)
+Веб-сервер: Nginx (обратный прокси)
+WSGI-сервер: Gunicorn (запускает Flask-приложение)
+Хостинг: VPS Beget (Ubuntu 22.04)
+2. СЕРВЕР
+Параметр
+Значение
+Хостер
+Beget.com (VPS)
+ОС
+Ubuntu 22.04 LTS
+IP сервера
+193.168.46.29
+Хостнейм
+eiammkklhj
+Пользователь
+root
+Подключение
+ssh root@193.168.46.29
+Тариф
+Минимальный (~140 ₽/мес, 1 CPU, 1 GB RAM)
+3. ДОМЕН И DNS
+Параметр
+Значение
+Домен
+kartometr.ru
+Регистратор
+REG.ru
+A-запись @
+→ 193.168.46.29
+A-запись www
+→ 193.168.46.29
+NS-серверы
+Стандартные reg.ru (ns1.reg.ru, ns2.reg.ru)
+СТРУКТУРА ФАЙЛОВ НА СЕРВЕРЕ
+/opt/app/                    ← корень проекта
+├── app.py                   ← главный файл Flask (все роуты)
+├── .env                     ← секреты (НЕ в git!)
+├── requirements.txt         ← зависимости Python
+├── venv/                    ← виртуальное окружение Python
+├── static/
+│   ├── css/style.css        ← стили (премиальный дизайн)
+│   └── js/map.js            ← логика карты (Leaflet)
+└── templates/
+    ├── base.html            ← базовый шаблон (подключение шрифтов, CSS)
+    ├── index.html           ← лендинг
+    ├── login.html           ← вход
+    ├── register.html        ← регистрация
+    ├── map.html             ← карта (главный экран)
+    ├── feed.html            ← лента
+    ├── friends.html         ← друзья
+    ├── messages.html        ← сообщения
+    ├── profile.html         ← профиль пользователя/заведения
+    └── settings.html        ← настройки
+ ФАЙЛ .env (секреты, НЕ коммитить в git!)
+Расположение: /opt/app/.env
+SUPABASE_URL=https://iuwfpjuwukobylqxgwtb.supabase.co
+SUPABASE_ANON_KEY=<длинный ключ из Supabase Dashboard → Settings → API>
+FLASK_SECRET_KEY=<случайная строка для сессий Flask>⚠️ Supabase Service Role Key НЕ используется на сервере. Все запросы идут через anon key + пользовательские токены.
+6. СИСТЕМНАЯ СЛУЖБА (systemd)
+Файл: /etc/systemd/system/kartometr.service
+[Unit]
+Description=Kartometr Flask App
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/app
+EnvironmentFile=/opt/app/.env
+ExecStart=/opt/app/venv/bin/gunicorn -w 3 -b 127.0.0.1:8000 app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+Команды управления:
+systemctl status kartometr      # проверить статус
+systemctl restart kartometr     # перезапустить
+systemctl stop kartometr        # остановить
+journalctl -u kartometr -n 50   # последние 50 строк логов
+Gunicorn слушает на 127.0.0.1:8000 (3 воркера, синхронный режим).
+7. NGINX (обратный прокси + HTTPS)
+Файл: /etc/nginx/sites-available/kartometr
+Симлинк: /etc/nginx/sites-enabled/kartometr
+server {
+    listen 80;
+    server_name kartometr.ru www.kartometr.ru;
+    client_max_body_size 20M;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # HTTPS-блок добавлен автоматически certbot'ом:
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/kartometr.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/kartometr.ru/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+Стандартный сайт Nginx (default) удалён из sites-enabled.
+Команды Nginx:
+nginx -t                    # проверка конфигурации
+systemctl restart nginx     # перезапуск
+8. HTTPS (Let's Encrypt / Certbot)
+Сертификат выпущен 2026-08-03
+Истекает: 2026-11-01
+Автопродление настроено (systemd timer certbot)
+Проверка автопродления: certbot renew --dry-run
+Файлы сертификата: /etc/letsencrypt/live/kartometr.ru/
+9. БАЗА ДАННЫХ (SUPABASE)
+URL проекта: https://iuwfpjuwukobylqxgwtb.supabase.co
+Таблицы в PostgreSQL:
+Таблица
+Назначение
+profiles
+Профили пользователей и заведений
+spots
+Метки на карте
+spot_comments
+Комментарии к меткам
+spot_collaborators
+Со-участники меток
+friendships
+Дружба (pending/accepted)
+messages
+Личные сообщения
+user_achievements
+Достижения/бейджи
+Ключевые поля profiles:
+id (uuid, PK = auth.users.id), username, display_name, account_type (person/organization), avatar_url, bio, age, location, category, address, lat, lng, is_verified, visible_categories, xp, level, telegram_id
+Ключевые поля spots:
+id, owner_id (FK → profiles), title, description, lat, lng, visibility (public/friends), is_live, placement_type (geo/manual), expires_at, photo_url, category, mood, voice_url, organization_id, wave_ends_at, wave_max_people
+Storage-бакеты (для файлов):
+avatars — аватарки пользователей
+spot-photos — фото меток
+voice-notes — голосовые заметки
+RLS (Row Level Security):
+На таблицах включён RLS. Для работы приложения необходимо, чтобы политики разрешали:
+SELECT профилей для авторизованных пользователей
+INSERT/UPDATE/DELETE для владельца записи (owner_id = auth.uid())
+⚠️ Известная проблема: если RLS-политики настроены неправильно, запросы к Supabase возвращают ошибки. При любых проблемах с данными — проверять RLS в Supabase Dashboard → Authentication → Policies.
+10. ГИТ-РЕПОЗИТОРИЙ И ДЕПЛОЙ
+Репозиторий: https://github.com/Sterevision/naspote.git (ветка main)
+Рабочий процесс деплоя:
+На ПК (Windows):
+cd C:\Users\Parallax\Desktop\naspote
+git add .
+git commit -m "описание изменений"
+git push
+На сервере (SSH):
+cd /opt/app
+git pull
+systemctl restart kartometr
+⚠️ Каждую команду вводить отдельно, нажимая Enter после каждой. НЕ вводить несколько команд через пробел в одну строку.
+11. УСТАНОВЛЕННОЕ ПО НА СЕРВЕРЕ
+# Установка (выполнена при первичной настройке):
+apt update && apt upgrade -y
+apt install -y nginx python3-venv python3-pip git certbot python3-certbot-nginx
+
+# Виртуальное окружение:
+cd /opt/app
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt

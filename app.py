@@ -2,8 +2,10 @@ import os
 import re
 import uuid
 import logging
+import logging.handlers
 from datetime import datetime, timedelta, timezone
 from functools import wraps
+from urllib.parse import urlsplit
 
 from flask import (
     Flask,
@@ -16,16 +18,57 @@ from flask import (
     flash,
 )
 from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 from supabase import create_client
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+
+# =========================================================
+# LOGGING SETUP
+# =========================================================
+
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+LOG_FILE = os.environ.get("LOG_FILE", "").strip()
+
 logger = logging.getLogger("kartometr")
+logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+
+# Консольный вывод
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_formatter = logging.Formatter(
+    "%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
+console_handler.setFormatter(console_formatter)
+logger.addHandler(console_handler)
+
+# Файловый вывод (если указан LOG_FILE)
+if LOG_FILE:
+    try:
+        log_dir = os.path.dirname(LOG_FILE)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+
+        file_handler = logging.handlers.RotatingFileHandler(
+            LOG_FILE,
+            maxBytes=5 * 1024 * 1024,  # 5 MB
+            backupCount=5,
+            encoding="utf-8",
+        )
+        file_handler.setLevel(logging.INFO)
+        file_formatter = logging.Formatter(
+            "%(asctime)s %(levelname)s %(name)s [%(module)s:%(lineno)d] %(message)s"
+        )
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+
+        logger.info("File logging enabled: %s", LOG_FILE)
+    except Exception as e:
+        logger.warning("Could not set up file logging: %s", e)
 
 
 # =========================================================
@@ -53,10 +96,6 @@ app.config.update(
     MAX_CONTENT_LENGTH=20 * 1024 * 1024,
 )
 
-# Secure cookies:
-# - auto: включаются, если FLASK_ENV=production
-# - 1/true/yes/on: включить принудительно
-# - 0/false/no/off: выключить принудительно
 secure_mode = os.environ.get("SESSION_COOKIE_SECURE", "auto").strip().lower()
 
 if secure_mode == "auto":
@@ -66,6 +105,141 @@ if secure_mode == "auto":
 else:
     app.config["SESSION_COOKIE_SECURE"] = secure_mode in ("1", "true", "yes", "on")
 
+
+# Reverse proxy support
+behind_proxy = os.environ.get("BEHIND_PROXY", "1").strip().lower() in ("1", "true", "yes", "on")
+
+if behind_proxy:
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=1,
+        x_proto=1,
+        x_host=1,
+    )
+
+
+# =========================================================
+# RATE LIMITING
+# =========================================================
+
+rate_limits_enabled = os.environ.get("RATE_LIMITS_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on")
+
+default_limits = []
+
+if rate_limits_enabled:
+    default_limits = [
+        "600 per hour",
+        "180 per minute",
+    ]
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=default_limits,
+    storage_uri="memory://",
+)
+
+if rate_limits_enabled:
+    @limiter.request_filter
+    def exempt_static_files():
+        return request.endpoint == "static"
+
+
+def rate_limit(limit_value: str):
+    if rate_limits_enabled:
+        return limiter.limit(limit_value)
+
+    def decorator(func):
+        return func
+
+    return decorator
+
+
+# =========================================================
+# CSRF PROTECTION
+# =========================================================
+
+CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def same_origin(left: str, right: str) -> bool:
+    try:
+        left_parts = urlsplit(left)
+        right_parts = urlsplit(right)
+
+        return (
+            left_parts.scheme == right_parts.scheme
+            and left_parts.netloc == right_parts.netloc
+        )
+    except Exception:
+        return False
+
+
+@app.before_request
+def csrf_protect():
+    if request.method in CSRF_SAFE_METHODS:
+        return
+
+    origin = (request.headers.get("Origin") or "").strip()
+    referer = (request.headers.get("Referer") or "").strip()
+    base_url = request.host_url.rstrip("/")
+
+    if origin and same_origin(origin, base_url):
+        return
+
+    if referer and same_origin(referer, base_url):
+        return
+
+    csrf_mode = os.environ.get("CSRF_STRICT", "auto").strip().lower()
+
+    if csrf_mode == "auto":
+        strict = os.environ.get("FLASK_ENV", "development").strip().lower() == "production"
+    else:
+        strict = csrf_mode in ("1", "true", "yes", "on")
+
+    if origin or referer or strict:
+        logger.warning(
+            "CSRF blocked: method=%s path=%s origin=%s referer=%s",
+            request.method,
+            request.path,
+            origin,
+            referer,
+        )
+
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "CSRF check failed"}), 403
+
+        return "CSRF check failed", 403
+
+
+# =========================================================
+# REQUEST LOGGING
+# =========================================================
+
+@app.before_request
+def log_request_info():
+    logger.info(
+        "Request: %s %s from %s",
+        request.method,
+        request.path,
+        request.remote_addr or "unknown",
+    )
+
+
+@app.after_request
+def log_response_info(response):
+    logger.info(
+        "Response: %s %s -> %s",
+        request.method,
+        request.path,
+        response.status_code,
+    )
+    return response
+
+
+# =========================================================
+# APP CONSTANTS
+# =========================================================
 
 CATEGORIES = [
     "Бар",
@@ -374,6 +548,67 @@ def get_accepted_friendship(sb, uid: str, other_id: str):
     return res.data[0] if res.data else None
 
 
+def fallback_conversations(sb, uid: str):
+    friendships_res = (
+        sb.table("friendships")
+        .select("requester_id, addressee_id")
+        .eq("status", "accepted")
+        .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}")
+        .limit(500)
+        .execute()
+    )
+
+    friend_ids = []
+
+    for friendship in friendships_res.data or []:
+        friend_id = (
+            friendship["addressee_id"]
+            if friendship["requester_id"] == uid
+            else friendship["requester_id"]
+        )
+
+        if friend_id not in friend_ids:
+            friend_ids.append(friend_id)
+
+    if not friend_ids:
+        return []
+
+    profiles_res = (
+        sb.table("profiles")
+        .select("id, username, display_name, avatar_url")
+        .in_("id", friend_ids)
+        .limit(500)
+        .execute()
+    )
+
+    profiles_by_id = {
+        profile["id"]: profile
+        for profile in profiles_res.data or []
+    }
+
+    result = []
+
+    for friend_id in friend_ids:
+        profile = profiles_by_id.get(friend_id, {})
+
+        result.append(
+            {
+                "friend_id": friend_id,
+                "username": profile.get("username"),
+                "display_name": profile.get("display_name"),
+                "avatar_url": profile.get("avatar_url"),
+                "last_message_text": None,
+                "last_message_at": None,
+                "last_message_mine": False,
+                "unread_count": 0,
+            }
+        )
+
+    result.sort(key=lambda item: (item.get("display_name") or "").lower())
+
+    return result
+
+
 # =========================================================
 # PAGES
 # =========================================================
@@ -387,6 +622,7 @@ def index():
 
 
 @app.route("/register", methods=["GET", "POST"])
+@rate_limit("20 per minute")
 def register():
     if request.method == "GET":
         return render_template("register.html", categories=CATEGORIES)
@@ -485,6 +721,7 @@ def register():
 
 
 @app.route("/login", methods=["GET", "POST"])
+@rate_limit("20 per minute")
 def login():
     if request.method == "GET":
         return render_template("login.html")
@@ -942,6 +1179,7 @@ def api_spots_list(sb, profile):
 
 
 @app.route("/api/spots", methods=["POST"])
+@rate_limit("10 per minute")
 @login_required
 def api_spots_create(sb, profile):
     uid = profile["id"]
@@ -1089,6 +1327,7 @@ def api_spots_create(sb, profile):
 
 
 @app.route("/api/spots/<int:spot_id>", methods=["DELETE"])
+@rate_limit("20 per minute")
 @login_required
 def api_spots_delete(sb, profile, spot_id):
     try:
@@ -1129,6 +1368,7 @@ def api_achievements(sb, profile):
 
 
 @app.route("/api/spots/<int:spot_id>/comments", methods=["GET", "POST"])
+@rate_limit("30 per minute")
 @login_required
 def api_spot_comments(sb, profile, spot_id):
     uid = profile["id"]
@@ -1287,6 +1527,7 @@ def api_spot_collaborators(sb, profile, spot_id):
 
 
 @app.route("/api/spots/<int:spot_id>/collaborate", methods=["POST"])
+@rate_limit("20 per minute")
 @login_required
 def api_spot_collaborate(sb, profile, spot_id):
     uid = profile["id"]
@@ -1351,6 +1592,7 @@ def api_spot_collaborate(sb, profile, spot_id):
 
 
 @app.route("/api/spots/voice", methods=["POST"])
+@rate_limit("20 per hour")
 @login_required
 def api_spot_voice(sb, profile):
     try:
@@ -1413,6 +1655,7 @@ def api_friends_list(sb, profile):
 
 
 @app.route("/api/friends/<username>/add", methods=["POST"])
+@rate_limit("20 per minute")
 @login_required
 def api_friend_add(sb, profile, username):
     uid = profile["id"]
@@ -1479,6 +1722,7 @@ def api_friend_add(sb, profile, username):
 
 
 @app.route("/api/friends/<int:friendship_id>/accept", methods=["POST"])
+@rate_limit("30 per minute")
 @login_required
 def api_friend_accept(sb, profile, friendship_id):
     res = (
@@ -1496,6 +1740,7 @@ def api_friend_accept(sb, profile, friendship_id):
 
 
 @app.route("/api/friends/<int:friendship_id>/decline", methods=["POST"])
+@rate_limit("30 per minute")
 @login_required
 def api_friend_decline(sb, profile, friendship_id):
     res = (
@@ -1513,6 +1758,7 @@ def api_friend_decline(sb, profile, friendship_id):
 
 
 @app.route("/api/friends/<int:friendship_id>", methods=["DELETE"])
+@rate_limit("30 per minute")
 @login_required
 def api_friend_remove(sb, profile, friendship_id):
     uid = profile["id"]
@@ -1535,7 +1781,25 @@ def api_friend_remove(sb, profile, friendship_id):
 # API: MESSAGES
 # =========================================================
 
+@app.route("/api/conversations")
+@login_required
+def api_conversations(sb, profile):
+    uid = profile["id"]
+
+    try:
+        res = sb.rpc("get_conversations").execute()
+
+        if isinstance(res.data, list):
+            return jsonify(res.data)
+
+    except Exception:
+        logger.exception("RPC get_conversations failed, using fallback")
+
+    return jsonify(fallback_conversations(sb, uid))
+
+
 @app.route("/api/messages/<friend_id>", methods=["GET", "POST"])
+@rate_limit("120 per minute")
 @login_required
 def api_messages(sb, profile, friend_id):
     uid = profile["id"]
@@ -1660,6 +1924,7 @@ def api_unread_count(sb, profile):
 # =========================================================
 
 @app.route("/api/organizations/search")
+@rate_limit("30 per minute")
 @login_required
 def api_search_organizations(sb, profile):
     q_raw = request.args.get("q", "")
@@ -1703,6 +1968,7 @@ def api_search_organizations(sb, profile):
 
 
 @app.route("/api/search_users")
+@rate_limit("30 per minute")
 @login_required
 def api_search_users(sb, profile):
     q_raw = request.args.get("q", "")

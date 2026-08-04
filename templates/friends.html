@@ -1,78 +1,343 @@
 {% extends "base.html" %}
+
 {% block title %}Друзья — Картометр{% endblock %}
+
 {% block content %}
-<div class="list-page">
-    <div class="page-head"><h2 class="display" style="font-size:24px;">🤝 Друзья</h2></div>
-    <div class="field"><input type="text" id="friendSearch" placeholder="🔍 Найти человека по имени..."></div>
-    <div id="searchResults"></div>
+<div class="app-shell">
+    <div class="list-page" style="flex:1; overflow-y:auto;">
+        <div class="page-head">
+            <div>
+                <h1 class="display" style="font-size:24px; margin-bottom:6px;">
+                    🤝 Друзья
+                </h1>
 
-    {% if incoming %}
-    <div class="section-title">Хотят добавить вас · {{ incoming|length }}</div>
-        {% for req in incoming %}
-        <div class="row-card">
-            <div class="avatar">{{ req.requester.display_name[:1]|upper }}</div>
-            <div class="info"><div class="name">{{ req.requester.display_name }}</div><div class="sub">@{{ req.requester.username }}</div></div>
-            <div style="display:flex;gap:6px;">
-                <button class="btn btn-green btn-sm" onclick="acceptReq({{ req.id }}, this)">✓</button>
-                <button class="btn btn-soft btn-sm" onclick="declineReq({{ req.id }}, this)">✕</button>
+                <p class="subtitle">
+                    Заявки, поиск и ваши друзья
+                </p>
             </div>
         </div>
-        {% endfor %}
-    {% endif %}
 
-    <div class="section-title">Ваши друзья · {{ accepted|length }}</div>
-    {% if accepted %}
-        {% for f in accepted %}
-        {% set friend = f.requester if f.requester_id != my_id else f.addressee %}
-        <div class="row-card">
-            <div class="avatar">{{ friend.display_name[:1]|upper }}</div>
-            <div class="info"><div class="name">{{ friend.display_name }}</div><div class="sub">@{{ friend.username }}</div></div>
-            <div style="display:flex;gap:6px;">
-                <a class="btn btn-soft btn-sm" href="{{ url_for('chat_view', username=friend.username) }}">💬</a>
-                <a class="btn btn-soft btn-sm" href="{{ url_for('profile_view', username=friend.username) }}">Профиль</a>
-            </div>
+        <div class="section-title">
+            Поиск людей
         </div>
-        {% endfor %}
-    {% else %}
-        <div class="empty-state"><div class="em">🤝</div><p>Пока нет друзей.<br>Найдите близких через поиск!</p></div>
-    {% endif %}
+
+        <div class="search-box">
+            <input
+                type="text"
+                id="friendSearchInput"
+                placeholder="Найти по имени или username"
+                autocomplete="off"
+                style="width:100%; padding:14px 16px; border:1.5px solid var(--line); border-radius:var(--radius-pill); font-size:15px;"
+            >
+        </div>
+
+        <div id="friendSearchResults"></div>
+
+        {% if incoming %}
+            <div class="section-title">
+                Хотят добавить вас · {{ incoming|length }}
+            </div>
+
+            {% for req in incoming %}
+                <div class="row-card">
+                    <div class="avatar">
+                        {% if req.requester.avatar_url %}
+                            <img src="{{ req.requester.avatar_url }}" alt="">
+                        {% else %}
+                            {{ req.requester.display_name[:1]|upper }}
+                        {% endif %}
+                    </div>
+
+                    <div class="info">
+                        <div class="name">
+                            {{ req.requester.display_name }}
+                        </div>
+
+                        <div class="sub">
+                            @{{ req.requester.username }}
+                        </div>
+                    </div>
+
+                    <button class="btn btn-green btn-sm accept-friend-btn" type="button" data-id="{{ req.id }}">
+                        ✓
+                    </button>
+
+                    <button class="btn btn-soft btn-sm decline-friend-btn" type="button" data-id="{{ req.id }}">
+                        ✕
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="section-title">
+            Ваши друзья · {{ accepted|length }}
+        </div>
+
+        {% if accepted %}
+            {% for f in accepted %}
+                {% set friend = f.requester if f.requester_id != my_id else f.addressee %}
+
+                <div class="row-card">
+                    <div class="avatar">
+                        {% if friend.avatar_url %}
+                            <img src="{{ friend.avatar_url }}" alt="">
+                        {% else %}
+                            {{ friend.display_name[:1]|upper }}
+                        {% endif %}
+                    </div>
+
+                    <div class="info">
+                        <div class="name">
+                            {{ friend.display_name }}
+                        </div>
+
+                        <div class="sub">
+                            @{{ friend.username }}
+                        </div>
+                    </div>
+
+                    <a class="btn btn-soft btn-sm" href="{{ url_for('chat_view', username=friend.username) }}">
+                        💬
+                    </a>
+
+                    <a class="btn btn-soft btn-sm" href="{{ url_for('profile_view', username=friend.username) }}">
+                        👤
+                    </a>
+
+                    <button class="btn btn-ghost btn-sm remove-friend-btn" type="button" data-id="{{ f.id }}">
+                        ✕
+                    </button>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <span class="em">🤝</span>
+                <p>
+                    Пока нет друзей.<br>
+                    Найдите близких через поиск!
+                </p>
+            </div>
+        {% endif %}
+    </div>
+
+    <nav class="bottom-nav">
+        <a class="nav-item" href="{{ url_for('map_view') }}">
+            <span class="ic">🗺️</span>
+            Карта
+        </a>
+
+        <a class="nav-item" href="{{ url_for('feed_view') }}">
+            <span class="ic">📰</span>
+            Лента
+        </a>
+
+        <a class="nav-item active" href="{{ url_for('friends_view') }}">
+            <span class="ic">🤝</span>
+            Друзья
+        </a>
+
+        <a class="nav-item" href="{{ url_for('messages_view') }}">
+            <span class="ic">💬</span>
+            Чаты
+        </a>
+
+        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}">
+            <span class="ic">👤</span>
+            Профиль
+        </a>
+    </nav>
 </div>
-<nav class="bottom-nav">
-    <a href="{{ url_for('map_view') }}" class="nav-item"><span class="ic">🗺️</span>Карта</a>
-    <a href="{{ url_for('feed_view') }}" class="nav-item"><span class="ic">📰</span>Лента</a>
-    <a href="{{ url_for('friends_view') }}" class="nav-item active" id="navFriends"><span class="ic">🤝</span>Друзья</a>
-    <a href="{{ url_for('messages_view') }}" class="nav-item" id="navMessages"><span class="ic">💬</span>Чаты</a>
-    <a href="{{ url_for('profile_view', username=profile.username) }}" class="nav-item"><span class="ic">👤</span>Профиль</a>
-</nav>
+{% endblock %}
+
+{% block scripts %}
 <script>
-var t;
-document.getElementById('friendSearch').addEventListener('input', function () {
-    clearTimeout(t);
-    var q = this.value.trim();
-    var box = document.getElementById('searchResults');
-    if (!q) { box.innerHTML = ''; return; }
-    t = setTimeout(async function () {
-        var res = await fetch('/api/search_users?q=' + encodeURIComponent(q));
-        var users = await res.json();
-        box.innerHTML = users.length ? '<div class="section-title">Найдены</div>' + users.map(function (u) {
-            return '<div class="row-card"><div class="avatar">' + (u.display_name || '?')[0].toUpperCase() + '</div><div class="info"><div class="name">' + u.display_name + '</div><div class="sub">@' + u.username + '</div></div><button class="btn btn-primary btn-sm" onclick="addFriend(\'' + u.username + '\', this)">+</button></div>';
-        }).join('') : '<div class="empty-state"><div class="em">🔎</div><p>Никого не нашли</p></div>';
-    }, 300);
-});
-async function addFriend(username, btn) {
-    btn.disabled = true;
-    var res = await fetch('/api/friends/' + username + '/add', { method: 'POST' });
-    if (res.ok) { btn.textContent = '✓'; } else { btn.disabled = false; }
-}
-async function acceptReq(id, btn) {
-    btn.disabled = true;
-    await fetch('/api/friends/' + id + '/accept', { method: 'POST' });
-    location.reload();
-}
-async function declineReq(id, btn) {
-    btn.disabled = true;
-    await fetch('/api/friends/' + id + '/decline', { method: 'POST' });
-    location.reload();
-}
+    document.addEventListener('DOMContentLoaded', function () {
+        function reloadPage() {
+            window.location.reload();
+        }
+
+        document.querySelectorAll('.accept-friend-btn').forEach(function (button) {
+            button.addEventListener('click', async function () {
+                button.disabled = true;
+
+                try {
+                    var response = await fetch('/api/friends/' + button.dataset.id + '/accept', {
+                        method: 'POST',
+                        credentials: 'same-origin'
+                    });
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    reloadPage();
+                } catch (error) {
+                    alert('Ошибка сети');
+                    button.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('.decline-friend-btn').forEach(function (button) {
+            button.addEventListener('click', async function () {
+                button.disabled = true;
+
+                try {
+                    var response = await fetch('/api/friends/' + button.dataset.id + '/decline', {
+                        method: 'POST',
+                        credentials: 'same-origin'
+                    });
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    reloadPage();
+                } catch (error) {
+                    alert('Ошибка сети');
+                    button.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('.remove-friend-btn').forEach(function (button) {
+            button.addEventListener('click', async function () {
+                if (!confirm('Удалить из друзей?')) {
+                    return;
+                }
+
+                button.disabled = true;
+
+                try {
+                    var response = await fetch('/api/friends/' + button.dataset.id, {
+                        method: 'DELETE',
+                        credentials: 'same-origin'
+                    });
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    reloadPage();
+                } catch (error) {
+                    alert('Ошибка сети');
+                    button.disabled = false;
+                }
+            });
+        });
+
+        var searchInput = document.getElementById('friendSearchInput');
+        var searchResults = document.getElementById('friendSearchResults');
+        var searchTimer = null;
+
+        if (searchInput && searchResults) {
+            searchInput.addEventListener('input', function () {
+                clearTimeout(searchTimer);
+
+                var query = this.value.trim();
+
+                if (!query) {
+                    searchResults.innerHTML = '';
+                    return;
+                }
+
+                searchTimer = setTimeout(async function () {
+                    try {
+                        var response = await fetch('/api/search_users?q=' + encodeURIComponent(query), {
+                            credentials: 'same-origin'
+                        });
+
+                        if (response.status === 401) {
+                            window.location.href = '/login';
+                            return;
+                        }
+
+                        if (!response.ok) {
+                            searchResults.innerHTML = '';
+                            return;
+                        }
+
+                        var users = await response.json();
+
+                        searchResults.innerHTML = '';
+
+                        if (!users.length) {
+                            searchResults.innerHTML = '<p class="hint" style="padding:10px 4px;">Никого не нашли</p>';
+                            return;
+                        }
+
+                        users.forEach(function (user) {
+                            var row = document.createElement('div');
+                            row.className = 'row-card';
+
+                            var avatar = document.createElement('div');
+                            avatar.className = 'avatar';
+                            avatar.textContent = (user.display_name || user.username || '?')[0].toUpperCase();
+
+                            var info = document.createElement('div');
+                            info.className = 'info';
+
+                            var name = document.createElement('div');
+                            name.className = 'name';
+                            name.textContent = user.display_name || user.username;
+
+                            var sub = document.createElement('div');
+                            sub.className = 'sub';
+                            sub.textContent = '@' + user.username;
+
+                            info.appendChild(name);
+                            info.appendChild(sub);
+
+                            var addButton = document.createElement('button');
+                            addButton.className = 'btn btn-primary btn-sm';
+                            addButton.textContent = 'Добавить';
+                            addButton.addEventListener('click', async function () {
+                                addButton.disabled = true;
+
+                                try {
+                                    var addResponse = await fetch('/api/friends/' + encodeURIComponent(user.username) + '/add', {
+                                        method: 'POST',
+                                        credentials: 'same-origin'
+                                    });
+
+                                    if (addResponse.status === 401) {
+                                        window.location.href = '/login';
+                                        return;
+                                    }
+
+                                    if (addResponse.ok) {
+                                        addButton.textContent = '✓ Заявка отправлена';
+                                        addButton.classList.remove('btn-primary');
+                                        addButton.classList.add('btn-soft');
+                                    } else {
+                                        var errorData = await addResponse.json().catch(function () {
+                                            return {};
+                                        });
+
+                                        alert(errorData.error || 'Не удалось отправить заявку');
+                                        addButton.disabled = false;
+                                    }
+                                } catch (error) {
+                                    alert('Ошибка сети');
+                                    addButton.disabled = false;
+                                }
+                            });
+
+                            row.appendChild(avatar);
+                            row.appendChild(info);
+                            row.appendChild(addButton);
+
+                            searchResults.appendChild(row);
+                        });
+                    } catch (error) {
+                        searchResults.innerHTML = '';
+                    }
+                }, 300);
+            });
+        }
+    });
 </script>
 {% endblock %}
