@@ -1,65 +1,20 @@
 {% extends "base.html" %}
-
 {% block title %}Картометр — карта живого города{% endblock %}
-
 {% block content %}
 <div class="center-page">
     <div class="auth-box card">
-        <div class="logo-circle">
-            📍
-        </div>
-
-        <h1 class="display" style="text-align:center; font-size:26px; margin-bottom:10px;">
-            Картометр
-        </h1>
-
-        <p class="subtitle" style="text-align:center;">
-            Не лента, а карта. Оставь метку — где ты и что тут происходит, —
-            и друзья увидят это сразу.
-        </p>
-
+        <div class="logo-circle">📍</div>
+        <h1 class="display" style="text-align:center">Картометр</h1>
+        <p class="subtitle" style="text-align:center">Не лента, а карта. Оставь метку — где ты и что тут происходит — и друзья увидят это сразу.</p>
         <div class="cta-row">
-            <a class="btn btn-primary btn-block" href="{{ url_for('register') }}">
-                Создать профиль
-            </a>
-
-            <a class="btn btn-ghost btn-block" href="{{ url_for('login') }}">
-                Войти
-            </a>
+            <a class="btn btn-primary btn-block" href="{{ url_for('register') }}">Создать профиль</a>
+            <a class="btn btn-ghost btn-block" href="{{ url_for('login') }}">Войти</a>
         </div>
-
         <div class="feature-list">
-            <div class="feature-item">
-                <span class="em">📍</span>
-                <div>
-                    <b>Метки на карте</b>
-                    <span>Покажи, где ты — или где сейчас весело</span>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <span class="em">🤝</span>
-                <div>
-                    <b>Гибкая приватность</b>
-                    <span>Метку видят все или только близкие</span>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <span class="em">⏳</span>
-                <div>
-                    <b>Метки живут своим временем</b>
-                    <span>Сам решаешь, на сколько часов оставить след</span>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <span class="em">⚡</span>
-                <div>
-                    <b>Волны</b>
-                    <span>Собери людей на событие прямо сейчас</span>
-                </div>
-            </div>
+            <div class="feature-item"><span class="em">📍</span><div><b>Метки на карте</b><span>Покажи, где ты</span></div></div>
+            <div class="feature-item"><span class="em">🤝</span><div><b>Гибкая приватность</b><span>Все или только близкие</span></div></div>
+            <div class="feature-item"><span class="em">⏳</span><div><b>Своё время жизни</b><span>1–24 часа</span></div></div>
+            <div class="feature-item"><span class="em">⚡</span><div><b>Волны</b><span>События в реальном времени</span></div></div>
         </div>
     </div>
 </div>

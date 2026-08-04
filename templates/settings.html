@@ -1,242 +1,26 @@
 {% extends "base.html" %}
-
 {% block title %}Настройки — Картометр{% endblock %}
-
 {% block content %}
 <div class="app-shell">
     <div class="list-page" style="flex:1; overflow-y:auto;">
-        <div class="page-head">
-            <div>
-                <h1 class="display" style="font-size:24px; margin-bottom:6px;">
-                    ⚙️ Настройки
-                </h1>
-
-                <p class="subtitle">
-                    Профиль, приватность и аккаунт
-                </p>
-            </div>
-        </div>
-
-        <div class="section-title">
-            Профиль
-        </div>
-
+        <div class="page-head"><div><h1 class="display" style="font-size:24px">⚙️ Настройки</h1></div></div>
         <form method="post" enctype="multipart/form-data">
             <input type="hidden" name="form_name" value="profile">
-
-            <div class="avatar-upload-row">
-                <div class="avatar-preview">
-                    {% if profile.avatar_url %}
-                        <img src="{{ profile.avatar_url }}" alt="">
-                    {% else %}
-                        {{ profile.display_name[:1]|upper }}
-                    {% endif %}
-                </div>
-
-                <div style="flex:1;">
-                    <div class="field" style="margin-bottom:0;">
-                        <label for="avatar">Фото профиля</label>
-                        <input type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp">
-                    </div>
-                </div>
-            </div>
-
-            {% if profile.account_type == 'organization' %}
-                <div class="field">
-                    <label for="cover">Обложка страницы</label>
-                    <input type="file" id="cover" name="cover" accept="image/jpeg,image/png,image/webp">
-                </div>
-            {% endif %}
-
-            <div class="field">
-                <label for="display_name">
-                    {% if profile.account_type == 'organization' %}
-                        Название заведения
-                    {% else %}
-                        Ваше имя
-                    {% endif %}
-                </label>
-
-                <input
-                    type="text"
-                    id="display_name"
-                    name="display_name"
-                    maxlength="80"
-                    value="{{ profile.display_name or '' }}"
-                >
-            </div>
-
-            <div class="field">
-                <label for="location">
-                    Где вы {% if profile.account_type == 'organization' %}находитесь{% else %}живёте{% endif %}
-                </label>
-
-                <input
-                    type="text"
-                    id="location"
-                    name="location"
-                    maxlength="100"
-                    value="{{ profile.location or '' }}"
-                >
-            </div>
-
-            {% if profile.account_type == 'organization' %}
-                <div class="field">
-                    <label for="category">Категория</label>
-
-                    <select id="category" name="category">
-                        <option value="">Не выбрано</option>
-
-                        {% for c in categories %}
-                            <option value="{{ c }}" {% if profile.category == c %}selected{% endif %}>
-                                {{ c }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="field">
-                    <label for="address">Адрес</label>
-
-                    <input
-                        type="text"
-                        id="address"
-                        name="address"
-                        maxlength="200"
-                        value="{{ profile.address or '' }}"
-                    >
-                </div>
-            {% else %}
-                <div class="field">
-                    <label for="age">Возраст</label>
-
-                    <input
-                        type="number"
-                        id="age"
-                        name="age"
-                        min="13"
-                        max="120"
-                        value="{{ profile.age or '' }}"
-                    >
-                </div>
-            {% endif %}
-
-            <div class="field">
-                <label for="bio">О себе</label>
-
-                <textarea id="bio" name="bio" maxlength="500">{{ profile.bio or '' }}</textarea>
-            </div>
-
-            <button class="btn btn-primary btn-block" type="submit">
-                Сохранить
-            </button>
+            <div class="field"><label>Имя</label><input type="text" name="display_name" value="{{ profile.display_name or '' }}"></div>
+            <div class="field"><label>Локация</label><input type="text" name="location" value="{{ profile.location or '' }}"></div>
+            <div class="field"><label>О себе</label><textarea name="bio">{{ profile.bio or '' }}</textarea></div>
+            <div class="field"><label>Аватар</label><input type="file" name="avatar" accept="image/*"></div>
+            <button class="btn btn-primary btn-block" type="submit">Сохранить</button>
         </form>
-
-        {% if profile.account_type != 'organization' %}
-            <div class="section-divider"></div>
-
-            <div class="section-title">
-                Фильтр карты
-            </div>
-
-            <p class="hint" style="margin-bottom:14px;">
-                Выбери, метки каких категорий показывать.
-                Свои метки и метки без категории видны всегда.
-            </p>
-
-            <form method="post" id="visibilityForm">
-                <input type="hidden" name="form_name" value="visibility">
-
-                <label class="checkbox-row">
-                    <input
-                        type="checkbox"
-                        name="show_all_categories"
-                        {% if not profile.visible_categories %}checked{% endif %}
-                    >
-                    Показывать все категории
-                </label>
-
-                {% for c in categories %}
-                    <label class="checkbox-row">
-                        <input
-                            type="checkbox"
-                            name="visible_categories"
-                            value="{{ c }}"
-                            {% if profile.visible_categories and c in profile.visible_categories %}checked{% endif %}
-                        >
-                        {{ c }}
-                    </label>
-                {% endfor %}
-
-                <button class="btn btn-soft btn-block" type="submit" style="margin-top:14px;">
-                    Сохранить фильтр
-                </button>
-            </form>
-        {% endif %}
-
         <div class="section-divider"></div>
-
-        <a class="btn btn-soft btn-block" href="{{ url_for('profile_view', username=profile.username) }}">
-            ← Готово
-        </a>
-
-        <a class="btn btn-ghost btn-block" href="{{ url_for('logout') }}" style="margin-top:10px;">
-            Выйти
-        </a>
+        <a class="btn btn-ghost btn-block" href="{{ url_for('logout') }}" style="margin-top:10px;">Выйти</a>
     </div>
-
     <nav class="bottom-nav">
-        <a class="nav-item" href="{{ url_for('map_view') }}">
-            <span class="ic">🗺️</span>
-            Карта
-        </a>
-
-        <a class="nav-item" href="{{ url_for('feed_view') }}">
-            <span class="ic">📰</span>
-            Лента
-        </a>
-
-        <a class="nav-item" href="{{ url_for('friends_view') }}">
-            <span class="ic">🤝</span>
-            Друзья
-        </a>
-
-        <a class="nav-item" href="{{ url_for('messages_view') }}">
-            <span class="ic">💬</span>
-            Чаты
-        </a>
-
-        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}">
-            <span class="ic">👤</span>
-            Профиль
-        </a>
+        <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span>Карта</a>
+        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">📰</span>Лента</a>
+        <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span>Друзья</a>
+        <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">💬</span>Чаты</a>
+        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span>Профиль</a>
     </nav>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var showAllCheckbox = document.querySelector('input[name="show_all_categories"]');
-        var categoryCheckboxes = document.querySelectorAll('input[name="visible_categories"]');
-
-        if (showAllCheckbox && categoryCheckboxes.length) {
-            showAllCheckbox.addEventListener('change', function () {
-                if (showAllCheckbox.checked) {
-                    categoryCheckboxes.forEach(function (checkbox) {
-                        checkbox.checked = false;
-                    });
-                }
-            });
-
-            categoryCheckboxes.forEach(function (checkbox) {
-                checkbox.addEventListener('change', function () {
-                    if (checkbox.checked) {
-                        showAllCheckbox.checked = false;
-                    }
-                });
-            });
-        }
-    });
-</script>
 {% endblock %}

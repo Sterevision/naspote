@@ -14,20 +14,14 @@
 <body>
     {% with messages = get_flashed_messages() %}
         {% if messages %}
-            <div id="flashMessages">
-                {% for message in messages %}
-                    <div class="flash">{{ message }}</div>
-                {% endfor %}
-            </div>
+            {% for message in messages %}
+                <div class="flash">{{ message }}</div>
+            {% endfor %}
         {% endif %}
     {% endwith %}
     {% block content %}{% endblock %}
     <script>
-        {% if profile is defined and profile and profile.id %}
-            window.CURRENT_USER_ID = {{ profile.id | tojson }};
-        {% else %}
-            window.CURRENT_USER_ID = null;
-        {% endif %}
+        window.CURRENT_USER_ID = {{ session.get('user_id')|tojson if session.get('user_id') else 'null' }};
     </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="{{ url_for('static', filename='js/nav.js') }}"></script>

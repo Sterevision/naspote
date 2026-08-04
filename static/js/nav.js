@@ -1,72 +1,24 @@
 (function () {
-    'use strict';
-
-    function addBadge(link) {
-        if (!link) {
-            return;
-        }
-
-        if (link.querySelector('.nav-badge')) {
-            return;
-        }
-
-        var badge = document.createElement('span');
-        badge.className = 'nav-badge';
-
-        var icon = link.querySelector('.ic');
-
-        if (icon) {
-            icon.insertAdjacentElement('afterend', badge);
-        } else {
-            link.appendChild(badge);
-        }
-    }
-
-    function updateBadges() {
-        var bottomNav = document.querySelector('.bottom-nav');
-
-        if (!bottomNav) {
-            return;
-        }
-
-        fetch('/api/messages/unread_count', {
-            credentials: 'same-origin'
-        })
-            .then(function (response) {
-                if (!response.ok) {
-                    return null;
-                }
-
-                return response.json();
-            })
-            .then(function (data) {
-                if (!data) {
-                    return;
-                }
-
-                var friendsLink = document.querySelector('.bottom-nav a[href="/friends"]');
-                var messagesLink = document.querySelector('.bottom-nav a[href="/messages"]');
-
-                if (data.friend_requests > 0) {
-                    addBadge(friendsLink);
-                }
-
-                if (data.messages > 0) {
-                    addBadge(messagesLink);
-                }
-            })
-            .catch(function () {
-                // silent
-            });
-    }
-
     document.addEventListener('DOMContentLoaded', function () {
-        updateBadges();
-
-        setInterval(function () {
-            if (!document.hidden) {
-                updateBadges();
-            }
-        }, 60000);
+        if (!document.querySelector('.bottom-nav')) return;
+        fetch('/api/messages/unread_count', {credentials: 'same-origin'})
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d) return;
+                var links = document.querySelectorAll('.bottom-nav a.nav-item');
+                var friendsLink = null, msgLink = null;
+                links.forEach(function (a) {
+                    if (a.href.indexOf('/friends') > -1) friendsLink = a;
+                    if (a.href.indexOf('/messages') > -1) msgLink = a;
+                });
+                if (friendsLink && d.friend_requests > 0 && !friendsLink.querySelector('.nav-badge')) {
+                    var ic = friendsLink.querySelector('.ic');
+                    if (ic) ic.insertAdjacentHTML('afterend', '<span class="nav-badge"></span>');
+                }
+                if (msgLink && d.messages > 0 && !msgLink.querySelector('.nav-badge')) {
+                    var ic = msgLink.querySelector('.ic');
+                    if (ic) ic.insertAdjacentHTML('afterend', '<span class="nav-badge"></span>');
+                }
+            }).catch(function () {});
     });
 })();

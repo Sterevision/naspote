@@ -1,63 +1,37 @@
 {% extends "base.html" %}
-
 {% block title %}Чаты — Картометр{% endblock %}
-
 {% block content %}
 <div class="app-shell">
     <div class="list-page" style="flex:1; overflow-y:auto;">
-        <div class="page-head">
-            <div>
-                <h1 class="display" style="font-size:24px; margin-bottom:6px;">
-                    💬 Чаты
-                </h1>
-
-                <p class="subtitle">
-                    Личные сообщения с друзьями
-                </p>
-            </div>
-        </div>
-
-        <div class="section-title">
-            Диалоги
-        </div>
-
-        <div id="conversationsList">
-            <div class="empty-state">
-                <span class="em">⏳</span>
-                <p>Загрузка...</p>
-            </div>
-        </div>
+        <div class="page-head"><div><h1 class="display" style="font-size:24px">💬 Чаты</h1><p class="subtitle">Личные сообщения</p></div></div>
+        <div id="conversationsList"><div class="empty-state"><span class="em">⏳</span><p>Загрузка...</p></div></div>
     </div>
-
     <nav class="bottom-nav">
-        <a class="nav-item" href="{{ url_for('map_view') }}">
-            <span class="ic">🗺️</span>
-            Карта
-        </a>
-
-        <a class="nav-item" href="{{ url_for('feed_view') }}">
-            <span class="ic">📰</span>
-            Лента
-        </a>
-
-        <a class="nav-item" href="{{ url_for('friends_view') }}">
-            <span class="ic">🤝</span>
-            Друзья
-        </a>
-
-        <a class="nav-item active" href="{{ url_for('messages_view') }}">
-            <span class="ic">💬</span>
-            Чаты
-        </a>
-
-        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}">
-            <span class="ic">👤</span>
-            Профиль
-        </a>
+        <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span>Карта</a>
+        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">📰</span>Лента</a>
+        <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span>Друзья</a>
+        <a class="nav-item active" href="{{ url_for('messages_view') }}"><span class="ic">💬</span>Чаты</a>
+        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span>Профиль</a>
     </nav>
 </div>
 {% endblock %}
-
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/messages.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+    var list = document.getElementById('conversationsList');
+    try {
+        var res = await fetch('/api/friends_list');
+        var friends = await res.json();
+        if (!friends.length) { list.innerHTML = '<div class="empty-state"><span class="em">🤝</span><p>Пока нет чатов. Добавьте друзей!</p></div>'; return; }
+        list.innerHTML = '';
+        friends.forEach(function (f) {
+            var link = document.createElement('a');
+            link.className = 'row-card';
+            link.href = '/messages/' + f.username;
+            link.innerHTML = '<div class="avatar">' + (f.display_name||'?')[0].toUpperCase() + '</div><div class="info"><div class="name">' + (f.display_name||f.username) + '</div><div class="sub">@' + f.username + '</div></div>';
+            list.appendChild(link);
+        });
+    } catch (e) { list.innerHTML = '<div class="empty-state"><span class="em">⚠️</span><p>Ошибка загрузки</p></div>'; }
+});
+</script>
 {% endblock %}

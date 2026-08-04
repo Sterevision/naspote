@@ -1,60 +1,50 @@
 {% extends "base.html" %}
-
 {% block title %}{{ friend.display_name }} — Картометр{% endblock %}
-
 {% block content %}
 <div class="chat-shell">
     <div class="chat-head">
-        <a class="icon-btn" href="{{ url_for('messages_view') }}" aria-label="Назад">
-            ←
-        </a>
-
-        <div class="avatar">
-            {% if friend.avatar_url %}
-                <img src="{{ friend.avatar_url }}" alt="">
-            {% else %}
-                {{ friend.display_name[:1] | upper }}
-            {% endif %}
-        </div>
-
-        <div>
-            <div class="name">
-                {{ friend.display_name }}
-            </div>
-
-            <div class="hint">
-                @{{ friend.username }}
-            </div>
-        </div>
+        <a class="icon-btn" href="{{ url_for('messages_view') }}">←</a>
+        <div class="avatar">{% if friend.avatar_url %}<img src="{{ friend.avatar_url }}">{% else %}{{ friend.display_name[:1]|upper }}{% endif %}</div>
+        <div><div class="name">{{ friend.display_name }}</div><div class="hint">@{{ friend.username }}</div></div>
     </div>
-
-    <div class="chat-body" id="chatBody">
-        <div class="empty-state">
-            <span class="em">⏳</span>
-            <p>Загрузка...</p>
-        </div>
-    </div>
-
+    <div class="chat-body" id="chatBody"><div class="empty-state"><p>Загрузка...</p></div></div>
     <div class="chat-input-row">
-        <input
-            type="text"
-            id="chatInput"
-            placeholder="Написать сообщение..."
-            maxlength="2000"
-            autocomplete="off"
-        >
-
-        <button class="chat-send" id="chatSend" type="button" aria-label="Отправить">
-            ➤
-        </button>
+        <input type="text" id="chatInput" placeholder="Написать..." maxlength="2000">
+        <button class="chat-send" id="chatSend" type="button">➤</button>
     </div>
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-    window.CHAT_FRIEND_ID = {{ friend.id | tojson }};
+window.CHAT_FRIEND_ID = {{ friend.id|tojson }};
 </script>
-
-<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script>
+(function () {
+    var friendId = window.CHAT_FRIEND_ID;
+    var userId = window.CURRENT_USER_ID;
+    var chatBody = document.getElementById('chatBody');
+    var chatInput = document.getElementById('chatInput');
+    var chatSend = document.getElementById('chatSend');
+    async function loadMessages() {
+        var res = await fetch('/api/messages/' + friendId);
+        var msgs = await res.json();
+        chatBody.innerHTML = msgs.length ? msgs.map(function (m) {
+            var mine = m.sender_id === userId;
+            return '<div class="bubble ' + (mine ? 'mine' : 'theirs') + '">' + (m.text||'') + '</div>';
+        }).join('') : '<div class="empty-state"><p>Нет сообщений</p></div>';
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+    async function send() {
+        var text = chatInput.value.trim();
+        if (!text) return;
+        chatInput.value = '';
+        await fetch('/api/messages/' + friendId, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: text})});
+        loadMessages();
+    }
+    chatSend.onclick = send;
+    chatInput.onkeydown = function (e) { if (e.key === 'Enter') send(); };
+    loadMessages();
+    setInterval(loadMessages, 5000);
+})();
+</script>
 {% endblock %}

@@ -1,356 +1,42 @@
 {% extends "base.html" %}
-
 {% block title %}{{ profile.display_name }} — Картометр{% endblock %}
-
 {% block content %}
 <div class="app-shell">
     <div class="list-page" style="flex:1; overflow-y:auto;">
-        {% if profile.account_type == 'organization' and profile.cover_url %}
-            <div class="org-cover" style="background-image:url('{{ profile.cover_url }}');"></div>
-        {% elif profile.account_type == 'organization' %}
-            <div class="org-cover"></div>
-        {% endif %}
-
-        <div class="card profile-card {{ 'org-header-card' if profile.account_type == 'organization' else '' }}">
-            <div class="avatar profile-avatar-lg">
-                {% if profile.avatar_url %}
-                    <img src="{{ profile.avatar_url }}" alt="">
-                {% else %}
-                    {{ profile.display_name[:1]|upper }}
-                {% endif %}
-            </div>
-
-            <div class="profile-name-row">
-                <h1 class="display" style="font-size:22px;">
-                    {{ profile.display_name }}
-                </h1>
-
-                {% if profile.is_verified %}
-                    <span class="verified-tick">✅</span>
-                {% endif %}
-            </div>
-
-            <div class="hint">
-                @{{ profile.username }}
-                {% if profile.age %} · {{ profile.age }} лет{% endif %}
-                {% if profile.location %} · {{ profile.location }}{% endif %}
-            </div>
-
-            {% if profile.account_type == 'organization' %}
-                <div class="hint" style="margin-top:4px;">
-                    {{ profile.category }}
-                    {% if profile.address %}
-                        · {{ profile.address }}
-                    {% endif %}
-                </div>
-            {% endif %}
-
-            {% if profile.bio %}
-                <p style="margin-top:12px;">
-                    {{ profile.bio }}
-                </p>
-            {% endif %}
-
-            {% if profile.account_type == 'organization' %}
-                <div class="org-stats-row">
-                    <div class="org-stat">
-                        <span class="num">{{ spots|length }}</span>
-                        <span class="lbl">публикаций</span>
-                    </div>
-
-                    <div class="org-stat">
-                        <span class="num">{{ tagged_spots|length }}</span>
-                        <span class="lbl">отметились</span>
-                    </div>
-                </div>
-            {% endif %}
-
-            {% if is_me and profile.account_type != 'organization' %}
-                <div class="level-badge">
-                    <span class="lv-num">{{ profile.level or 1 }}</span>
-                    Уровень · {{ profile.xp or 0 }} XP
-                </div>
-            {% endif %}
-
-            <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:16px;">
-                {% if is_me %}
-                    <a class="btn btn-soft" href="{{ url_for('settings_view') }}">
-                        ⚙️ Настройки
-                    </a>
-                {% elif friend_status is none %}
-                    <button class="btn btn-primary" id="friendActionButton" data-action="add" data-username="{{ profile.username }}">
-                        🤝 Добавить в друзья
-                    </button>
-                {% elif friend_status.status == 'accepted' %}
-                    <a class="btn btn-primary" href="{{ url_for('chat_view', username=profile.username) }}">
-                        💬 Написать
-                    </a>
-
-                    <button class="btn btn-ghost" id="friendActionButton" data-action="remove" data-id="{{ friend_status.id }}">
-                        Удалить из друзей
-                    </button>
-                {% elif friend_status.addressee_id == my_id %}
-                    <button class="btn btn-green" id="friendActionButton" data-action="accept" data-id="{{ friend_status.id }}">
-                        ✓ Принять заявку
-                    </button>
-                {% else %}
-                    <button class="btn btn-ghost" disabled>
-                        Заявка отправлена
-                    </button>
-                {% endif %}
+        <div class="card profile-card">
+            <div class="avatar profile-avatar-lg">{% if profile.avatar_url %}<img src="{{ profile.avatar_url }}">{% else %}{{ profile.display_name[:1]|upper }}{% endif %}</div>
+            <div class="profile-name-row"><h1 class="display" style="font-size:22px;">{{ profile.display_name }}</h1>{% if profile.is_verified %}<span class="verified-tick">✅</span>{% endif %}</div>
+            <div class="hint">@{{ profile.username }}{% if profile.age %} · {{ profile.age }}{% endif %}{% if profile.location %} · {{ profile.location }}{% endif %}</div>
+            {% if profile.bio %}<p style="margin-top:12px;">{{ profile.bio }}</p>{% endif %}
+            {% if profile.account_type != 'organization' %}<div class="level-badge"><span class="lv-num">{{ profile.level or 1 }}</span>Уровень · {{ profile.xp or 0 }} XP</div>{% endif %}
+            <div style="display:flex; gap:8px; justify-content:center; margin-top:16px;">
+                {% if is_me %}<a class="btn btn-soft" href="{{ url_for('settings_view') }}">⚙️ Настройки</a>
+                {% elif friend_status is none %}<button class="btn btn-primary" id="addFriendBtn">🤝 Добавить</button>
+                {% elif friend_status.status == 'accepted' %}<a class="btn btn-primary" href="{{ url_for('chat_view', username=profile.username) }}">💬 Написать</a>
+                {% elif friend_status.addressee_id == my_id %}<button class="btn btn-green" id="acceptFriendBtn">✓ Принять</button>
+                {% else %}<button class="btn btn-ghost" disabled>Заявка отправлена</button>{% endif %}
             </div>
         </div>
-
-        {% if is_me and profile.account_type != 'organization' %}
-            <div class="section-title">
-                Достижения
-            </div>
-
-            <div id="achievementsWidget">
-                <p class="hint">Загрузка...</p>
-            </div>
-        {% endif %}
-
-        <div class="section-title">
-            Метки · {{ spots|length }}
-        </div>
-
-        {% if spots %}
-            {% for spot in spots %}
-                <div class="row-card">
-                    <div class="spot-thumb">
-                        {% if spot.photo_url %}
-                            <img src="{{ spot.photo_url }}" alt="">
-                        {% else %}
-                            📍
-                        {% endif %}
-                    </div>
-
-                    <div class="info">
-                        <div class="name">
-                            {{ spot.title }}
-                        </div>
-
-                        <div class="sub">
-                            {% if spot.category %}
-                                {{ spot.category }} ·
-                            {% endif %}
-
-                            {% if spot.visibility == 'friends' %}
-                                🤝 Только друзья
-                            {% else %}
-                                🌍 Видят все
-                            {% endif %}
-
-                            {% if spot.wave_ends_at %}
-                                · ⚡ волна
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <span class="em">🗺️</span>
-                <p>
-                    Меток пока нет.
-                </p>
-            </div>
-        {% endif %}
-
-        {% if profile.account_type == 'organization' %}
-            <div class="section-title">
-                Люди отмечались здесь · {{ tagged_spots|length }}
-            </div>
-
-            {% if tagged_spots %}
-                {% for spot in tagged_spots %}
-                    <div class="row-card">
-                        <div class="avatar">
-                            {{ (spot.owner.display_name if spot.owner else '?')[:1]|upper }}
-                        </div>
-
-                        <div class="info">
-                            <div class="name">
-                                {{ spot.owner.display_name if spot.owner else 'Кто-то' }}
-                            </div>
-
-                            <div class="sub">
-                                {{ spot.title }}
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="empty-state">
-                    <span class="em">👋</span>
-                    <p>
-                        Пока никто не отмечался.
-                    </p>
-                </div>
-            {% endif %}
-        {% endif %}
+        <div class="section-title">Метки · {{ spots|length }}</div>
+        {% if spots %}{% for spot in spots %}
+        <div class="row-card"><div class="spot-thumb">{% if spot.photo_url %}<img src="{{ spot.photo_url }}">{% else %}📍{% endif %}</div>
+            <div class="info"><div class="name">{{ spot.title }}</div><div class="sub">{% if spot.visibility == 'friends' %}🤝 Только друзья{% else %}🌍 Видят все{% endif %}</div></div></div>
+        {% endfor %}{% else %}<div class="empty-state"><span class="em">🗺️</span><p>Меток пока нет</p></div>{% endif %}
     </div>
-
     <nav class="bottom-nav">
-        <a class="nav-item" href="{{ url_for('map_view') }}">
-            <span class="ic">🗺️</span>
-            Карта
-        </a>
-
-        <a class="nav-item" href="{{ url_for('feed_view') }}">
-            <span class="ic">📰</span>
-            Лента
-        </a>
-
-        <a class="nav-item" href="{{ url_for('friends_view') }}">
-            <span class="ic">🤝</span>
-            Друзья
-        </a>
-
-        <a class="nav-item" href="{{ url_for('messages_view') }}">
-            <span class="ic">💬</span>
-            Чаты
-        </a>
-
-        <a class="nav-item {{ 'active' if is_me else '' }}" href="{{ url_for('profile_view', username=profile.username) }}">
-            <span class="ic">👤</span>
-            Профиль
-        </a>
+        <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span>Карта</a>
+        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">📰</span>Лента</a>
+        <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span>Друзья</a>
+        <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">💬</span>Чаты</a>
+        <a class="nav-item active" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span>Профиль</a>
     </nav>
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var friendButton = document.getElementById('friendActionButton');
-
-        if (friendButton) {
-            friendButton.addEventListener('click', async function () {
-                var action = friendButton.dataset.action;
-                friendButton.disabled = true;
-
-                try {
-                    if (action === 'add') {
-                        var username = friendButton.dataset.username;
-
-                        var response = await fetch('/api/friends/' + encodeURIComponent(username) + '/add', {
-                            method: 'POST',
-                            credentials: 'same-origin'
-                        });
-
-                        if (response.status === 401) {
-                            window.location.href = '/login';
-                            return;
-                        }
-
-                        if (response.ok) {
-                            friendButton.textContent = '✓ Заявка отправлена';
-                            friendButton.classList.remove('btn-primary');
-                            friendButton.classList.add('btn-soft');
-                        } else {
-                            var errorData = await response.json().catch(function () {
-                                return {};
-                            });
-
-                            alert(errorData.error || 'Не удалось отправить заявку');
-                            friendButton.disabled = false;
-                        }
-
-                        return;
-                    }
-
-                    if (action === 'accept') {
-                        var acceptResponse = await fetch('/api/friends/' + friendButton.dataset.id + '/accept', {
-                            method: 'POST',
-                            credentials: 'same-origin'
-                        });
-
-                        if (acceptResponse.status === 401) {
-                            window.location.href = '/login';
-                            return;
-                        }
-
-                        window.location.reload();
-                        return;
-                    }
-
-                    if (action === 'remove') {
-                        if (!confirm('Удалить из друзей?')) {
-                            friendButton.disabled = false;
-                            return;
-                        }
-
-                        var removeResponse = await fetch('/api/friends/' + friendButton.dataset.id, {
-                            method: 'DELETE',
-                            credentials: 'same-origin'
-                        });
-
-                        if (removeResponse.status === 401) {
-                            window.location.href = '/login';
-                            return;
-                        }
-
-                        window.location.reload();
-                    }
-                } catch (error) {
-                    alert('Ошибка сети');
-                    friendButton.disabled = false;
-                }
-            });
-        }
-
-        var achievementsWidget = document.getElementById('achievementsWidget');
-
-        if (achievementsWidget) {
-            fetch('/api/profile/achievements', {
-                credentials: 'same-origin'
-            })
-                .then(function (response) {
-                    if (!response.ok) {
-                        throw new Error('achievements failed');
-                    }
-
-                    return response.json();
-                })
-                .then(function (data) {
-                    achievementsWidget.innerHTML = '';
-
-                    var badgeGrid = document.createElement('div');
-                    badgeGrid.className = 'badge-grid';
-
-                    var achievements = data.achievements || [];
-
-                    if (!achievements.length) {
-                        achievementsWidget.innerHTML = '<p class="hint">Пока нет достижений. Поставьте первую метку!</p>';
-                        return;
-                    }
-
-                    achievements.forEach(function (achievement) {
-                        var item = document.createElement('div');
-                        item.className = 'badge-item';
-
-                        var icon = document.createElement('div');
-                        icon.className = 'ic';
-                        icon.textContent = achievement.badge_icon || '🏅';
-
-                        var name = document.createElement('div');
-                        name.className = 'nm';
-                        name.textContent = achievement.badge_name || achievement.badge_type;
-
-                        item.appendChild(icon);
-                        item.appendChild(name);
-
-                        badgeGrid.appendChild(item);
-                    });
-
-                    achievementsWidget.appendChild(badgeGrid);
-                })
-                .catch(function () {
-                    achievementsWidget.innerHTML = '<p class="hint">Не удалось загрузить достижения.</p>';
-                });
-        }
-    });
+var addBtn = document.getElementById('addFriendBtn');
+if (addBtn) addBtn.onclick = async function () { await fetch('/api/friends/{{ profile.username }}/add', {method:'POST'}); location.reload(); };
+var acceptBtn = document.getElementById('acceptFriendBtn');
+if (acceptBtn) acceptBtn.onclick = async function () { await fetch('/api/friends/{{ friend_status.id }}/accept', {method:'POST'}); location.reload(); };
 </script>
 {% endblock %}

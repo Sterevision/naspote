@@ -1,21 +1,16 @@
 {% extends "base.html" %}
-
 {% block title %}Карта — Картометр{% endblock %}
-
 {% block content %}
 <div class="app-shell">
     <div class="map-wrap">
         <div id="map"></div>
-
         <div class="category-scroller" id="categoryScroller">
             <div class="cat-chip selected" data-cat="">Все</div>
             {% for c in categories %}
                 <div class="cat-chip" data-cat="{{ c }}">{{ c }}</div>
             {% endfor %}
         </div>
-
-        <button class="icon-btn legend-btn" id="legendToggle" type="button" aria-label="Легенда">🎨</button>
-
+        <button class="icon-btn legend-btn" id="legendToggle" type="button">🎨</button>
         <div class="legend-panel" id="legendPanel">
             <div class="legend-row"><span class="legend-dot mine"></span> Ваши метки</div>
             <div class="legend-row"><span class="legend-dot friends"></span> Только для друзей</div>
@@ -23,19 +18,16 @@
             <div class="legend-row"><span class="legend-dot manual"></span> Расставлено вручную</div>
             <div class="legend-row">⚡ Волна — пульсирует</div>
         </div>
-
         <div class="fab-column">
-            <button class="fab-mini" id="manualToggle" type="button" aria-label="Ручной режим">✋</button>
-            <button class="fab-mini" id="locateMe" type="button" aria-label="Где я">📍</button>
-            <button class="big-add" id="openAddSpot" type="button" aria-label="Добавить метку">+</button>
+            <button class="fab-mini" id="manualToggle" type="button">✋</button>
+            <button class="fab-mini" id="locateMe" type="button">📍</button>
+            <button class="big-add" id="openAddSpot" type="button">+</button>
         </div>
-
         <div class="manual-mode-banner" id="manualBanner">
-            <span>✋ Режим ручной расстановки — тапните по карте</span>
+            <span>✋ Режим ручной расстановки</span>
             <button type="button" id="manualBannerClose">✕</button>
         </div>
     </div>
-
     <nav class="bottom-nav">
         <a class="nav-item active" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span>Карта</a>
         <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">📰</span>Лента</a>
@@ -44,67 +36,30 @@
         <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span>Профиль</a>
     </nav>
 </div>
-
 <div class="sheet-overlay" id="addSpotOverlay">
     <div class="sheet">
         <div class="sheet-handle"></div>
         <button class="sheet-close" id="closeSheet" type="button">✕</button>
         <h3>📍 Новая метка</h3>
-        <p class="hint" id="manualHint" style="display:none;">✋ Точка на карте, а не ваша геолокация.</p>
-        <div class="one-spot-hint">У обычных пользователей активна одна метка: новая метка заменит старую.</div>
-
         <form id="addSpotForm">
             <input type="hidden" name="lat" id="latInput">
             <input type="hidden" name="lng" id="lngInput">
             <input type="hidden" name="placement_type" id="placementInput" value="geo">
             <input type="hidden" name="category" id="categoryInput">
             <input type="hidden" name="organization_id" id="orgIdInput">
-            <input type="hidden" name="voice_url" id="voiceUrlInput">
             <input type="hidden" name="duration_hours" id="durationInput" value="3">
-            <input type="hidden" name="mood" id="moodInput">
             <input type="hidden" name="visibility" id="visibilityInput" value="public">
-            <input type="hidden" name="wave_enabled" id="waveEnabledInput" value="false">
-
-            <div class="field">
-                <label for="spotTitle">Что тут происходит?</label>
-                <input id="spotTitle" name="title" maxlength="120" placeholder="Например: играем в настолки" required>
-            </div>
-            <div class="field">
-                <label for="spotDescription">Пара слов (необязательно)</label>
-                <textarea id="spotDescription" name="description" maxlength="1000"></textarea>
-            </div>
-            <div class="field">
-                <label>Категория</label>
-                <div class="category-picker" id="addCategoryPicker">
-                    {% for c in categories %}<div class="cat-chip" data-cat="{{ c }}">{{ c }}</div>{% endfor %}
-                </div>
-            </div>
-            <div class="field">
-                <label>Сколько метка будет на карте?</label>
-                <div class="duration-toggle">
-                    <div class="duration-option" data-h="1">1 час</div>
-                    <div class="duration-option selected" data-h="3">3 часа</div>
-                    <div class="duration-option" data-h="6">6 часов</div>
-                    <div class="duration-option" data-h="24">сутки</div>
-                </div>
-            </div>
-            <div class="field">
-                <label>Кто увидит метку?</label>
-                <div class="visibility-toggle">
-                    <div class="vis-option selected" data-vis="public">🌍 Все</div>
-                    <div class="vis-option" data-vis="friends">🤝 Только друзья</div>
-                </div>
-            </div>
+            <div class="field"><label>Что тут происходит?</label><input id="spotTitle" name="title" maxlength="120" required></div>
+            <div class="field"><label>Пара слов</label><textarea id="spotDescription" name="description" maxlength="1000"></textarea></div>
+            <div class="field"><label>Категория</label><div class="category-picker" id="addCategoryPicker">{% for c in categories %}<div class="cat-chip" data-cat="{{ c }}">{{ c }}</div>{% endfor %}</div></div>
+            <div class="field"><label>Сколько на карте?</label><div class="duration-toggle"><div class="duration-option" data-h="1">1 ч</div><div class="duration-option selected" data-h="3">3 ч</div><div class="duration-option" data-h="6">6 ч</div><div class="duration-option" data-h="24">сутки</div></div></div>
+            <div class="field"><label>Кто увидит?</label><div class="visibility-toggle"><div class="vis-option selected" data-vis="public">🌍 Все</div><div class="vis-option" data-vis="friends">🤝 Друзья</div></div></div>
             <button class="btn btn-primary btn-block" id="submitSpotBtn" type="submit">Поставить метку</button>
         </form>
     </div>
 </div>
-
-<div class="sheet-overlay" id="spotSheetOverlay">
-    <div class="sheet" id="spotSheetContent"></div>
-</div>
+<div class="sheet-overlay" id="spotSheetOverlay"><div class="sheet" id="spotSheetContent"></div></div>
 {% endblock %}
-
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 {% endblock %}
