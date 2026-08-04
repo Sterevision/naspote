@@ -213,7 +213,9 @@ def settings_view():
         flash("Профиль обновлён")
     except Exception as e:
         flash(f"Ошибка: {e}")
-    return redirect(url_for("profile_view", username=session.get("username", "")))
+    prof = sb.table("profiles").select("username").eq("id", uid).execute()
+    username = prof.data[0]["username"] if prof.data else ""
+    return redirect(url_for("profile_view", username=username))
 
 @app.route("/api/spots", methods=["GET"])
 @login_required
@@ -256,6 +258,23 @@ def api_spots_delete(spot_id):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     sb.table("spots").delete().eq("id", spot_id).eq("owner_id", session["user_id"]).execute()
     return jsonify({"ok": True})
+
+@app.route("/api/spots/<int:spot_id>/comments", methods=["GET", "POST"])
+@login_required
+def api_spot_comments(spot_id):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    uid = session["user_id"]
+    if request.method == "POST":
+        text = (request.json or {}).get("text", "").strip()
+        if not text:
+            return jsonify({"error": "Текст обязателен"}), 400
+        try:
+            sb.table("spot_comments").insert({"spot_id": spot_id, "user_id": uid, "text": text}).execute()
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"ok": True}), 201
+    res = sb.table("spot_comments").select("*, user:user_id(username, display_name, avatar_url)").eq("spot_id", spot_id).order("created_at").execute()
+    return jsonify(res.data or [])
 
 @app.route("/api/friends_list")
 @login_required
@@ -319,6 +338,16 @@ def api_messages(friend_id):
         return jsonify({"ok": True}), 201
     res = sb.table("messages").select("*, sender:profiles!sender_id(username, display_name, avatar_url), receiver:profiles!receiver_id(username, display_name, avatar_url)").or_(f"and(sender_id.eq.{uid},receiver_id.eq.{friend_id}),and(sender_id.eq.{friend_id},receiver_id.eq.{uid})").order("created_at").execute()
     sb.table("messages").update({"is_read": True}).eq("sender_id", friend_id).eq("receiver_id", uid).eq("is_read", False).execute()
+    return jsonify(res.data or [])
+
+@app.route("/api/conversations")
+@login_required
+def api_conversations():
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    try:
+        res = sb.rpc("get_conversations", {}).execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
     return jsonify(res.data or [])
 
 @app.route("/api/messages/unread_count")
