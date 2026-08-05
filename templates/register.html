@@ -1,12 +1,13 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Регистрация — Картометр{% endblock %}
 {% block content %}
 <div class="center-page">
     <div class="auth-box card">
-        <div class="logo-circle">🌱</div>
+        <div class="logo-circle">{{ icon('leaf') }}</div>
         <h1 class="display" style="text-align:center">Создать профиль</h1>
         <form method="post" action="{{ url_for('register') }}">
-            <div class="field"><label>Кто вы?</label><div class="visibility-toggle" id="accountTypePicker"><div class="vis-option selected" data-type="person">🙋 Человек</div><div class="vis-option" data-type="organization">🏢 Заведение</div></div><input type="hidden" name="account_type" id="accountTypeInput" value="person"></div>
+            <div class="field"><label>Кто вы?</label><div class="visibility-toggle" id="accountTypePicker"><div class="vis-option selected" data-type="person"><span class="ic">{{ icon('user') }}</span> Человек</div><div class="vis-option" data-type="organization"><span class="ic">{{ icon('building') }}</span> Заведение</div></div><input type="hidden" name="account_type" id="accountTypeInput" value="person"></div>
             <div class="field"><label>Имя</label><input type="text" name="display_name" maxlength="80" required></div>
             <div class="field"><label>Username (латиницей)</label><input type="text" name="username" maxlength="30" required></div>
             <div class="field"><label>Email</label><input type="email" name="email" autocomplete="email" required></div>

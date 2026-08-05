@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Вход — Картометр{% endblock %}
 {% block content %}
 <div class="center-page">
     <div class="auth-box card">
-        <div class="logo-circle">👋</div>
+        <div class="logo-circle">{{ icon('door') }}</div>
         <h1 class="display" style="text-align:center">С возвращением</h1>
         <p class="subtitle" style="text-align:center">Войдите, чтобы увидеть карту живого города</p>
         <form method="post" action="{{ url_for('login') }}">

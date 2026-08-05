@@ -33,7 +33,13 @@
         chatBody.scrollTop = chatBody.scrollHeight;
     }
 
-    function renderEmptyState(emoji, text) {
+    var ICONS = {
+        chat: '<svg viewBox="0 0 20 20"><path d="M3 10a7 7 0 1 1 3.1 5.8L3 17l1.3-3.4A6.96 6.96 0 0 1 3 10z"/></svg>',
+        lock: '<svg viewBox="0 0 20 20"><rect x="4.8" y="9" width="10.4" height="7.2" rx="1.4"/><path d="M6.8 9V6.7a3.2 3.2 0 0 1 6.4 0V9"/></svg>',
+        alert: '<svg viewBox="0 0 20 20"><path d="M10 3.6l7.8 13.4H2.2L10 3.6z"/><path d="M10 8.6v3.2"/><circle cx="10" cy="14.4" r=".2"/></svg>'
+    };
+
+    function renderEmptyState(iconKey, text) {
         if (!chatBody) {
             return;
         }
@@ -45,7 +51,7 @@
 
         var em = document.createElement('span');
         em.className = 'em';
-        em.textContent = emoji;
+        em.innerHTML = ICONS[iconKey] || '';
 
         var p = document.createElement('p');
         p.textContent = text;
@@ -64,7 +70,7 @@
         chatBody.innerHTML = '';
 
         if (!messages.length) {
-            renderEmptyState('💬', 'Сообщений пока нет. Напишите первое!');
+            renderEmptyState('chat', 'Сообщений пока нет. Напишите первое!');
             return;
         }
 
@@ -117,7 +123,7 @@
             }
 
             if (response.status === 403) {
-                renderEmptyState('🔒', 'Чат доступен только с друзьями.');
+                renderEmptyState('lock', 'Чат доступен только с друзьями.');
                 return;
             }
 
@@ -146,7 +152,7 @@
             initialLoadDone = true;
         } catch (error) {
             if (!initialLoadDone) {
-                renderEmptyState('⚠️', 'Не удалось загрузить сообщения.');
+                renderEmptyState('alert', 'Не удалось загрузить сообщения.');
             }
         }
     }

@@ -43,7 +43,13 @@
         });
     }
 
-    function renderEmptyState(list, emoji, text) {
+    var ICONS = {
+        friends: '<svg viewBox="0 0 20 20"><path d="M7 8.3a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M2.2 17c0-3 2.1-5.3 4.8-5.3s4.8 2.3 4.8 5.3"/><path d="M13.4 4.6a2.1 2.1 0 0 1 0 4.1"/><path d="M14.3 17c0-2.3-1.1-4.2-2.8-5"/></svg>',
+        clock: '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M10 6.2v4l3 1.9"/></svg>',
+        alert: '<svg viewBox="0 0 20 20"><path d="M10 3.6l7.8 13.4H2.2L10 3.6z"/><path d="M10 8.6v3.2"/><circle cx="10" cy="14.4" r=".2"/></svg>'
+    };
+
+    function renderEmptyState(list, iconKey, text) {
         list.innerHTML = '';
 
         var empty = document.createElement('div');
@@ -51,7 +57,7 @@
 
         var em = document.createElement('span');
         em.className = 'em';
-        em.textContent = emoji;
+        em.innerHTML = ICONS[iconKey] || '';
 
         var p = document.createElement('p');
         p.textContent = text;
@@ -68,7 +74,7 @@
         if (!Array.isArray(conversations) || conversations.length === 0) {
             renderEmptyState(
                 list,
-                '🤝',
+                'friends',
                 'Пока нет чатов. Добавьте друзей, чтобы начать переписку.'
             );
             return;
@@ -156,7 +162,7 @@
     async function loadConversations(list, silent) {
         if (!silent) {
             if (!list.querySelector('.row-card')) {
-                renderEmptyState(list, '⏳', 'Загрузка...');
+                renderEmptyState(list, 'clock', 'Загрузка...');
             }
         }
 
@@ -180,7 +186,7 @@
             if (!silent) {
                 renderEmptyState(
                     list,
-                    '⚠️',
+                    'alert',
                     'Не удалось загрузить чаты. Попробуйте обновить страницу.'
                 );
             }

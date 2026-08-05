@@ -1,16 +1,17 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}{{ friend.display_name }} — Картометр{% endblock %}
 {% block content %}
 <div class="chat-shell">
     <div class="chat-head">
-        <a class="icon-btn" href="{{ url_for('messages_view') }}">←</a>
+        <a class="icon-btn" href="{{ url_for('messages_view') }}">{{ icon('arrow-left') }}</a>
         <div class="avatar">{% if friend.avatar_url %}<img src="{{ friend.avatar_url }}">{% else %}{{ friend.display_name[:1]|upper }}{% endif %}</div>
         <div><div class="name">{{ friend.display_name }}</div><div class="hint">@{{ friend.username }}</div></div>
     </div>
     <div class="chat-body" id="chatBody"><div class="empty-state"><p>Загрузка...</p></div></div>
     <div class="chat-input-row">
         <input type="text" id="chatInput" placeholder="Написать..." maxlength="2000">
-        <button class="chat-send" id="chatSend" type="button">➤</button>
+        <button class="chat-send" id="chatSend" type="button">{{ icon('send') }}</button>
     </div>
 </div>
 {% endblock %}

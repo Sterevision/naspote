@@ -4,31 +4,31 @@
    ========================================================= */
 
 :root {
-    /* ---- поверхности: бетон / песок, не белоснежный пластик ---- */
-    --paper: #EDEBE6;
-    --surface: #F7F6F3;
-    --surface-2: #E2DFD8;
-    --surface-3: #D2CEC4;
-    --line: #C9C5B9;
-    --line-soft: #DBD7CC;
+    /* ---- поверхности: песок / лён ---- */
+    --paper: #EAE3D2;
+    --surface: #F5F1E6;
+    --surface-2: #DED4B8;
+    --surface-3: #CBBE98;
+    --line: #BCAF86;
+    --line-soft: #D6CAA8;
 
-    /* ---- текст: почти чёрный, без сюсюканья ---- */
-    --ink: #100F0D;
-    --ink-soft: #100F0D;
-    --muted: #6B675E;
+    /* ---- текст: тёмный хаки, почти чёрный ---- */
+    --ink: #23261B;
+    --ink-soft: #23261B;
+    --muted: #79734F;
 
-    /* ---- один акцент вместо радуги ---- */
-    --flare: #100F0D;
-    --flare-hover: #322F2A;
-    --flare-ink: #100F0D;
-    --flare-wash: rgba(16,15,13,.06);
+    /* ---- акцент: тёмная олива ---- */
+    --flare: #4B5320;
+    --flare-hover: #5E6829;
+    --flare-ink: #3A4019;
+    --flare-wash: rgba(75,83,32,.09);
 
-    /* ---- смысловые цвета меток: приглушённые, не "мультяшные" ---- */
-    --mine: #A8321E;
-    --friends: #4B4A63;
-    --public: #3E5C46;
-    --manual: #8A6A2E;
-    --wave: #A8321E;
+    /* ---- смысловые цвета меток: приглушённые, природные ---- */
+    --mine: #7A4A25;
+    --friends: #55584B;
+    --public: #3E5C3E;
+    --manual: #96772C;
+    --wave: #7A4A25;
 
     /* ---- острые, архитектурные углы вместо пилюль ---- */
     --radius-xs: 0px;
@@ -37,9 +37,9 @@
     --radius-lg: 4px;
     --radius-pill: 3px;
 
-    --shadow-sm: 0 1px 0 rgba(16,15,13,.18);
-    --shadow-md: 0 2px 0 rgba(16,15,13,.14);
-    --shadow-lg: 0 4px 0 rgba(16,15,13,.12);
+    --shadow-sm: 0 1px 0 rgba(35,38,27,.18);
+    --shadow-md: 0 2px 0 rgba(35,38,27,.14);
+    --shadow-lg: 0 4px 0 rgba(35,38,27,.12);
     --shadow-flare: none;
 
     --ease: cubic-bezier(.4,0,.2,1);
@@ -176,19 +176,19 @@ img { max-width: 100%; display: block; }
     border: 2px solid currentColor; opacity: .55; animation: pin-pulse 1.8s var(--ease) infinite;
 }
 @keyframes pin-pulse { 0% { transform: scale(.55); opacity: .7; } 100% { transform: scale(1.9); opacity: 0; } }
-.you-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--flare); border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(255,76,41,.18); }
+.you-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--flare); border: 3px solid #fff; box-shadow: 0 0 0 6px var(--flare-wash); }
 
 /* FAB стек */
 .fab-column { position: absolute; bottom: calc(96px + env(safe-area-inset-bottom)); right: 18px; z-index: 50; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .big-add, .fab-main {
-    width: 62px; height: 62px; border-radius: 50%; background: var(--flare); color: #fff;
+    width: 62px; height: 62px; border-radius: 50%; background: var(--flare); color: var(--paper);
     border: none; font-size: 28px; font-weight: 400; box-shadow: var(--shadow-flare);
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: transform .2s var(--ease-spring); position: relative;
 }
 .big-add::before, .fab-main::before {
     content: ''; position: absolute; inset: -8px; border-radius: 50%;
-    border: 1.5px solid rgba(255,76,41,.3);
+    border: 1.5px solid var(--flare-wash);
 }
 .big-add:active, .fab-main:active { transform: scale(.9); }
 .fab-mini { width: 46px; height: 46px; border-radius: 50%; background: var(--surface); border: none; font-size: 19px; box-shadow: var(--shadow-md); cursor: pointer; transition: transform .15s var(--ease); }
@@ -236,6 +236,10 @@ img { max-width: 100%; display: block; }
 .nav-item.active { color: var(--ink); }
 .nav-item .ic { font-size: 22px; transition: transform .15s var(--ease-spring); }
 .nav-item.active .ic { transform: translateY(-1px); }
+.ic svg, .em svg, .icon-btn svg, .logo-circle svg, .spot-thumb svg, .badge-item .ic svg, .fab-mini svg, .big-add svg {
+    width: 1em; height: 1em; display: block; stroke: currentColor; fill: none;
+    stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
 .nav-badge { position: absolute; top: 0; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--mine); border: 2px solid var(--surface); }
 
 /* ===== Шторки / модалки ===== */
@@ -337,7 +341,7 @@ a.row-card:hover, .row-card[onclick]:hover { border-color: var(--ink); }
 .spot-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .expiry-chip { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
 
-.org-cover { height: 148px; background: linear-gradient(135deg, var(--flare), #7C6FEF); border-radius: 0 0 var(--radius-lg) var(--radius-lg); background-size: cover; background-position: center; margin: -28px -20px 0; }
+.org-cover { height: 148px; background: linear-gradient(135deg, var(--flare), var(--surface-3)); border-radius: 0 0 var(--radius-lg) var(--radius-lg); background-size: cover; background-position: center; margin: -28px -20px 0; }
 .org-header-card { margin-top: -44px; padding-top: 0; }
 .org-stats-row { display: flex; gap: 26px; justify-content: center; margin: 16px 0 4px; }
 .org-stat { text-align: center; }

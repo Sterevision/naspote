@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Карта — Картометр{% endblock %}
 {% block content %}
 <div class="app-shell">
@@ -10,37 +11,37 @@
                 <div class="cat-chip" data-cat="{{ c }}">{{ c }}</div>
             {% endfor %}
         </div>
-        <button class="icon-btn legend-btn" id="legendToggle" type="button">🎨</button>
+        <button class="icon-btn legend-btn" id="legendToggle" type="button">{{ icon('palette') }}</button>
         <div class="legend-panel" id="legendPanel">
             <div class="legend-row"><span class="legend-dot mine"></span> Ваши метки</div>
             <div class="legend-row"><span class="legend-dot friends"></span> Только для друзей</div>
             <div class="legend-row"><span class="legend-dot public"></span> Видят все</div>
             <div class="legend-row"><span class="legend-dot manual"></span> Расставлено вручную</div>
-            <div class="legend-row">⚡ Волна — пульсирует</div>
+            <div class="legend-row"><span class="ic">{{ icon('zap') }}</span> Волна — пульсирует</div>
         </div>
         <div class="fab-column">
-            <button class="fab-mini" id="manualToggle" type="button">✋</button>
-            <button class="fab-mini" id="locateMe" type="button">📍</button>
+            <button class="fab-mini" id="manualToggle" type="button">{{ icon('hand') }}</button>
+            <button class="fab-mini" id="locateMe" type="button">{{ icon('locate') }}</button>
             <button class="big-add" id="openAddSpot" type="button">+</button>
         </div>
         <div class="manual-mode-banner" id="manualBanner">
-            <span>✋ Режим ручной расстановки</span>
-            <button class="btn-close-banner" type="button" id="manualBannerClose">✕</button>
+            <span class="row-with-icon"><span class="ic">{{ icon('hand') }}</span> Режим ручной расстановки</span>
+            <button class="btn-close-banner" type="button" id="manualBannerClose">{{ icon('x') }}</button>
         </div>
     </div>
     <nav class="bottom-nav">
-        <a class="nav-item active" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span>Карта</a>
-        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">📰</span>Лента</a>
-        <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span>Друзья</a>
-        <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">💬</span>Чаты</a>
-        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span>Профиль</a>
+        <a class="nav-item active" href="{{ url_for('map_view') }}"><span class="ic">{{ icon('map') }}</span>Карта</a>
+        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">{{ icon('feed') }}</span>Лента</a>
+        <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">{{ icon('friends') }}</span>Друзья</a>
+        <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">{{ icon('chat') }}</span>Чаты</a>
+        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">{{ icon('user') }}</span>Профиль</a>
     </nav>
 </div>
 <div class="sheet-overlay" id="addSpotOverlay">
     <div class="sheet">
         <div class="sheet-handle"></div>
-        <button class="sheet-close" id="closeSheet" type="button">✕</button>
-        <h3>📍 Новая метка</h3>
+        <button class="sheet-close" id="closeSheet" type="button">{{ icon('x') }}</button>
+        <h3><span class="ic">{{ icon('pin') }}</span> Новая метка</h3>
         <form id="addSpotForm">
             <input type="hidden" name="lat" id="latInput">
             <input type="hidden" name="lng" id="lngInput">
@@ -53,7 +54,7 @@
             <div class="field"><label>Пара слов</label><textarea id="spotDescription" name="description" maxlength="1000"></textarea></div>
             <div class="field"><label>Категория</label><div class="category-picker" id="addCategoryPicker">{% for c in categories %}<div class="cat-chip" data-cat="{{ c }}">{{ c }}</div>{% endfor %}</div></div>
             <div class="field"><label>Сколько на карте?</label><div class="duration-toggle"><div class="duration-option" data-h="1">1 ч</div><div class="duration-option selected" data-h="3">3 ч</div><div class="duration-option" data-h="6">6 ч</div><div class="duration-option" data-h="24">сутки</div></div></div>
-            <div class="field"><label>Кто увидит?</label><div class="visibility-toggle"><div class="vis-option selected" data-vis="public">🌍 Все</div><div class="vis-option" data-vis="friends">🤝 Друзья</div></div></div>
+            <div class="field"><label>Кто увидит?</label><div class="visibility-toggle"><div class="vis-option selected" data-vis="public"><span class="ic">{{ icon('globe') }}</span> Все</div><div class="vis-option" data-vis="friends"><span class="ic">{{ icon('friends') }}</span> Друзья</div></div></div>
             <button class="btn btn-primary btn-block" id="submitSpotBtn" type="submit">Поставить метку</button>
         </form>
     </div>

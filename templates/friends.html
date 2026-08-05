@@ -1,17 +1,18 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Друзья — Картометр{% endblock %}
 {% block content %}
 <div class="app-shell">
     <div class="list-page" style="flex:1; overflow-y:auto;">
-        <div class="page-head"><div><h1 class="display" style="font-size:24px">🤝 Друзья</h1><p class="subtitle">Заявки и ваши друзья</p></div></div>
+        <div class="page-head"><div><h1 class="display" style="font-size:24px"><span class="ic">{{ icon('friends') }}</span> Друзья</h1><p class="subtitle">Заявки и ваши друзья</p></div></div>
         {% if incoming %}
         <div class="section-title">Хотят добавить · {{ incoming|length }}</div>
         {% for req in incoming %}
         <div class="row-card">
             <div class="avatar">{{ req.requester.display_name[:1]|upper }}</div>
             <div class="info"><div class="name">{{ req.requester.display_name }}</div><div class="sub">@{{ req.requester.username }}</div></div>
-            <button class="btn btn-green btn-sm accept-friend-btn" data-id="{{ req.id }}">✓</button>
-            <button class="btn btn-soft btn-sm decline-friend-btn" data-id="{{ req.id }}">✕</button>
+            <button class="btn btn-green btn-sm accept-friend-btn" data-id="{{ req.id }}">{{ icon('check') }}</button>
+            <button class="btn btn-soft btn-sm decline-friend-btn" data-id="{{ req.id }}">{{ icon('x') }}</button>
         </div>
         {% endfor %}
         {% endif %}
@@ -22,21 +23,21 @@
             <div class="row-card">
                 <div class="avatar">{{ friend.display_name[:1]|upper }}</div>
                 <div class="info"><div class="name">{{ friend.display_name }}</div><div class="sub">@{{ friend.username }}</div></div>
-                <a class="btn btn-soft btn-sm" href="{{ url_for('chat_view', username=friend.username) }}">💬</a>
-                <a class="btn btn-soft btn-sm" href="{{ url_for('profile_view', username=friend.username) }}">👤</a>
-                <button class="btn btn-ghost btn-sm remove-friend-btn" data-id="{{ f.id }}">✕</button>
+                <a class="btn btn-soft btn-sm" href="{{ url_for('chat_view', username=friend.username) }}">{{ icon('chat') }}</a>
+                <a class="btn btn-soft btn-sm" href="{{ url_for('profile_view', username=friend.username) }}">{{ icon('user') }}</a>
+                <button class="btn btn-ghost btn-sm remove-friend-btn" data-id="{{ f.id }}">{{ icon('x') }}</button>
             </div>
             {% endfor %}
         {% else %}
-            <div class="empty-state"><span class="em">🤝</span><p>Пока нет друзей.</p></div>
+            <div class="empty-state"><span class="em">{{ icon('friends') }}</span><p>Пока нет друзей.</p></div>
         {% endif %}
     </div>
     <nav class="bottom-nav">
-        <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span>Карта</a>
-        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">📰</span>Лента</a>
-        <a class="nav-item active" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span>Друзья</a>
-        <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">💬</span>Чаты</a>
-        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span>Профиль</a>
+        <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">{{ icon('map') }}</span>Карта</a>
+        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">{{ icon('feed') }}</span>Лента</a>
+        <a class="nav-item active" href="{{ url_for('friends_view') }}"><span class="ic">{{ icon('friends') }}</span>Друзья</a>
+        <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">{{ icon('chat') }}</span>Чаты</a>
+        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">{{ icon('user') }}</span>Профиль</a>
     </nav>
 </div>
 {% endblock %}
