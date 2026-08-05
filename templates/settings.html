@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "_nav.html" import bottom_nav %}
 
 {% block title %}Настройки — Картометр{% endblock %}
 
@@ -9,7 +8,7 @@
         <div class="topbar">
             <div>
                 <h1 class="display page-title">⚙️ Настройки</h1>
-                <p class="subtitle">Профиль и аватар</p>
+                <p class="subtitle">Профиль, домашняя точка и контакты</p>
             </div>
         </div>
 
@@ -57,12 +56,146 @@
                 </label>
             </div>
 
+            <div class="section-divider"></div>
+
+            <h3 class="settings-subtitle">📍 Домашняя точка карты</h3>
+            <p class="hint">Это место будет открываться на карте по умолчанию, если вы укажете его здесь.</p>
+
+            <div class="field" style="margin-top:14px;">
+                <label>Название места</label>
+                <input class="input" type="text" id="homeName" name="home_location_name" value="{{ profile.home_location_name or '' }}" maxlength="120" placeholder="Например: Дом, офис, любимый бар">
+            </div>
+
+            <div class="two-col">
+                <div class="field">
+                    <label>Широта</label>
+                    <input class="input" type="text" id="homeLat" name="home_lat" value="{{ profile.home_lat if profile.home_lat is not none else '' }}" placeholder="55.7558">
+                </div>
+
+                <div class="field">
+                    <label>Долгота</label>
+                    <input class="input" type="text" id="homeLng" name="home_lng" value="{{ profile.home_lng if profile.home_lng is not none else '' }}" placeholder="37.6173">
+                </div>
+            </div>
+
+            <button class="btn btn-soft btn-block" type="button" id="detectHomeBtn">
+                📍 Определить текущее местоположение
+            </button>
+
+            <div class="section-divider"></div>
+
+            <h3 class="settings-subtitle">✈️ Контакты</h3>
+            <p class="hint">Эти контакты будут видны на вашем профиле.</p>
+
+            <div class="field" style="margin-top:14px;">
+                <label>Telegram</label>
+                <input class="input" type="text" name="telegram_username" value="{{ profile.telegram_username or '' }}" maxlength="32" placeholder="@username">
+            </div>
+
+            <div class="field">
+                <label>Телефон</label>
+                <input class="input" type="text" name="contact_phone" value="{{ profile.contact_phone or '' }}" maxlength="30" placeholder="+7 999 000-00-00">
+            </div>
+
+            <div class="field">
+                <label>Email для связи</label>
+                <input class="input" type="email" name="contact_email" value="{{ profile.contact_email or '' }}" maxlength="255" placeholder="you@example.com">
+            </div>
+
             <button class="btn btn-primary btn-block" type="submit">Сохранить</button>
         </form>
 
         <a class="btn btn-ghost btn-block logout-btn" href="{{ url_for('logout') }}">Выйти</a>
     </div>
 
-    {{ bottom_nav('settings', profile) }}
+    <nav class="bottom-nav">
+        <a class="nav-item" href="{{ url_for('map_view') }}">
+            <span class="ic">🗺️</span>
+            <span class="label">Карта</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('feed_view') }}">
+            <span class="ic">📰</span>
+            <span class="label">Лента</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('friends_view') }}">
+            <span class="ic">🤝</span>
+            <span class="label">Друзья</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('messages_view') }}">
+            <span class="ic">💬</span>
+            <span class="label">Чаты</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}">
+            <span class="ic">👤</span>
+            <span class="label">Профиль</span>
+        </a>
+    </nav>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    'use strict';
+
+    var button = document.getElementById('detectHomeBtn');
+    var latInput = document.getElementById('homeLat');
+    var lngInput = document.getElementById('homeLng');
+    var nameInput = document.getElementById('homeName');
+
+    if (!button || !latInput || !lngInput) {
+        return;
+    }
+
+    button.addEventListener('click', function () {
+        if (!navigator.geolocation) {
+            alert('Геолокация недоступна в этом браузере.');
+            return;
+        }
+
+        if (!window.isSecureContext) {
+            alert('Геолокация работает только по HTTPS или на localhost.');
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = 'Определяем...';
+
+        navigator.geolocation.getCurrentPosition(function (position) {
+            latInput.value = position.coords.latitude;
+            lngInput.value = position.coords.longitude;
+
+            if (nameInput && !nameInput.value.trim()) {
+                nameInput.value = 'Текущее местоположение';
+            }
+
+            button.disabled = false;
+            button.textContent = '📍 Определить текущее местоположение';
+        }, function (error) {
+            var message = 'Не удалось определить местоположение.';
+
+            if (error.code === 1) {
+                message = 'Доступ к геолокации запрещён. Разрешите доступ в браузере.';
+            } else if (error.code === 2) {
+                message = 'Геолокация недоступна.';
+            } else if (error.code === 3) {
+                message = 'Слишком долго не удаётся определить местоположение.';
+            }
+
+            alert(message);
+
+            button.disabled = false;
+            button.textContent = '📍 Определить текущее местоположение';
+        }, {
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 60000
+        });
+    });
+})();
+</script>
 {% endblock %}

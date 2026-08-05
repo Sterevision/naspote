@@ -2,27 +2,65 @@
     'use strict';
 
     var friendId = window.CHAT_FRIEND_ID;
+    var canChat = window.CHAT_CAN_CHAT;
     var currentUserId = window.CURRENT_USER_ID;
 
     var chatBody = null;
     var chatInput = null;
     var chatSend = null;
+    var attachInput = null;
+    var attachPreview = null;
+    var attachPreviewImg = null;
+    var attachPreviewName = null;
+    var attachRemove = null;
+    var emojiToggle = null;
+    var emojiPanel = null;
 
+    var selectedFile = null;
     var lastCount = -1;
     var initialLoadDone = false;
+
+    var EMOJIS = [
+        '😀', '😃', '😄', '😁', '😆',
+        '😂', '🤣', '😊', '😇', '🙂',
+        '😉', '😍', '😘', '😜', '🤪',
+        '🤔', '🤨', '😐', '😏', '😴',
+        '🥱', '😷', '🤒', '🥳', '😎',
+        '🤓', '😳', '🥺', '😭', '😤',
+        '😡', '🤯', '😱', '🫠', '👋',
+        '👍', '👎', '👏', '🙌', '🤝',
+        '🙏', '💪', '❤️', '🧡', '💛',
+        '💚', '💙', '💜', '🖤', '💔',
+        '🔥', '⚡', '🎉', '🎊', '🎈',
+        '🍕', '🍔', '🍟', '🌭', '🍿',
+        '☕', '🍺', '🍻', '🥂', '🍷',
+        '📍', '🗺️', '🚕', '🚇', '🌙'
+    ];
+
+    function $(id) {
+        return document.getElementById(id);
+    }
+
+    function safeUrl(url) {
+        if (!url) {
+            return '';
+        }
+
+        var value = String(url);
+
+        if (/^https?:\/\//i.test(value)) {
+            return value;
+        }
+
+        return '';
+    }
 
     function isNearBottom() {
         if (!chatBody) {
             return false;
         }
 
-        var threshold = 90;
-
-        return (
-            chatBody.scrollHeight -
-            chatBody.scrollTop -
-            chatBody.clientHeight < threshold
-        );
+        return chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 100;
     }
 
     function scrollToBottom() {
@@ -33,13 +71,7 @@
         chatBody.scrollTop = chatBody.scrollHeight;
     }
 
-    var ICONS = {
-        chat: '<svg viewBox="0 0 20 20"><path d="M3 10a7 7 0 1 1 3.1 5.8L3 17l1.3-3.4A6.96 6.96 0 0 1 3 10z"/></svg>',
-        lock: '<svg viewBox="0 0 20 20"><rect x="4.8" y="9" width="10.4" height="7.2" rx="1.4"/><path d="M6.8 9V6.7a3.2 3.2 0 0 1 6.4 0V9"/></svg>',
-        alert: '<svg viewBox="0 0 20 20"><path d="M10 3.6l7.8 13.4H2.2L10 3.6z"/><path d="M10 8.6v3.2"/><circle cx="10" cy="14.4" r=".2"/></svg>'
-    };
-
-    function renderEmptyState(iconKey, text) {
+    function renderEmpty(message) {
         if (!chatBody) {
             return;
         }
@@ -49,16 +81,10 @@
         var empty = document.createElement('div');
         empty.className = 'empty-state';
 
-        var em = document.createElement('span');
-        em.className = 'em';
-        em.innerHTML = ICONS[iconKey] || '';
-
         var p = document.createElement('p');
-        p.textContent = text;
+        p.textContent = message;
 
-        empty.appendChild(em);
         empty.appendChild(p);
-
         chatBody.appendChild(empty);
     }
 
@@ -70,7 +96,7 @@
         chatBody.innerHTML = '';
 
         if (!messages.length) {
-            renderEmptyState('chat', 'Сообщений пока нет. Напишите первое!');
+            renderEmpty('Сообщений пока нет. Напишите первое!');
             return;
         }
 
@@ -80,25 +106,41 @@
             var bubble = document.createElement('div');
             bubble.className = 'bubble ' + (mine ? 'mine' : 'theirs');
 
-            var text = document.createElement('div');
-            text.textContent = message.text || '';
+            if (message.image_url) {
+                var imageUrl = safeUrl(message.image_url);
 
-            bubble.appendChild(text);
+                if (imageUrl) {
+                    var link = document.createElement('a');
+                    link.href = imageUrl;
+                    link.target = '_blank';
+                    link.rel = 'noopener';
+
+                    var img = document.createElement('img');
+                    img.src = imageUrl;
+                    img.alt = 'Изображение';
+                    img.className = 'chat-image';
+
+                    link.appendChild(img);
+                    bubble.appendChild(link);
+                }
+            }
+
+            if (message.text) {
+                var text = document.createElement('div');
+                text.textContent = message.text;
+                bubble.appendChild(text);
+            }
 
             if (message.created_at) {
                 var date = new Date(message.created_at);
 
                 if (!isNaN(date.getTime())) {
                     var meta = document.createElement('div');
-                    meta.style.fontSize = '11px';
-                    meta.style.opacity = '.72';
-                    meta.style.marginTop = '4px';
-
+                    meta.className = 'bubble-time';
                     meta.textContent = date.toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit'
                     });
-
                     bubble.appendChild(meta);
                 }
             }
@@ -123,12 +165,12 @@
             }
 
             if (response.status === 403) {
-                renderEmptyState('lock', 'Чат доступен только с друзьями.');
+                renderEmpty('Чат доступен только между друзьями.');
                 return;
             }
 
             if (!response.ok) {
-                throw new Error('messages load failed');
+                throw new Error('load failed');
             }
 
             var messages = await response.json();
@@ -138,11 +180,11 @@
             }
 
             if (messages.length !== lastCount) {
-                var shouldStick = forceScroll || !initialLoadDone || isNearBottom();
+                var stick = forceScroll || !initialLoadDone || isNearBottom();
 
                 renderMessages(messages);
 
-                if (shouldStick) {
+                if (stick) {
                     scrollToBottom();
                 }
 
@@ -152,35 +194,123 @@
             initialLoadDone = true;
         } catch (error) {
             if (!initialLoadDone) {
-                renderEmptyState('alert', 'Не удалось загрузить сообщения.');
+                renderEmpty('Не удалось загрузить сообщения.');
             }
         }
     }
 
+    function clearAttachment() {
+        selectedFile = null;
+
+        if (attachInput) {
+            attachInput.value = '';
+        }
+
+        if (attachPreview) {
+            attachPreview.hidden = true;
+        }
+
+        if (attachPreviewImg) {
+            attachPreviewImg.src = '';
+        }
+
+        if (attachPreviewName) {
+            attachPreviewName.textContent = '';
+        }
+    }
+
+    function selectFile(file) {
+        if (!file) {
+            return;
+        }
+
+        if (!file.type || file.type.indexOf('image/') !== 0) {
+            alert('В чат можно отправлять только изображения.');
+            return;
+        }
+
+        if (file.size > 8 * 1024 * 1024) {
+            alert('Файл слишком большой. Максимум 8 МБ.');
+            return;
+        }
+
+        selectedFile = file;
+
+        if (attachPreview && attachPreviewImg && attachPreviewName) {
+            attachPreviewImg.src = URL.createObjectURL(file);
+            attachPreviewName.textContent = file.name || 'image';
+            attachPreview.hidden = false;
+        }
+    }
+
+    function insertEmoji(emoji) {
+        if (!chatInput) {
+            return;
+        }
+
+        chatInput.value += emoji;
+        chatInput.focus();
+    }
+
+    function renderEmojiPanel() {
+        if (!emojiPanel) {
+            return;
+        }
+
+        emojiPanel.innerHTML = '';
+
+        EMOJIS.forEach(function (emoji) {
+            var button = document.createElement('button');
+            button.className = 'emoji-btn';
+            button.type = 'button';
+            button.textContent = emoji;
+
+            button.addEventListener('click', function () {
+                insertEmoji(emoji);
+            });
+
+            emojiPanel.appendChild(button);
+        });
+    }
+
     async function sendMessage() {
-        if (!chatInput || !friendId) {
+        if (!canChat || !chatInput || !friendId) {
             return;
         }
 
         var text = chatInput.value.trim();
 
-        if (!text) {
+        if (!text && !selectedFile) {
             return;
         }
 
-        chatInput.value = '';
+        if (chatSend) {
+            chatSend.disabled = true;
+        }
 
         try {
-            var response = await fetch('/api/messages/' + encodeURIComponent(friendId), {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    text: text
-                })
-            });
+            var response;
+
+            if (selectedFile) {
+                var formData = new FormData();
+                formData.append('text', text);
+                formData.append('image', selectedFile);
+
+                response = await fetch('/api/messages/' + encodeURIComponent(friendId), {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: formData
+                });
+            } else {
+                response = await fetch('/api/messages/' + encodeURIComponent(friendId), {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+            }
 
             if (response.status === 401) {
                 window.location.href = '/login';
@@ -188,44 +318,71 @@
             }
 
             if (!response.ok) {
-                var errorData = await response.json().catch(function () {
+                var data = await response.json().catch(function () {
                     return {};
                 });
 
-                chatInput.value = text;
-
-                alert(errorData.error || 'Не удалось отправить сообщение.');
+                alert(data.error || 'Не удалось отправить сообщение.');
                 return;
             }
 
+            chatInput.value = '';
+            clearAttachment();
+
             await loadMessages(true);
         } catch (error) {
-            chatInput.value = text;
             alert('Ошибка сети. Попробуйте ещё раз.');
+        } finally {
+            if (chatSend) {
+                chatSend.disabled = false;
+            }
         }
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        chatBody = document.getElementById('chatBody');
-        chatInput = document.getElementById('chatInput');
-        chatSend = document.getElementById('chatSend');
+        chatBody = $('chatBody');
+        chatInput = $('chatInput');
+        chatSend = $('chatSend');
+        attachInput = $('attachInput');
+        attachPreview = $('attachPreview');
+        attachPreviewImg = $('attachPreviewImg');
+        attachPreviewName = $('attachPreviewName');
+        attachRemove = $('attachRemove');
+        emojiToggle = $('emojiToggle');
+        emojiPanel = $('emojiPanel');
 
         if (!chatBody || !friendId) {
             return;
         }
 
+        renderEmojiPanel();
+
         if (chatSend) {
-            chatSend.addEventListener('click', function () {
-                sendMessage();
-            });
+            chatSend.addEventListener('click', sendMessage);
         }
 
-        if (chatInput) {
+        if (chatInput && canChat) {
             chatInput.addEventListener('keydown', function (event) {
                 if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
                     sendMessage();
                 }
+            });
+        }
+
+        if (attachInput && canChat) {
+            attachInput.addEventListener('change', function () {
+                selectFile(this.files && this.files[0]);
+            });
+        }
+
+        if (attachRemove) {
+            attachRemove.addEventListener('click', clearAttachment);
+        }
+
+        if (emojiToggle && emojiPanel) {
+            emojiToggle.addEventListener('click', function () {
+                emojiPanel.classList.toggle('open');
             });
         }
 

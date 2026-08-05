@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -56,7 +57,7 @@ CATEGORIES = [
 ]
 
 ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
-MAX_IMAGE_MB = 10
+MAX_IMAGE_MB = 8
 
 
 def utc_now_iso():
@@ -70,13 +71,54 @@ def clean_text(value, max_length=None):
     return value
 
 
-def parse_float(value, default=None):
+def parse_float_or_none(value):
+    value = clean_text(value, 100)
+
+    if not value:
+        return None
+
+    value = value.replace(",", ".")
+
     try:
         return float(value)
     except Exception:
-        if default is None:
-            raise ValueError("bad number")
-        return default
+        return None
+
+
+def clean_telegram_username(value):
+    value = clean_text(value, 32).lstrip("@")
+
+    if not value:
+        return None
+
+    if re.fullmatch(r"[A-Za-z0-9_]{3,32}", value):
+        return value
+
+    return None
+
+
+def clean_phone(value):
+    value = clean_text(value, 30)
+
+    if not value:
+        return None
+
+    if re.fullmatch(r"[0-9+\-() ]{5,30}", value):
+        return value
+
+    return None
+
+
+def clean_email(value):
+    value = clean_text(value, 255).lower()
+
+    if not value:
+        return None
+
+    if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value):
+        return value
+
+    return None
 
 
 def get_supabase(access_token=None, refresh_token=None):
@@ -135,7 +177,7 @@ def login_required(view):
     return wrapped
 
 
-def read_and_validate_file(file_storage, allowed_extensions, max_mb=10):
+def read_and_validate_file(file_storage, allowed_extensions, max_mb=8):
     if not file_storage or not file_storage.filename:
         return None
 
@@ -145,17 +187,17 @@ def read_and_validate_file(file_storage, allowed_extensions, max_mb=10):
 
     ext = filename.rsplit(".", 1)[-1].lower()
     if ext not in allowed_extensions:
-        raise ValueError("Недопустимый формат файла")
+        raise ValueError("Можно загружать только изображения")
 
     data = file_storage.read()
     if len(data) > max_mb * 1024 * 1024:
-        raise ValueError("Файл слишком большой")
+        raise ValueError("Файл слишком большой. Максимум 8 МБ.")
 
     return ext, data
 
 
-def upload_to_bucket(sb, bucket, uid, file_storage, allowed_extensions, max_mb=10):
-    prepared = read_and_validate_file(file_storage, allowed_extensions, max_mb)
+def upload_to_bucket(sb, bucket, uid, file_storage, max_mb=8):
+    prepared = read_and_validate_file(file_storage, ALLOWED_IMAGE_EXTENSIONS, max_mb)
     if not prepared:
         return None
 
@@ -174,7 +216,7 @@ def upload_to_bucket(sb, bucket, uid, file_storage, allowed_extensions, max_mb=1
 
 
 def get_friendship(sb, user_a, user_b):
-    query = (
+    res = (
         sb.table("friendships")
         .select("*")
         .or_(
@@ -182,8 +224,9 @@ def get_friendship(sb, user_a, user_b):
             f"and(requester_id.eq.{user_b},addressee_id.eq.{user_a})"
         )
         .limit(1)
+        .execute()
     )
-    res = query.execute()
+
     return res.data[0] if res.data else None
 
 
@@ -292,10 +335,17 @@ def logout():
 @app.route("/map")
 @login_required
 def map_view():
+    map_home = {
+        "lat": g.profile.get("home_lat"),
+        "lng": g.profile.get("home_lng"),
+        "name": g.profile.get("home_location_name"),
+    }
+
     return render_template(
         "map.html",
         profile=g.profile,
         categories=CATEGORIES,
+        map_home=map_home,
     )
 
 
@@ -481,10 +531,25 @@ def settings_view():
             categories=CATEGORIES,
         )
 
+    home_lat = parse_float_or_none(request.form.get("home_lat"))
+    home_lng = parse_float_or_none(request.form.get("home_lng"))
+
+    if home_lat is not None and not (-90 <= home_lat <= 90):
+        home_lat = None
+
+    if home_lng is not None and not (-180 <= home_lng <= 180):
+        home_lng = None
+
     update_data = {
         "display_name": clean_text(request.form.get("display_name"), 80),
         "bio": clean_text(request.form.get("bio"), 500),
         "location": clean_text(request.form.get("location"), 100),
+        "home_lat": home_lat,
+        "home_lng": home_lng,
+        "home_location_name": clean_text(request.form.get("home_location_name"), 120) or None,
+        "telegram_username": clean_telegram_username(request.form.get("telegram_username")),
+        "contact_phone": clean_phone(request.form.get("contact_phone")),
+        "contact_email": clean_email(request.form.get("contact_email")),
     }
 
     if g.profile.get("account_type") == "organization":
@@ -503,7 +568,6 @@ def settings_view():
                 "avatars",
                 uid,
                 avatar,
-                ALLOWED_IMAGE_EXTENSIONS,
                 MAX_IMAGE_MB,
             )
             if avatar_url:
@@ -568,8 +632,8 @@ def api_spots_create():
         return jsonify({"error": "Нужно указать заголовок метки"}), 400
 
     try:
-        lat = parse_float(request.form.get("lat"))
-        lng = parse_float(request.form.get("lng"))
+        lat = float(request.form.get("lat"))
+        lng = float(request.form.get("lng"))
     except Exception:
         return jsonify({"error": "Некорректные координаты"}), 400
 
@@ -586,7 +650,7 @@ def api_spots_create():
         category = None
 
     try:
-        duration_hours = parse_float(request.form.get("duration_hours"), 3.0)
+        duration_hours = float(request.form.get("duration_hours", "3"))
     except Exception:
         duration_hours = 3.0
 
@@ -615,7 +679,6 @@ def api_spots_create():
                 "spot-photos",
                 uid,
                 photo,
-                ALLOWED_IMAGE_EXTENSIONS,
                 MAX_IMAGE_MB,
             )
 
@@ -672,7 +735,7 @@ def api_spot_comments(spot_id):
         text = clean_text((request.json or {}).get("text"), 500)
 
         if not text:
-            return jsonify({"error": "Текст обязателен"}), 400
+            return jsonify({"error": "Текст комментария обязателен"}), 400
 
         try:
             sb.table("spot_comments").insert(
@@ -682,7 +745,9 @@ def api_spot_comments(spot_id):
                     "text": text,
                 }
             ).execute()
+
             return jsonify({"ok": True}), 201
+
         except Exception as e:
             return jsonify({"error": str(e)}), 400
 
@@ -695,7 +760,9 @@ def api_spot_comments(spot_id):
             .limit(100)
             .execute()
         )
+
         return jsonify(res.data or [])
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
@@ -893,19 +960,42 @@ def api_messages(friend_id):
 
     try:
         if request.method == "POST":
-            text = clean_text((request.json or {}).get("text"), 2000)
-
-            if not text:
-                return jsonify({"error": "Текст обязателен"}), 400
-
             if not are_friends_db(sb, uid, friend_id):
                 return jsonify({"error": "Писать можно только друзьям"}), 403
+
+            text = ""
+            image = None
+
+            if request.mimetype == "multipart/form-data":
+                text = clean_text(request.form.get("text"), 2000)
+                image = request.files.get("image")
+            else:
+                payload = request.get_json(silent=True) or {}
+                text = clean_text(payload.get("text"), 2000)
+
+            image_url = None
+
+            if image and image.filename:
+                try:
+                    image_url = upload_to_bucket(
+                        sb,
+                        "chat-images",
+                        uid,
+                        image,
+                        MAX_IMAGE_MB,
+                    )
+                except ValueError as e:
+                    return jsonify({"error": str(e)}), 400
+
+            if not text and not image_url:
+                return jsonify({"error": "Пустое сообщение"}), 400
 
             sb.table("messages").insert(
                 {
                     "sender_id": uid,
                     "receiver_id": friend_id,
-                    "text": text,
+                    "text": text or "",
+                    "image_url": image_url,
                 }
             ).execute()
 
@@ -913,7 +1003,7 @@ def api_messages(friend_id):
 
         res = (
             sb.table("messages")
-            .select("id, sender_id, receiver_id, text, created_at, is_read")
+            .select("id, sender_id, receiver_id, text, image_url, created_at, is_read")
             .or_(
                 f"and(sender_id.eq.{uid},receiver_id.eq.{friend_id}),"
                 f"and(sender_id.eq.{friend_id},receiver_id.eq.{uid})"
@@ -977,7 +1067,7 @@ def api_conversations():
 
         last_res = (
             sb.table("messages")
-            .select("text, created_at, sender_id")
+            .select("text, image_url, created_at, sender_id")
             .or_(
                 f"and(sender_id.eq.{uid},receiver_id.eq.{friend_id}),"
                 f"and(sender_id.eq.{friend_id},receiver_id.eq.{uid})"
@@ -1003,6 +1093,10 @@ def api_conversations():
         if last_res.data:
             last = last_res.data[0]
             last_message_text = last.get("text")
+
+            if last.get("image_url") and not last_message_text:
+                last_message_text = "🖼️ Фото"
+
             last_message_at = last.get("created_at")
             last_message_mine = last.get("sender_id") == uid
 

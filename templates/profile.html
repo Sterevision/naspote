@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "_nav.html" import bottom_nav %}
 
 {% block title %}{{ profile.display_name }} — Картометр{% endblock %}
 
@@ -31,6 +30,28 @@
 
             {% if profile.bio %}
                 <p class="profile-bio">{{ profile.bio }}</p>
+            {% endif %}
+
+            {% if profile.telegram_username or profile.contact_phone or profile.contact_email %}
+                <div class="contact-chips">
+                    {% if profile.telegram_username %}
+                        <a class="contact-chip" href="https://t.me/{{ profile.telegram_username }}" target="_blank" rel="noopener">
+                            ✈️ @{{ profile.telegram_username }}
+                        </a>
+                    {% endif %}
+
+                    {% if profile.contact_phone %}
+                        <a class="contact-chip" href="tel:{{ profile.contact_phone }}">
+                            📞 {{ profile.contact_phone }}
+                        </a>
+                    {% endif %}
+
+                    {% if profile.contact_email %}
+                        <a class="contact-chip" href="mailto:{{ profile.contact_email }}">
+                            ✉️ {{ profile.contact_email }}
+                        </a>
+                    {% endif %}
+                </div>
             {% endif %}
 
             {% if profile.account_type != 'organization' %}
@@ -88,7 +109,32 @@
         {% endif %}
     </div>
 
-    {{ bottom_nav('profile', profile) }}
+    <nav class="bottom-nav">
+        <a class="nav-item" href="{{ url_for('map_view') }}">
+            <span class="ic">🗺️</span>
+            <span class="label">Карта</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('feed_view') }}">
+            <span class="ic">📰</span>
+            <span class="label">Лента</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('friends_view') }}">
+            <span class="ic">🤝</span>
+            <span class="label">Друзья</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('messages_view') }}">
+            <span class="ic">💬</span>
+            <span class="label">Чаты</span>
+        </a>
+
+        <a class="nav-item active" href="{{ url_for('profile_view', username=profile.username) }}">
+            <span class="ic">👤</span>
+            <span class="label">Профиль</span>
+        </a>
+    </nav>
 </div>
 {% endblock %}
 
@@ -97,15 +143,15 @@
 (function () {
     'use strict';
 
-    const addBtn = document.getElementById('addFriendBtn');
-    const acceptBtn = document.getElementById('acceptFriendBtn');
+    var addBtn = document.getElementById('addFriendBtn');
+    var acceptBtn = document.getElementById('acceptFriendBtn');
 
     if (addBtn) {
         addBtn.addEventListener('click', async function () {
             addBtn.disabled = true;
             addBtn.textContent = '...';
 
-            const res = await fetch('/api/friends/{{ profile.username }}/add', {
+            var res = await fetch('/api/friends/{{ profile.username }}/add', {
                 method: 'POST',
                 credentials: 'same-origin'
             });
@@ -124,7 +170,7 @@
             acceptBtn.disabled = true;
             acceptBtn.textContent = '...';
 
-            const res = await fetch('/api/friends/{{ friend_status.id }}/accept', {
+            var res = await fetch('/api/friends/{{ friend_status.id }}/accept', {
                 method: 'POST',
                 credentials: 'same-origin'
             });

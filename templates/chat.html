@@ -33,7 +33,28 @@
         </div>
     </div>
 
+    <div class="chat-attach-preview" id="attachPreview" hidden>
+        <img id="attachPreviewImg" alt="Вложение">
+        <div class="chat-attach-meta">
+            <div id="attachPreviewName"></div>
+            <button class="btn btn-ghost btn-sm" id="attachRemove" type="button">✕ Убрать фото</button>
+        </div>
+    </div>
+
+    {% if is_friend %}
+        <div class="emoji-panel" id="emojiPanel"></div>
+    {% endif %}
+
     <div class="chat-input-row">
+        {% if is_friend %}
+            <button class="tool-btn" id="emojiToggle" type="button">😊</button>
+
+            <label class="tool-btn attach-label" for="attachInput">
+                🖼️
+                <input type="file" id="attachInput" accept="image/*" hidden>
+            </label>
+        {% endif %}
+
         <input
             class="input"
             type="text"
@@ -52,195 +73,8 @@
 
 {% block scripts %}
 <script>
-(function () {
-    'use strict';
-
-    const friendId = {{ friend.id|tojson }};
-    const canChat = {{ 'true' if is_friend else 'false' }};
-
-    const chatBody = document.getElementById('chatBody');
-    const chatInput = document.getElementById('chatInput');
-    const chatSend = document.getElementById('chatSend');
-
-    let lastCount = -1;
-    let initialLoadDone = false;
-
-    function escapeHtml(value) {
-        const div = document.createElement('div');
-        div.textContent = value === null || value === undefined ? '' : String(value);
-        return div.innerHTML;
-    }
-
-    function isNearBottom() {
-        if (!chatBody) return false;
-        return chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 100;
-    }
-
-    function scrollToBottom() {
-        if (!chatBody) return;
-        chatBody.scrollTop = chatBody.scrollHeight;
-    }
-
-    function renderEmpty(message) {
-        chatBody.innerHTML = `
-            <div class="empty-state">
-                <p>${escapeHtml(message)}</p>
-            </div>
-        `;
-    }
-
-    function renderMessages(messages) {
-        if (!chatBody) return;
-
-        chatBody.innerHTML = '';
-
-        if (!messages.length) {
-            renderEmpty('Сообщений пока нет. Напишите первое!');
-            return;
-        }
-
-        messages.forEach(function (message) {
-            const mine = String(message.sender_id) === String(window.CURRENT_USER_ID || '');
-
-            const bubble = document.createElement('div');
-            bubble.className = 'bubble ' + (mine ? 'mine' : 'theirs');
-
-            const text = document.createElement('div');
-            text.textContent = message.text || '';
-            bubble.appendChild(text);
-
-            if (message.created_at) {
-                const date = new Date(message.created_at);
-
-                if (!isNaN(date.getTime())) {
-                    const meta = document.createElement('div');
-                    meta.className = 'bubble-time';
-                    meta.textContent = date.toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    bubble.appendChild(meta);
-                }
-            }
-
-            chatBody.appendChild(bubble);
-        });
-    }
-
-    async function loadMessages(forceScroll) {
-        if (!friendId || !chatBody) return;
-
-        try {
-            const res = await fetch('/api/messages/' + encodeURIComponent(friendId), {
-                credentials: 'same-origin'
-            });
-
-            if (res.status === 401) {
-                window.location.href = '/login';
-                return;
-            }
-
-            if (res.status === 403) {
-                renderEmpty('Чат доступен только между друзьями.');
-                return;
-            }
-
-            if (!res.ok) {
-                throw new Error('load failed');
-            }
-
-            const messages = await res.json();
-
-            if (!Array.isArray(messages)) {
-                renderEmpty('Не удалось загрузить сообщения.');
-                return;
-            }
-
-            if (messages.length !== lastCount) {
-                const stick = forceScroll || !initialLoadDone || isNearBottom();
-
-                renderMessages(messages);
-
-                if (stick) {
-                    scrollToBottom();
-                }
-
-                lastCount = messages.length;
-            }
-
-            initialLoadDone = true;
-        } catch (e) {
-            if (!initialLoadDone) {
-                renderEmpty('Не удалось загрузить сообщения.');
-            }
-        }
-    }
-
-    async function sendMessage() {
-        if (!canChat || !chatInput || !friendId) return;
-
-        const text = chatInput.value.trim();
-
-        if (!text) return;
-
-        chatInput.value = '';
-
-        try {
-            const res = await fetch('/api/messages/' + encodeURIComponent(friendId), {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ text: text })
-            });
-
-            if (res.status === 401) {
-                window.location.href = '/login';
-                return;
-            }
-
-            if (!res.ok) {
-                const data = await res.json().catch(function () {
-                    return {};
-                });
-
-                chatInput.value = text;
-                alert(data.error || 'Не удалось отправить сообщение.');
-                return;
-            }
-
-            await loadMessages(true);
-        } catch (e) {
-            chatInput.value = text;
-            alert('Ошибка сети. Попробуйте ещё раз.');
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        if (!chatBody || !friendId) return;
-
-        if (chatSend) {
-            chatSend.addEventListener('click', sendMessage);
-        }
-
-        if (chatInput && canChat) {
-            chatInput.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    sendMessage();
-                }
-            });
-        }
-
-        loadMessages(true);
-
-        setInterval(function () {
-            if (!document.hidden) {
-                loadMessages(false);
-            }
-        }, 5000);
-    });
-})();
+    window.CHAT_FRIEND_ID = {{ friend.id|tojson }};
+    window.CHAT_CAN_CHAT = {{ 'true' if is_friend else 'false' }};
 </script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 {% endblock %}

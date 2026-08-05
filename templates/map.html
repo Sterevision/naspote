@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "_nav.html" import bottom_nav %}
 
 {% block title %}Карта — Картометр{% endblock %}
 
@@ -26,6 +25,8 @@
             </div>
         </div>
 
+        <div class="map-status" id="mapStatus" style="display:none;"></div>
+
         <div class="fab-column">
             <button class="fab-mini" id="manualToggle" type="button">✋</button>
             <button class="fab-mini" id="locateMe" type="button">📍</button>
@@ -38,7 +39,32 @@
         </div>
     </div>
 
-    {{ bottom_nav('map', profile) }}
+    <nav class="bottom-nav">
+        <a class="nav-item active" href="{{ url_for('map_view') }}">
+            <span class="ic">🗺️</span>
+            <span class="label">Карта</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('feed_view') }}">
+            <span class="ic">📰</span>
+            <span class="label">Лента</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('friends_view') }}">
+            <span class="ic">🤝</span>
+            <span class="label">Друзья</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('messages_view') }}">
+            <span class="ic">💬</span>
+            <span class="label">Чаты</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}">
+            <span class="ic">👤</span>
+            <span class="label">Профиль</span>
+        </a>
+    </nav>
 </div>
 
 <div class="sheet-overlay" id="addSpotOverlay">
@@ -118,5 +144,8 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+    window.MAP_HOME = {{ map_home|tojson }};
+</script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 {% endblock %}

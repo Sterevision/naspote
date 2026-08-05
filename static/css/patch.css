@@ -1,0 +1,246 @@
+/* =========================================================
+   КАРТОМЕТР — patch.css
+   Исправления и новые блоки:
+   - палитра не залезает на +/-
+   - геолокация: статусы
+   - комментарии
+   - чат: эмодзи и картинки
+   - настройки: две колонки
+========================================================= */
+
+/* Leaflet zoom уводим вниз влево, чтобы не было наезда на палитру */
+.leaflet-bottom.leaflet-left {
+    bottom: 18px;
+}
+
+.leaflet-control-zoom {
+    border: 1px solid var(--line, rgba(15, 23, 42, 0.08)) !important;
+    border-radius: 16px !important;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm, 0 8px 24px rgba(15, 23, 42, 0.06)) !important;
+}
+
+/* Верхняя панель карты: оставляем место справа */
+.map-top {
+    right: 70px;
+}
+
+.map-btn {
+    z-index: 35;
+}
+
+/* Статус геолокации */
+.map-status {
+    position: absolute;
+    top: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    max-width: calc(100% - 32px);
+    padding: 11px 14px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.90);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    box-shadow: var(--shadow-md, 0 16px 40px rgba(15, 23, 42, 0.10));
+    backdrop-filter: blur(12px);
+}
+
+.map-status.error {
+    background: rgba(239, 68, 68, 0.92);
+}
+
+/* Настройки: две колонки для координат */
+.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+@media (max-width: 520px) {
+    .two-col {
+        grid-template-columns: 1fr;
+    }
+}
+
+.settings-subtitle {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.section-divider {
+    height: 1px;
+    background: var(--line, rgba(15, 23, 42, 0.08));
+    margin: 24px 0;
+}
+
+/* Контакты в профиле */
+.contact-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.contact-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 12px;
+    border-radius: 999px;
+    background: var(--surface-2, #eef0f4);
+    border: 1px solid var(--line, rgba(15, 23, 42, 0.08));
+    color: inherit;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.contact-chip:hover {
+    opacity: 0.85;
+}
+
+/* Комментарии в карточке метки */
+.comment-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.comment-row:last-child {
+    border-bottom: none;
+}
+
+.avatar-sm {
+    width: 34px;
+    height: 34px;
+    font-size: 13px;
+}
+
+.comment-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.comment-input-row .input {
+    flex: 1;
+}
+
+/* Чат: кнопки вокруг поля ввода */
+.chat-input-row {
+    align-items: center;
+}
+
+.tool-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1px solid var(--line, rgba(15, 23, 42, 0.08));
+    background: #fff;
+    box-shadow: var(--shadow-sm, 0 8px 24px rgba(15, 23, 42, 0.06));
+    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.tool-btn:active {
+    transform: scale(0.96);
+}
+
+.attach-label {
+    margin: 0;
+}
+
+/* Панель эмодзи */
+.emoji-panel {
+    display: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px;
+    margin: 0 12px;
+    border-top: 1px solid var(--line, rgba(15, 23, 42, 0.08));
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(18px);
+    max-height: 172px;
+    overflow-y: auto;
+}
+
+.emoji-panel.open {
+    display: flex;
+}
+
+.emoji-btn {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.emoji-btn:hover,
+.emoji-btn:active {
+    background: rgba(15, 23, 42, 0.06);
+}
+
+/* Вложение в чате */
+.chat-attach-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 10px 14px 0;
+    padding: 10px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--line, rgba(15, 23, 42, 0.08));
+}
+
+.chat-attach-preview img {
+    width: 62px;
+    height: 62px;
+    object-fit: cover;
+    border-radius: 16px;
+}
+
+.chat-attach-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.chat-attach-meta div {
+    font-size: 13px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Картинка внутри сообщения */
+.chat-image {
+    max-width: 240px;
+    max-height: 240px;
+    border-radius: 16px;
+    object-fit: cover;
+    margin-bottom: 6px;
+}
+
+/* Маленькие аватарки для комментариев */
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}

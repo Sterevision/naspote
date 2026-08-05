@@ -11,6 +11,8 @@
     var activeCategory = '';
     var allSpots = [];
 
+    var home = window.MAP_HOME || null;
+
     function $(id) {
         return document.getElementById(id);
     }
@@ -22,7 +24,9 @@
     }
 
     function safeUrl(url) {
-        if (!url) return '';
+        if (!url) {
+            return '';
+        }
 
         var value = String(url);
 
@@ -34,7 +38,9 @@
     }
 
     function timeLeft(iso) {
-        if (!iso) return '';
+        if (!iso) {
+            return '';
+        }
 
         var diff = new Date(iso) - new Date();
 
@@ -56,6 +62,24 @@
         return 'меньше минуты';
     }
 
+    function showMapStatus(text, isError) {
+        var el = $('mapStatus');
+
+        if (!el) {
+            return;
+        }
+
+        el.textContent = text;
+        el.className = 'map-status' + (isError ? ' error' : '');
+        el.style.display = 'block';
+
+        clearTimeout(el._timer);
+
+        el._timer = setTimeout(function () {
+            el.style.display = 'none';
+        }, 5000);
+    }
+
     function pinColor(spot) {
         if (String(spot.owner_id) === String(window.CURRENT_USER_ID || '')) {
             return 'var(--mine)';
@@ -70,47 +94,6 @@
         }
 
         return 'var(--public)';
-    }
-
-    function initMap() {
-        var mapElement = $('map');
-
-        if (!mapElement) {
-            return;
-        }
-
-        map = L.map('map', {
-            zoomControl: false
-        }).setView([pendingLat, pendingLng], 13);
-
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap, © CARTO'
-        }).addTo(map);
-
-        L.control.zoom({
-            position: 'topright'
-        }).addTo(map);
-
-        markersLayer = L.layerGroup().addTo(map);
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function (position) {
-                pendingLat = position.coords.latitude;
-                pendingLng = position.coords.longitude;
-
-                map.setView([pendingLat, pendingLng], 15);
-                setYouMarker(pendingLat, pendingLng);
-            });
-        }
-
-        map.on('click', function (event) {
-            if (!manualMode) {
-                return;
-            }
-
-            openAddSheet(event.latlng.lat, event.latlng.lng, 'manual');
-        });
     }
 
     function setYouMarker(lat, lng) {
@@ -129,6 +112,97 @@
                 zIndexOffset: 1200
             }).addTo(map);
         }
+    }
+
+    function locateUser(isAuto) {
+        if (!navigator.geolocation) {
+            if (!isAuto) {
+                showMapStatus('Геолокация недоступна в этом браузере', true);
+            }
+            return;
+        }
+
+        if (!window.isSecureContext) {
+            showMapStatus('Геолокация работает только по HTTPS или на localhost', true);
+            return;
+        }
+
+        showMapStatus('Определяем местоположение...');
+
+        navigator.geolocation.getCurrentPosition(function (position) {
+            pendingLat = position.coords.latitude;
+            pendingLng = position.coords.longitude;
+
+            if (map) {
+                map.setView([pendingLat, pendingLng], 15);
+            }
+
+            setYouMarker(pendingLat, pendingLng);
+            showMapStatus('Вы здесь');
+        }, function (error) {
+            var message = 'Не удалось определить местоположение';
+
+            if (error.code === 1) {
+                message = 'Доступ к геолокации запрещён. Разрешите доступ в браузере.';
+            } else if (error.code === 2) {
+                message = 'Геолокация недоступна на этом устройстве.';
+            } else if (error.code === 3) {
+                message = 'Время ожидания геолокации истекло.';
+            }
+
+            showMapStatus(message, true);
+        }, {
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 60000
+        });
+    }
+
+    function initMap() {
+        var mapElement = $('map');
+
+        if (!mapElement) {
+            return;
+        }
+
+        var center = [pendingLat, pendingLng];
+        var zoom = 13;
+
+        if (home && home.lat !== null && home.lng !== null && home.lat !== undefined && home.lng !== undefined) {
+            pendingLat = Number(home.lat);
+            pendingLng = Number(home.lng);
+            center = [pendingLat, pendingLng];
+            zoom = 14;
+        }
+
+        map = L.map('map', {
+            zoomControl: false
+        }).setView(center, zoom);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap, © CARTO'
+        }).addTo(map);
+
+        L.control.zoom({
+            position: 'bottomleft'
+        }).addTo(map);
+
+        markersLayer = L.layerGroup().addTo(map);
+
+        if (home && home.lat !== null && home.lng !== null) {
+            setYouMarker(pendingLat, pendingLng);
+        } else {
+            locateUser(true);
+        }
+
+        map.on('click', function (event) {
+            if (!manualMode) {
+                return;
+            }
+
+            openAddSheet(event.latlng.lat, event.latlng.lng, 'manual');
+        });
     }
 
     function applyFilter() {
@@ -274,6 +348,109 @@
         }
     }
 
+    async function loadComments(spotId) {
+        var box = $('spotComments');
+
+        if (!box) {
+            return;
+        }
+
+        try {
+            var response = await fetch('/api/spots/' + spotId + '/comments', {
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                box.innerHTML = '<p class="hint">Не удалось загрузить комментарии</p>';
+                return;
+            }
+
+            var comments = await response.json();
+
+            if (!comments.length) {
+                box.innerHTML = '<p class="hint">Пока нет комментариев</p>';
+                return;
+            }
+
+            box.innerHTML = comments.map(function (comment) {
+                var name = comment.user ? (comment.user.display_name || comment.user.username || 'Пользователь') : 'Пользователь';
+                var initial = name.charAt(0).toUpperCase();
+                var date = '';
+
+                if (comment.created_at) {
+                    var d = new Date(comment.created_at);
+
+                    if (!isNaN(d.getTime())) {
+                        date = d.toLocaleDateString([], {
+                            day: '2-digit',
+                            month: '2-digit'
+                        }) + ' ' + d.toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    }
+                }
+
+                return '<div class="comment-row">' +
+                    '<div class="avatar avatar-sm">' +
+                    (comment.user && comment.user.avatar_url ? '<img src="' + esc(safeUrl(comment.user.avatar_url)) + '" alt="">' : esc(initial)) +
+                    '</div>' +
+                    '<div class="info">' +
+                    '<div class="name">' + esc(name) + '</div>' +
+                    '<div class="sub">' + esc(comment.text || '') + '</div>' +
+                    '<div class="hint">' + esc(date) + '</div>' +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+        } catch (error) {
+            box.innerHTML = '<p class="hint">Ошибка загрузки комментариев</p>';
+        }
+    }
+
+    async function sendComment(spotId) {
+        var input = $('commentInput');
+
+        if (!input) {
+            return;
+        }
+
+        var text = input.value.trim();
+
+        if (!text) {
+            return;
+        }
+
+        input.value = '';
+
+        try {
+            var response = await fetch('/api/spots/' + spotId + '/comments', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text: text })
+            });
+
+            if (response.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+
+            if (!response.ok) {
+                var data = await response.json().catch(function () {
+                    return {};
+                });
+
+                alert(data.error || 'Не удалось отправить комментарий');
+            }
+
+            await loadComments(spotId);
+        } catch (error) {
+            alert('Ошибка сети');
+        }
+    }
+
     function openSpot(spot) {
         var content = $('spotSheetContent');
 
@@ -322,8 +499,16 @@
             html += '<p style="margin-bottom:14px;">' + esc(spot.description) + '</p>';
         }
 
+        html += '<div class="section-title">💬 Комментарии</div>';
+        html += '<div id="spotComments"></div>';
+
+        html += '<div class="comment-input-row">' +
+            '<input class="input" type="text" id="commentInput" maxlength="500" placeholder="Написать комментарий...">' +
+            '<button class="btn btn-primary btn-sm" id="sendComment" type="button">➤</button>' +
+            '</div>';
+
         if (isMine) {
-            html += '<button class="btn btn-ghost btn-block" id="deleteSpotBtn" type="button">🗑 Убрать метку</button>';
+            html += '<button class="btn btn-ghost btn-block" id="deleteSpotBtn" type="button" style="margin-top:14px;">🗑 Убрать метку</button>';
         }
 
         content.innerHTML = html;
@@ -336,6 +521,27 @@
 
         if (closeButton) {
             closeButton.onclick = closeSpotSheet;
+        }
+
+        loadComments(spot.id);
+
+        var sendCommentButton = $('sendComment');
+
+        if (sendCommentButton) {
+            sendCommentButton.onclick = function () {
+                sendComment(spot.id);
+            };
+        }
+
+        var commentInput = $('commentInput');
+
+        if (commentInput) {
+            commentInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    sendComment(spot.id);
+                }
+            });
         }
 
         var deleteButton = $('deleteSpotBtn');
@@ -407,18 +613,9 @@
 
         var locateMe = $('locateMe');
 
-        if (locateMe && navigator.geolocation) {
+        if (locateMe) {
             locateMe.addEventListener('click', function () {
-                navigator.geolocation.getCurrentPosition(function (position) {
-                    pendingLat = position.coords.latitude;
-                    pendingLng = position.coords.longitude;
-
-                    if (map) {
-                        map.setView([pendingLat, pendingLng], 15);
-                    }
-
-                    setYouMarker(pendingLat, pendingLng);
-                });
+                locateUser(false);
             });
         }
 
