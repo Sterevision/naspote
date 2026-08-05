@@ -1,20 +1,73 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
+
 {% block title %}Регистрация — Картометр{% endblock %}
+
 {% block content %}
-<div class="center-page">
-    <div class="auth-box card">
-        <div class="logo-circle">{{ icon('leaf') }}</div>
-        <h1 class="display" style="text-align:center">Создать профиль</h1>
+<div class="auth-page">
+    <div class="card auth-card">
+        <div class="logo">🌱</div>
+
+        <h1 class="display">Создать профиль</h1>
+        <p class="subtitle">Метка на карте говорит больше, чем биография</p>
+
         <form method="post" action="{{ url_for('register') }}">
-            <div class="field"><label>Кто вы?</label><div class="visibility-toggle" id="accountTypePicker"><div class="vis-option selected" data-type="person"><span class="ic">{{ icon('user') }}</span> Человек</div><div class="vis-option" data-type="organization"><span class="ic">{{ icon('building') }}</span> Заведение</div></div><input type="hidden" name="account_type" id="accountTypeInput" value="person"></div>
-            <div class="field"><label>Имя</label><input type="text" name="display_name" maxlength="80" required></div>
-            <div class="field"><label>Username (латиницей)</label><input type="text" name="username" maxlength="30" required></div>
-            <div class="field"><label>Email</label><input type="email" name="email" autocomplete="email" required></div>
-            <div class="field"><label>Пароль</label><input type="password" name="password" minlength="8" required></div>
+            <div class="field">
+                <label>Кто вы?</label>
+                <div class="segmented" id="accountTypePicker">
+                    <div class="segmented-item selected" data-type="person">🙋 Человек</div>
+                    <div class="segmented-item" data-type="organization">🏢 Заведение</div>
+                </div>
+                <input type="hidden" name="account_type" id="accountTypeInput" value="person">
+            </div>
+
+            <div class="field">
+                <label>Имя</label>
+                <input class="input" type="text" name="display_name" maxlength="80" required>
+            </div>
+
+            <div class="field">
+                <label>Username</label>
+                <input class="input" type="text" name="username" maxlength="30" required>
+            </div>
+
+            <div class="field">
+                <label>Email</label>
+                <input class="input" type="email" name="email" autocomplete="email" required>
+            </div>
+
+            <div class="field">
+                <label>Пароль</label>
+                <input class="input" type="password" name="password" minlength="8" required>
+            </div>
+
             <button class="btn btn-primary btn-block" type="submit">Зарегистрироваться</button>
         </form>
-        <div class="switch-link">Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a></div>
+
+        <div class="switch-link">
+            Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var picker = document.getElementById('accountTypePicker');
+    var input = document.getElementById('accountTypeInput');
+
+    if (!picker || !input) return;
+
+    picker.querySelectorAll('.segmented-item').forEach(function (item) {
+        item.addEventListener('click', function () {
+            picker.querySelectorAll('.segmented-item').forEach(function (x) {
+                x.classList.remove('selected');
+            });
+
+            item.classList.add('selected');
+            input.value = item.dataset.type;
+        });
+    });
+})();
+</script>
 {% endblock %}

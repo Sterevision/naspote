@@ -1,27 +1,68 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
+{% from "_nav.html" import bottom_nav %}
+
 {% block title %}Настройки — Картометр{% endblock %}
+
 {% block content %}
 <div class="app-shell">
-    <div class="list-page" style="flex:1; overflow-y:auto;">
-        <div class="page-head"><div><h1 class="display" style="font-size:24px"><span class="ic">{{ icon('settings') }}</span> Настройки</h1></div></div>
-        <form method="post" enctype="multipart/form-data">
-            <input type="hidden" name="form_name" value="profile">
-            <div class="field"><label>Имя</label><input type="text" name="display_name" value="{{ profile.display_name or '' }}"></div>
-            <div class="field"><label>Локация</label><input type="text" name="location" value="{{ profile.location or '' }}"></div>
-            <div class="field"><label>О себе</label><textarea name="bio">{{ profile.bio or '' }}</textarea></div>
-            <div class="field"><label>Аватар</label><input type="file" name="avatar" accept="image/*"></div>
+    <div class="page">
+        <div class="topbar">
+            <div>
+                <h1 class="display page-title">⚙️ Настройки</h1>
+                <p class="subtitle">Профиль и аватар</p>
+            </div>
+        </div>
+
+        <form class="card" method="post" enctype="multipart/form-data">
+            <div class="field">
+                <label>Имя</label>
+                <input class="input" type="text" name="display_name" value="{{ profile.display_name or '' }}" maxlength="80">
+            </div>
+
+            <div class="field">
+                <label>Локация</label>
+                <input class="input" type="text" name="location" value="{{ profile.location or '' }}" maxlength="100">
+            </div>
+
+            <div class="field">
+                <label>О себе</label>
+                <textarea class="input" name="bio" maxlength="500">{{ profile.bio or '' }}</textarea>
+            </div>
+
+            {% if profile.account_type == 'organization' %}
+                <div class="field">
+                    <label>Категория заведения</label>
+                    <input class="input" type="text" name="category" value="{{ profile.category or '' }}" maxlength="50">
+                </div>
+
+                <div class="field">
+                    <label>Адрес</label>
+                    <input class="input" type="text" name="address" value="{{ profile.address or '' }}" maxlength="200">
+                </div>
+            {% else %}
+                <div class="field">
+                    <label>Возраст</label>
+                    <input class="input" type="number" name="age" value="{{ profile.age or '' }}" min="13" max="120">
+                </div>
+            {% endif %}
+
+            <div class="field">
+                <label>Аватар</label>
+                <label class="file-drop" for="avatarInput">
+                    <input type="file" id="avatarInput" name="avatar" accept="image/*" hidden>
+                    <div class="file-drop-text">
+                        <span>📷</span>
+                        Загрузить аватар
+                    </div>
+                </label>
+            </div>
+
             <button class="btn btn-primary btn-block" type="submit">Сохранить</button>
         </form>
-        <div class="section-divider"></div>
-        <a class="btn btn-ghost btn-block" href="{{ url_for('logout') }}" style="margin-top:10px;">Выйти</a>
+
+        <a class="btn btn-ghost btn-block logout-btn" href="{{ url_for('logout') }}">Выйти</a>
     </div>
-    <nav class="bottom-nav">
-        <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">{{ icon('map') }}</span>Карта</a>
-        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">{{ icon('feed') }}</span>Лента</a>
-        <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">{{ icon('friends') }}</span>Друзья</a>
-        <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">{{ icon('chat') }}</span>Чаты</a>
-        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">{{ icon('user') }}</span>Профиль</a>
-    </nav>
+
+    {{ bottom_nav('settings', profile) }}
 </div>
 {% endblock %}

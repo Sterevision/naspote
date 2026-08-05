@@ -1,18 +1,32 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
+
 {% block title %}Вход — Картометр{% endblock %}
+
 {% block content %}
-<div class="center-page">
-    <div class="auth-box card">
-        <div class="logo-circle">{{ icon('door') }}</div>
-        <h1 class="display" style="text-align:center">С возвращением</h1>
-        <p class="subtitle" style="text-align:center">Войдите, чтобы увидеть карту живого города</p>
+<div class="auth-page">
+    <div class="card auth-card">
+        <div class="logo">👋</div>
+
+        <h1 class="display">С возвращением</h1>
+        <p class="subtitle">Войдите, чтобы увидеть карту живого города</p>
+
         <form method="post" action="{{ url_for('login') }}">
-            <div class="field"><label for="email">Email</label><input type="email" id="email" name="email" autocomplete="email" required></div>
-            <div class="field"><label for="password">Пароль</label><input type="password" id="password" name="password" autocomplete="current-password" required></div>
+            <div class="field">
+                <label for="email">Email</label>
+                <input class="input" type="email" id="email" name="email" autocomplete="email" required>
+            </div>
+
+            <div class="field">
+                <label for="password">Пароль</label>
+                <input class="input" type="password" id="password" name="password" autocomplete="current-password" required>
+            </div>
+
             <button class="btn btn-primary btn-block" type="submit">Войти</button>
         </form>
-        <div class="switch-link">Ещё нет аккаунта? <a href="{{ url_for('register') }}">Создать</a></div>
+
+        <div class="switch-link">
+            Ещё нет аккаунта? <a href="{{ url_for('register') }}">Создать</a>
+        </div>
     </div>
 </div>
 {% endblock %}

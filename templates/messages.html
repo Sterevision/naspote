@@ -1,38 +1,175 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
+{% from "_nav.html" import bottom_nav %}
+
 {% block title %}Чаты — Картометр{% endblock %}
+
 {% block content %}
 <div class="app-shell">
-    <div class="list-page" style="flex:1; overflow-y:auto;">
-        <div class="page-head"><div><h1 class="display" style="font-size:24px"><span class="ic">{{ icon('chat') }}</span> Чаты</h1><p class="subtitle">Личные сообщения</p></div></div>
-        <div id="conversationsList"><div class="empty-state"><span class="em">{{ icon('clock') }}</span><p>Загрузка...</p></div></div>
+    <div class="page">
+        <div class="topbar">
+            <div>
+                <h1 class="display page-title">💬 Чаты</h1>
+                <p class="subtitle">Личные сообщения между друзьями</p>
+            </div>
+        </div>
+
+        <div id="conversationsList">
+            <div class="empty-state">
+                <span class="em">⏳</span>
+                <p>Загрузка...</p>
+            </div>
+        </div>
     </div>
-    <nav class="bottom-nav">
-        <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">{{ icon('map') }}</span>Карта</a>
-        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">{{ icon('feed') }}</span>Лента</a>
-        <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">{{ icon('friends') }}</span>Друзья</a>
-        <a class="nav-item active" href="{{ url_for('messages_view') }}"><span class="ic">{{ icon('chat') }}</span>Чаты</a>
-        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">{{ icon('user') }}</span>Профиль</a>
-    </nav>
+
+    {{ bottom_nav('messages', profile) }}
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', async function () {
-    var list = document.getElementById('conversationsList');
-    try {
-        var res = await fetch('/api/friends_list');
-        var friends = await res.json();
-        if (!friends.length) { list.innerHTML = '<div class="empty-state"><span class="em"><svg viewBox="0 0 20 20"><path d="M7 8.3a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M2.2 17c0-3 2.1-5.3 4.8-5.3s4.8 2.3 4.8 5.3"/><path d="M13.4 4.6a2.1 2.1 0 0 1 0 4.1"/><path d="M14.3 17c0-2.3-1.1-4.2-2.8-5"/></svg></span><p>Пока нет чатов. Добавьте друзей!</p></div>'; return; }
+(function () {
+    'use strict';
+
+    const list = document.getElementById('conversationsList');
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value === null || value === undefined ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function formatTime(iso) {
+        if (!iso) return '';
+
+        const date = new Date(iso);
+        if (isNaN(date.getTime())) return '';
+
+        const now = new Date();
+
+        if (date.toDateString() === now.toDateString()) {
+            return date.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        return date.toLocaleDateString([], {
+            day: '2-digit',
+            month: '2-digit'
+        });
+    }
+
+    function renderEmpty(message) {
+        list.innerHTML = `
+            <div class="empty-state">
+                <span class="em">💬</span>
+                <p>${escapeHtml(message)}</p>
+            </div>
+        `;
+    }
+
+    function renderConversations(items) {
+        if (!Array.isArray(items) || !items.length) {
+            renderEmpty('Пока нет чатов. Добавьте друзей, чтобы начать переписку.');
+            return;
+        }
+
         list.innerHTML = '';
-        friends.forEach(function (f) {
-            var link = document.createElement('a');
-            link.className = 'row-card';
-            link.href = '/messages/' + f.username;
-            link.innerHTML = '<div class="avatar">' + (f.display_name||'?')[0].toUpperCase() + '</div><div class="info"><div class="name">' + (f.display_name||f.username) + '</div><div class="sub">@' + f.username + '</div></div>';
+
+        items.forEach(function (item) {
+            if (!item.username) return;
+
+            const link = document.createElement('a');
+            link.className = 'card row-card conversation-card';
+            link.href = '/messages/' + encodeURIComponent(item.username);
+
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+
+            if (item.avatar_url) {
+                const img = document.createElement('img');
+                img.src = item.avatar_url;
+                img.alt = '';
+                avatar.appendChild(img);
+            } else {
+                avatar.textContent = (item.display_name || item.username || '?').charAt(0).toUpperCase();
+            }
+
+            const info = document.createElement('div');
+            info.className = 'info';
+
+            const name = document.createElement('div');
+            name.className = 'name';
+            name.textContent = item.display_name || item.username;
+
+            const sub = document.createElement('div');
+            sub.className = 'sub';
+
+            if (item.last_message_text) {
+                sub.textContent = (item.last_message_mine ? 'Вы: ' : '') + item.last_message_text;
+            } else {
+                sub.textContent = 'Нет сообщений';
+            }
+
+            info.appendChild(name);
+            info.appendChild(sub);
+
+            const right = document.createElement('div');
+            right.className = 'conversation-right';
+
+            const time = document.createElement('div');
+            time.className = 'hint';
+            time.textContent = formatTime(item.last_message_at);
+            right.appendChild(time);
+
+            if (item.unread_count > 0) {
+                const badge = document.createElement('span');
+                badge.className = 'unread-badge';
+                badge.textContent = item.unread_count;
+                right.appendChild(badge);
+            }
+
+            link.appendChild(avatar);
+            link.appendChild(info);
+            link.appendChild(right);
+
             list.appendChild(link);
         });
-    } catch (e) { list.innerHTML = '<div class="empty-state"><span class="em">⚠️</span><p>Ошибка загрузки</p></div>'; }
-});
+    }
+
+    async function loadConversations() {
+        try {
+            const res = await fetch('/api/conversations', {
+                credentials: 'same-origin'
+            });
+
+            if (res.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+
+            if (!res.ok) {
+                throw new Error('failed');
+            }
+
+            const items = await res.json();
+            renderConversations(items || []);
+        } catch (e) {
+            renderEmpty('Не удалось загрузить чаты. Обновите страницу.');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!list) return;
+
+        loadConversations();
+
+        setInterval(function () {
+            if (!document.hidden) {
+                loadConversations();
+            }
+        }, 15000);
+    });
+})();
 </script>
 {% endblock %}
