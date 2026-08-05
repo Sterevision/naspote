@@ -121,11 +121,14 @@
         }).setView([55.75, 37.62], 13);
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19
+            maxZoom: 19,
+            attribution: '© OpenStreetMap, © CARTO'
         }).addTo(map);
 
         L.control.zoom({
-            position: 'topright'
+            position: 'topright',
+            zoomInTitle: 'Приблизить',
+            zoomOutTitle: 'Отдалить'
         }).addTo(map);
 
         markersLayer = L.layerGroup().addTo(map);
