@@ -30,14 +30,23 @@ if not SUPABASE_URL or not SUPABASE_ANON_KEY:
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
 
+# Сессия живёт 30 дней и не слетает при закрытии браузера
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+
 if os.environ.get("BEHIND_PROXY", "1") == "1":
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+# Secure cookie включаем только если реально HTTPS
 secure_cookie = os.environ.get("SESSION_COOKIE_SECURE", "auto")
 if secure_cookie == "1":
     app.config["SESSION_COOKIE_SECURE"] = True
-elif secure_cookie == "auto" and os.environ.get("FLASK_ENV") == "production":
-    app.config["SESSION_COOKIE_SECURE"] = True
+elif secure_cookie == "auto":
+    # На HTTPS — secure, на HTTP (локально) — нет
+    app.config["SESSION_COOKIE_SECURE"] = (
+        os.environ.get("FLASK_ENV") == "production"
+    )
+else:
+    app.config["SESSION_COOKIE_SECURE"] = False
 
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -295,6 +304,7 @@ def register():
         flash(f"Профиль не сохранён: {e}")
         return redirect(url_for("login"))
 
+    session.permanent = True
     session["access_token"] = auth_res.session.access_token
     session["refresh_token"] = auth_res.session.refresh_token
     session["user_id"] = auth_res.user.id
@@ -315,6 +325,7 @@ def login():
             {"email": email, "password": password}
         )
 
+        session.permanent = True
         session["access_token"] = res.session.access_token
         session["refresh_token"] = res.session.refresh_token
         session["user_id"] = res.user.id
@@ -390,6 +401,12 @@ def feed_view():
 @app.route("/messages")
 @login_required
 def messages_view():
+    # При открытии списка чатов помечаем все входящие сообщения как прочитанные
+    try:
+        g.sb.rpc("mark_all_messages_read", {}).execute()
+    except Exception:
+        pass
+
     return render_template("messages.html", profile=g.profile)
 
 
@@ -476,6 +493,15 @@ def profile_view(username):
 def friends_view():
     sb = g.sb
     uid = session["user_id"]
+
+    # При открытии страницы друзей — помечаем что пользователь увидел заявки
+    try:
+        now_iso = utc_now_iso()
+        sb.table("profiles").update({"friends_seen_at": now_iso}).eq("id", uid).execute()
+        # Обновляем профиль в g, чтобы в nav.js не показывался старый счётчик
+        g.profile["friends_seen_at"] = now_iso
+    except Exception:
+        pass
 
     incoming = (
         sb.table("friendships")
@@ -1122,6 +1148,7 @@ def api_unread_count():
     sb = g.sb
     uid = session["user_id"]
 
+    # Непрочитанные сообщения
     messages_res = (
         sb.table("messages")
         .select("id", count="exact")
@@ -1130,13 +1157,21 @@ def api_unread_count():
         .execute()
     )
 
-    requests_res = (
+    # Заявки в друзья: считаем только те, что пришли ПОСЛЕ того,
+    # как пользователь последний раз заходил на /friends
+    seen_at = g.profile.get("friends_seen_at")
+
+    req_query = (
         sb.table("friendships")
         .select("id", count="exact")
         .eq("addressee_id", uid)
         .eq("status", "pending")
-        .execute()
     )
+
+    if seen_at:
+        req_query = req_query.gt("created_at", seen_at)
+
+    requests_res = req_query.execute()
 
     return jsonify(
         {

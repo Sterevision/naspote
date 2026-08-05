@@ -11,7 +11,6 @@
     var attachInput = null;
     var attachPreview = null;
     var attachPreviewImg = null;
-    var attachPreviewName = null;
     var attachRemove = null;
     var emojiToggle = null;
     var emojiPanel = null;
@@ -213,10 +212,6 @@
         if (attachPreviewImg) {
             attachPreviewImg.src = '';
         }
-
-        if (attachPreviewName) {
-            attachPreviewName.textContent = '';
-        }
     }
 
     function selectFile(file) {
@@ -236,9 +231,8 @@
 
         selectedFile = file;
 
-        if (attachPreview && attachPreviewImg && attachPreviewName) {
+        if (attachPreview && attachPreviewImg) {
             attachPreviewImg.src = URL.createObjectURL(file);
-            attachPreviewName.textContent = file.name || 'image';
             attachPreview.hidden = false;
         }
     }
@@ -346,7 +340,6 @@
         attachInput = $('attachInput');
         attachPreview = $('attachPreview');
         attachPreviewImg = $('attachPreviewImg');
-        attachPreviewName = $('attachPreviewName');
         attachRemove = $('attachRemove');
         emojiToggle = $('emojiToggle');
         emojiPanel = $('emojiPanel');

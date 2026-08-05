@@ -1,35 +1,84 @@
 (function () {
     'use strict';
 
-    document.addEventListener('DOMContentLoaded', function () {
-        if (!document.querySelector('.bottom-nav')) {
+    var POLL_INTERVAL = 20000;
+
+    function setBadge(link, count) {
+        if (!link) return;
+
+        var existing = link.querySelector('.nav-count');
+
+        if (!count || count <= 0) {
+            if (existing) existing.remove();
             return;
         }
 
-        fetch('/api/messages/unread_count', {
-            credentials: 'same-origin'
-        })
-            .then(function (response) {
-                return response.ok ? response.json() : null;
-            })
-            .then(function (data) {
-                if (!data) return;
+        if (!existing) {
+            existing = document.createElement('span');
+            existing.className = 'nav-count';
+            link.appendChild(existing);
+        }
 
-                const friendsLink = document.querySelector('.bottom-nav [data-nav="friends"]');
-                const messagesLink = document.querySelector('.bottom-nav [data-nav="messages"]');
+        // Если число большое — показываем "99+", если 1 — маленькую точку
+        if (count > 99) {
+            existing.textContent = '99+';
+        } else {
+            existing.textContent = String(count);
+        }
+    }
 
-                if (friendsLink && data.friend_requests > 0 && !friendsLink.querySelector('.nav-badge')) {
-                    const badge = document.createElement('span');
-                    badge.className = 'nav-badge';
-                    friendsLink.appendChild(badge);
-                }
+    async function refreshBadges() {
+        var nav = document.querySelector('.bottom-nav');
+        if (!nav) return;
 
-                if (messagesLink && data.messages > 0 && !messagesLink.querySelector('.nav-badge')) {
-                    const badge = document.createElement('span');
-                    badge.className = 'nav-badge';
-                    messagesLink.appendChild(badge);
-                }
-            })
-            .catch(function () {});
+        var links = nav.querySelectorAll('.nav-item');
+        var friendsLink = null;
+        var messagesLink = null;
+
+        links.forEach(function (a) {
+            if (a.href && a.href.indexOf('/friends') > -1) friendsLink = a;
+            if (a.href && a.href.indexOf('/messages') > -1) messagesLink = a;
+        });
+
+        try {
+            var response = await fetch('/api/messages/unread_count', {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+
+            if (response.status === 401) {
+                return;
+            }
+
+            if (!response.ok) {
+                return;
+            }
+
+            var data = await response.json();
+
+            setBadge(friendsLink, data.friend_requests || 0);
+            setBadge(messagesLink, data.messages || 0);
+        } catch (e) {
+            // silent
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!document.querySelector('.bottom-nav')) return;
+
+        refreshBadges();
+
+        setInterval(function () {
+            if (!document.hidden) {
+                refreshBadges();
+            }
+        }, POLL_INTERVAL);
+
+        // При возвращении на вкладку — сразу обновляем
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) {
+                refreshBadges();
+            }
+        });
     });
 })();

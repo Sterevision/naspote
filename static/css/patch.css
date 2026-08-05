@@ -244,3 +244,85 @@
     height: 100%;
     object-fit: cover;
 }
+/* =========================================================
+   PATCH v12 — компактное превью вложения + счётчики-числа
+========================================================= */
+
+/* Превью вложения — компактный квадрат с крестиком в углу */
+.chat-attach-preview {
+    display: inline-flex;
+    position: relative;
+    margin: 8px 14px 0;
+    width: 72px;
+    height: 72px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--line, rgba(15, 23, 42, 0.08));
+    background: var(--surface-2, #eef0f4);
+    box-shadow: var(--shadow-sm, 0 8px 24px rgba(15, 23, 42, 0.06));
+}
+
+.chat-attach-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Кнопка ✕ в правом верхнем углу превью — маленькая */
+.attach-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(15, 23, 42, 0.78);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.attach-remove:hover {
+    background: rgba(239, 68, 68, 0.95);
+}
+
+.attach-remove:active {
+    transform: scale(0.9);
+}
+
+/* Числовые счётчики в нижней навигации */
+.nav-count {
+    position: absolute;
+    top: 2px;
+    right: 8px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--danger, #ef4444);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 18px;
+    text-align: center;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+    pointer-events: none;
+}
+
+.nav-count.single {
+    min-width: 9px;
+    height: 9px;
+    padding: 0;
+    top: 6px;
+    right: 12px;
+}

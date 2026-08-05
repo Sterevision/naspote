@@ -34,11 +34,8 @@
     </div>
 
     <div class="chat-attach-preview" id="attachPreview" hidden>
-        <img id="attachPreviewImg" alt="Вложение">
-        <div class="chat-attach-meta">
-            <div id="attachPreviewName"></div>
-            <button class="btn btn-ghost btn-sm" id="attachRemove" type="button">✕ Убрать фото</button>
-        </div>
+        <img id="attachPreviewImg" alt="">
+        <button class="attach-remove" id="attachRemove" type="button" aria-label="Убрать фото">✕</button>
     </div>
 
     {% if is_friend %}
@@ -47,9 +44,9 @@
 
     <div class="chat-input-row">
         {% if is_friend %}
-            <button class="tool-btn" id="emojiToggle" type="button">😊</button>
+            <button class="tool-btn" id="emojiToggle" type="button" aria-label="Эмодзи">😊</button>
 
-            <label class="tool-btn attach-label" for="attachInput">
+            <label class="tool-btn attach-label" for="attachInput" aria-label="Прикрепить фото">
                 🖼️
                 <input type="file" id="attachInput" accept="image/*" hidden>
             </label>
