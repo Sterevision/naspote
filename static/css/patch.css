@@ -1,13 +1,13 @@
 /* =========================================================
-   PATCH — фиксы критики + механика заведений
+   PATCH — фиксы критики + механика заведений + лента/чат/настройки
 ========================================================= */
 
-/* ---- 1. Баннер ручной расстановки: больше не наезжает и не обрезается ---- */
-.manual-banner {
+/* ---- 1. Баннер ручной расстановки: не наезжает и не обрезается ---- */
+.manual-mode-banner {
     position: absolute;
-    top: 66px;              /* ниже скроллера категорий (top:16 + высота) */
+    top: 66px;
     left: 16px;
-    right: 74px;            /* не закрываем кнопку легенды справа */
+    right: 74px;
     transform: translateY(-12px);
     z-index: 19;
     background: var(--manual);
@@ -21,17 +21,17 @@
     align-items: center;
     gap: 10px;
     box-shadow: var(--shadow-md);
-    white-space: normal;    /* было nowrap — из-за этого обрезался */
+    white-space: normal;
     opacity: 0;
     pointer-events: none;
     transition: opacity .22s var(--ease), transform .22s var(--ease);
 }
-.manual-banner.open {
+.manual-mode-banner.open {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
 }
-.manual-banner span { flex: 1; }
+.manual-mode-banner span { flex: 1; }
 
 /* ---- 2. Маркеры заведений на карте ---- */
 .org-pin {
@@ -46,7 +46,7 @@
 .org-pin svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; }
 .org-pin.verified { background: var(--flare); }
 
-/* ---- 3. Скелетон загрузки чатов (убирает чёрный круг) ---- */
+/* ---- 3. Скелетон загрузки чатов ---- */
 .skeleton-row {
     display: flex; align-items: center; gap: 14px;
     padding: 13px 14px;
@@ -64,8 +64,6 @@
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .skeleton.avatar { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; }
 .skeleton.lines { flex: 1; height: 34px; }
-
-/* плавное появление списка — ничего не «вспыхивает» */
 #conversationsList { animation: fade-in .25s var(--ease); }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
@@ -114,11 +112,7 @@
 .picker-hint { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
 .coords-readout { font-family: var(--font-mono); font-size: 12px; color: var(--flare-ink); margin-top: 6px; }
 
-/* ---- 6. list-page / page-head: этих классов не было вообще ни в
-   style.css, ни здесь. Их использует feed.html и settings.html, из-за
-   чего эти страницы рендерились без центрирования и отступов — контент
-   растягивался на всю ширину экрана вместо min(100%, 760px), как везде
-   на остальных страницах через класс .page ---- */
+/* ---- 6. list-page / page-head ---- */
 .list-page {
     width: min(100%, 760px);
     margin: 0 auto;
@@ -167,3 +161,161 @@
     border-radius: var(--radius-pill); font-size: 13.5px; font-weight: 600; margin-top: 8px;
 }
 .org-selected-chip button { background: none; border: none; color: inherit; cursor: pointer; }
+
+/* ---- 7. Лента: правильная карточка поста ---- */
+.feed-card {
+    padding: 0;
+    overflow: hidden;
+    transition: transform .15s var(--ease), box-shadow .15s var(--ease);
+}
+.feed-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+.feed-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 16px 12px;
+}
+.feed-head-info { flex: 1; min-width: 0; }
+.feed-head-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.feed-head-sub {
+    color: var(--muted);
+    font-size: 12.5px;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.feed-photo-wrap {
+    width: 100%;
+    background: var(--surface-2);
+}
+.feed-photo {
+    width: 100%;
+    max-height: 420px;
+    object-fit: cover;
+    display: block;
+}
+.feed-body { padding: 14px 16px 18px; }
+.feed-title {
+    font-weight: 700;
+    font-size: 17px;
+    margin-bottom: 6px;
+    color: var(--ink);
+}
+.feed-text {
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    line-height: 1.55;
+    margin: 0;
+}
+
+/* ---- 8. Чат: панель эмодзи скрыта по умолчанию ---- */
+.emoji-panel {
+    display: none !important;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 12px;
+    margin: 0 14px;
+    border-top: 1px solid var(--line-soft);
+    background: var(--surface);
+    max-height: 180px;
+    overflow-y: auto;
+    border-radius: 0;
+}
+.emoji-panel.open {
+    display: flex !important;
+    animation: fade-in .2s var(--ease);
+}
+.emoji-btn {
+    width: 38px; height: 38px;
+    border: 0; border-radius: 10px;
+    background: transparent;
+    font-size: 20px; cursor: pointer;
+    transition: background .12s var(--ease);
+}
+.emoji-btn:hover,
+.emoji-btn:active { background: var(--surface-2); }
+
+.tool-btn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line);
+    background: var(--surface);
+    font-size: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+    transition: background .15s var(--ease);
+}
+.tool-btn:hover { background: var(--surface-2); }
+.tool-btn:active { transform: scale(0.94); }
+
+/* ---- 9. Настройки: правильная форма ---- */
+.settings-form { padding: 22px; }
+.settings-form .field { margin-bottom: 20px; }
+.settings-form .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.settings-form .input {
+    width: 100%;
+    padding: 13px 16px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    background: var(--surface);
+    color: var(--ink);
+    transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
+    font-family: inherit;
+}
+.settings-form textarea.input {
+    min-height: 96px;
+    resize: vertical;
+    line-height: 1.5;
+}
+.settings-form .input:focus {
+    outline: none;
+    border-color: var(--flare);
+    box-shadow: 0 0 0 4px var(--flare-wash);
+}
+
+/* file-drop для аватара */
+.file-drop {
+    display: block;
+    border: 1.5px dashed var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color .18s var(--ease), background .18s var(--ease);
+}
+.file-drop:hover {
+    border-color: var(--flare);
+    background: var(--flare-wash);
+}
+.file-drop-text {
+    padding: 22px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+}
+.file-drop-text span { font-size: 22px; }

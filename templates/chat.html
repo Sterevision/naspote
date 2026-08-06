@@ -1,12 +1,9 @@
 {% extends "base.html" %}
-
 {% block title %}{{ friend.display_name }} — Картометр{% endblock %}
-
 {% block content %}
 <div class="chat-shell">
     <div class="chat-head">
         <a class="icon-btn" href="{{ url_for('messages_view') }}">←</a>
-
         <div class="avatar">
             {% if friend.avatar_url %}
                 <img src="{{ friend.avatar_url }}" alt="">
@@ -14,18 +11,11 @@
                 {{ friend.display_name[:1]|upper }}
             {% endif %}
         </div>
-
         <div>
             <div class="name">{{ friend.display_name }}</div>
             <div class="hint">@{{ friend.username }}</div>
         </div>
     </div>
-
-    {% if not is_friend %}
-        <div class="chat-notice">
-            💬 Чат доступен только между друзьями. Сначала добавьте друг друга.
-        </div>
-    {% endif %}
 
     <div class="chat-body" id="chatBody">
         <div class="empty-state">
@@ -33,37 +23,18 @@
         </div>
     </div>
 
-    <div class="chat-attach-preview" id="attachPreview" hidden>
-        <img id="attachPreviewImg" alt="">
-        <button class="attach-remove" id="attachRemove" type="button" aria-label="Убрать фото">✕</button>
-    </div>
-
-    {% if is_friend %}
-        <div class="emoji-panel" id="emojiPanel"></div>
-    {% endif %}
+    <div class="emoji-panel" id="emojiPanel"></div>
 
     <div class="chat-input-row">
-        {% if is_friend %}
-            <button class="tool-btn" id="emojiToggle" type="button" aria-label="Эмодзи">😊</button>
-
-            <label class="tool-btn attach-label" for="attachInput" aria-label="Прикрепить фото">
-                🖼️
-                <input type="file" id="attachInput" accept="image/*" hidden>
-            </label>
-        {% endif %}
-
+        <button class="tool-btn" id="emojiToggle" type="button" aria-label="Эмодзи">😊</button>
         <input
             class="input"
             type="text"
             id="chatInput"
-            placeholder="{% if is_friend %}Написать...{% else %}Сначала добавьте друг друга{% endif %}"
+            placeholder="Написать..."
             maxlength="2000"
-            {% if not is_friend %}disabled{% endif %}
         >
-
-        <button class="chat-send" id="chatSend" type="button" {% if not is_friend %}disabled{% endif %}>
-            ➤
-        </button>
+        <button class="chat-send" id="chatSend" type="button">➤</button>
     </div>
 </div>
 {% endblock %}
@@ -71,7 +42,6 @@
 {% block scripts %}
 <script>
     window.CHAT_FRIEND_ID = {{ friend.id|tojson }};
-    window.CHAT_CAN_CHAT = {{ 'true' if is_friend else 'false' }};
 </script>
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 {% endblock %}
