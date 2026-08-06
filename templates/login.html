@@ -1,32 +1,25 @@
 {% extends "base.html" %}
-
 {% block title %}Вход — Картометр{% endblock %}
-
 {% block content %}
 <div class="auth-page">
-    <div class="card auth-card">
-        <div class="logo">👋</div>
-
-        <h1 class="display">С возвращением</h1>
-        <p class="subtitle">Войдите, чтобы увидеть карту живого города</p>
-
-        <form method="post" action="{{ url_for('login') }}">
-            <div class="field">
-                <label for="email">Email</label>
-                <input class="input" type="email" id="email" name="email" autocomplete="email" required>
-            </div>
-
-            <div class="field">
-                <label for="password">Пароль</label>
-                <input class="input" type="password" id="password" name="password" autocomplete="current-password" required>
-            </div>
-
-            <button class="btn btn-primary btn-block" type="submit">Войти</button>
-        </form>
-
-        <div class="switch-link">
-            Ещё нет аккаунта? <a href="{{ url_for('register') }}">Создать</a>
-        </div>
-    </div>
+<div class="card auth-card">
+<div class="logo">👋</div>
+<h1 class="display">С возвращением</h1>
+<p class="subtitle">Войдите, чтобы увидеть карту живого города</p>
+<form method="post" action="{{ url_for('login') }}">
+<div class="field">
+<label for="email">Email</label>
+<input class="input" type="email" id="email" name="email" autocomplete="email" required>
+</div>
+<div class="field">
+<label for="password">Пароль</label>
+<input class="input" type="password" id="password" name="password" autocomplete="current-password" required>
+</div>
+<div class="auth-actions">
+<button class="btn btn-primary btn-block" type="submit">Войти</button>
+</div>
+</form>
+<div class="switch-link">Ещё нет аккаунта? <a href="{{ url_for('register') }}">Создать</a></div>
+</div>
 </div>
 {% endblock %}

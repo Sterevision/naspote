@@ -1,55 +1,21 @@
 {% extends "base.html" %}
-
 {% block title %}Картометр — карта живого города{% endblock %}
-
 {% block content %}
 <div class="auth-page">
-    <div class="card auth-card">
-        <div class="logo">📍</div>
-
-        <h1 class="display">Картометр</h1>
-        <p class="subtitle">
-            Не лента, а карта. Оставь метку — где ты и что тут происходит — и друзья увидят это сразу.
-        </p>
-
-        <div class="auth-actions">
-            <a class="btn btn-primary btn-block" href="{{ url_for('register') }}">Создать профиль</a>
-            <a class="btn btn-ghost btn-block" href="{{ url_for('login') }}">Войти</a>
-        </div>
-
-        <div class="feature-list">
-            <div class="feature-item">
-                <span class="em">📍</span>
-                <div>
-                    <b>Метки на карте</b>
-                    <span>Покажи, где ты</span>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <span class="em">🤝</span>
-                <div>
-                    <b>Друзья и чаты</b>
-                    <span>Общайтесь только со своими</span>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <span class="em">📷</span>
-                <div>
-                    <b>Фото к меткам</b>
-                    <span>Больше контекста происходящего</span>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <span class="em">⏳</span>
-                <div>
-                    <b>Время жизни</b>
-                    <span>1–24 часа</span>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="card auth-card">
+<div class="logo">📍</div>
+<h1 class="display">Картометр</h1>
+<p class="subtitle">Не лента, а карта. Оставь метку — где ты и что тут происходит — и друзья увидят это сразу.</p>
+<div class="auth-actions">
+<a class="btn btn-primary btn-block" href="{{ url_for('register') }}">Создать профиль</a>
+<a class="btn btn-ghost btn-block" href="{{ url_for('login') }}">Войти</a>
+</div>
+<div class="feature-list">
+<div class="feature-item"><span class="em">📍</span><div><b>Метки на карте</b><span>Покажи, где ты</span></div></div>
+<div class="feature-item"><span class="em">🤝</span><div><b>Друзья и чаты</b><span>Общайтесь только со своими</span></div></div>
+<div class="feature-item"><span class="em">📷</span><div><b>Фото к меткам</b><span>Больше контекста происходящего</span></div></div>
+<div class="feature-item"><span class="em">⏳</span><div><b>Время жизни</b><span>1–24 часа</span></div></div>
+</div>
+</div>
 </div>
 {% endblock %}

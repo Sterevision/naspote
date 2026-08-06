@@ -3,7 +3,6 @@ import math
 import uuid
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from dotenv import load_dotenv
 from supabase import create_client
@@ -146,7 +145,6 @@ def register():
             "display_name": display_name,
             "account_type": account_type,
         }
-
         # --- данные организации при регистрации ---
         if account_type == "organization":
             profile_data["category"] = request.form.get("org_category", "").strip() or None
@@ -159,7 +157,6 @@ def register():
                     profile_data["lng"] = float(org_lng)
                 except ValueError:
                     pass
-
         try:
             sb2.table("profiles").insert(profile_data).execute()
         except Exception as e:
@@ -281,13 +278,11 @@ def chat_view(username):
     if not friend_res.data:
         return "Пользователь не найден", 404
     friend = friend_res.data[0]
-
     fs = sb.table("friendships").select("id").eq("status", "accepted").or_(
         f"and(requester_id.eq.{session['user_id']},addressee_id.eq.{friend['id']}),"
         f"and(requester_id.eq.{friend['id']},addressee_id.eq.{session['user_id']})"
     ).execute()
     is_friend = bool(fs.data)
-
     return render_template("chat.html", profile=profile, friend=friend, is_friend=is_friend)
 
 
@@ -330,8 +325,8 @@ def friends_view():
         .select("*, requester:requester_id(username, display_name, avatar_url)") \
         .eq("addressee_id", uid).eq("status", "pending").execute()
     accepted = sb.table("friendships") \
-        .select("*, requester:requester_id(username, display_name, avatar_url),"
-                " addressee:addressee_id(username, display_name, avatar_url)") \
+        .select("*, requester:requester_id(username, display_name, avatar_url), "
+                "addressee:addressee_id(username, display_name, avatar_url)") \
         .eq("status", "accepted") \
         .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
     profile = get_profile(sb, uid)
@@ -355,7 +350,6 @@ def settings_view():
         "bio": request.form.get("bio", "").strip(),
         "location": request.form.get("location", "").strip(),
     }
-
     update_data["telegram_username"] = request.form.get("telegram_username", "").strip() or None
     update_data["contact_phone"] = request.form.get("contact_phone", "").strip() or None
     update_data["contact_email"] = request.form.get("contact_email", "").strip() or None
@@ -412,8 +406,8 @@ def api_spots_list():
     except Exception:
         pass
     res = sb.table("spots") \
-        .select("*, owner:owner_id(username, display_name, avatar_url),"
-                " organization:organization_id(username, display_name, category, is_verified)") \
+        .select("*, owner:owner_id(username, display_name, avatar_url), "
+                "organization:organization_id(username, display_name, category, is_verified)") \
         .or_(f"expires_at.is.null,expires_at.gt.{now_iso}") \
         .order("created_at", desc=True).execute()
     return jsonify(res.data or [])
@@ -436,7 +430,6 @@ def api_spots_create():
 
     profile = get_profile(sb, uid)
     acc_type = profile.get("account_type", "person")
-
     if acc_type == "person":
         sb.table("spots").delete().eq("owner_id", uid).execute()
 
@@ -482,6 +475,7 @@ def api_spots_delete(spot_id):
 def api_spot_comments(spot_id):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     if request.method == "POST":
         text = (request.json or {}).get("text", "").strip()
         if not text:
@@ -498,7 +492,7 @@ def api_spot_comments(spot_id):
     return jsonify(res.data or [])
 
 
-# ---------- API: организации (НОВОЕ) ----------
+# ---------- API: организации ----------
 
 @app.route("/api/organizations")
 @login_required
@@ -536,7 +530,6 @@ def api_organizations_search():
         .not_.is_("lat", "null") \
         .not_.is_("lng", "null") \
         .execute()
-
     orgs = res.data or []
     out = []
     for o in orgs:
@@ -551,7 +544,6 @@ def api_organizations_search():
             dist = 99999
         o["distance_km"] = round(dist, 2)
         out.append(o)
-
     out.sort(key=lambda x: x["distance_km"])
     return jsonify(out[:10])
 
@@ -645,6 +637,7 @@ def api_friend_remove(friendship_id):
 def api_messages(friend_id):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     if request.method == "POST":
         image = request.files.get("image")
         if image or request.form:
