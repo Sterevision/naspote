@@ -131,6 +131,16 @@
                 </label>
             </div>
 
+<div class="field">
+    <label>Привязать к заведению (необязательно)</label>
+    <div class="org-search-box">
+        <input type="text" id="orgSearchInput" placeholder="Найти заведение рядом..." autocomplete="off">
+        <div class="org-search-results" id="orgResults"></div>
+        <div id="orgChip"></div>
+    </div>
+</div>
+<input type="hidden" name="organization_id" id="orgIdInput">
+
             <button class="btn btn-primary btn-block" id="submitSpotBtn" type="submit">
                 Поставить метку
             </button>

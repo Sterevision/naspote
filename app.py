@@ -1,23 +1,12 @@
 import os
-import re
+import math
 import uuid
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
-from flask import (
-    Flask,
-    render_template,
-    request,
-    redirect,
-    url_for,
-    session,
-    jsonify,
-    flash,
-    g,
-)
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from dotenv import load_dotenv
 from supabase import create_client
-from werkzeug.middleware.proxy_fix import ProxyFix
 
 load_dotenv()
 
@@ -28,225 +17,78 @@ if not SUPABASE_URL or not SUPABASE_ANON_KEY:
     raise RuntimeError("Не заданы SUPABASE_URL / SUPABASE_ANON_KEY в .env")
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-in-prod")
 
-# Сессия живёт 30 дней и не слетает при закрытии браузера
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
-
-if os.environ.get("BEHIND_PROXY", "1") == "1":
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-
-# Secure cookie включаем только если реально HTTPS
-secure_cookie = os.environ.get("SESSION_COOKIE_SECURE", "auto")
-if secure_cookie == "1":
-    app.config["SESSION_COOKIE_SECURE"] = True
-elif secure_cookie == "auto":
-    # На HTTPS — secure, на HTTP (локально) — нет
-    app.config["SESSION_COOKIE_SECURE"] = (
-        os.environ.get("FLASK_ENV") == "production"
-    )
-else:
-    app.config["SESSION_COOKIE_SECURE"] = False
-
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-
-CATEGORIES = [
-    "Бар",
-    "Клуб",
-    "Кофейня",
-    "Ресторан",
-    "Коворкинг",
-    "Караоке",
-    "Спорт",
-    "Вечеринка",
-    "Природа",
-    "Выставка/галерея",
-    "Другое",
-]
-
-ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
-MAX_IMAGE_MB = 8
+CATEGORIES = ["Бар", "Клуб", "Кофейня", "Ресторан", "Коворкинг",
+              "Караоке", "Спорт", "Вечеринка", "Природа", "Выставка/галерея", "Другое"]
 
 
-def utc_now_iso():
-    return datetime.now(timezone.utc).isoformat()
-
-
-def clean_text(value, max_length=None):
-    value = (value or "").strip()
-    if max_length:
-        value = value[:max_length]
-    return value
-
-
-def parse_float_or_none(value):
-    value = clean_text(value, 100)
-
-    if not value:
-        return None
-
-    value = value.replace(",", ".")
-
-    try:
-        return float(value)
-    except Exception:
-        return None
-
-
-def clean_telegram_username(value):
-    value = clean_text(value, 32).lstrip("@")
-
-    if not value:
-        return None
-
-    if re.fullmatch(r"[A-Za-z0-9_]{3,32}", value):
-        return value
-
-    return None
-
-
-def clean_phone(value):
-    value = clean_text(value, 30)
-
-    if not value:
-        return None
-
-    if re.fullmatch(r"[0-9+\-() ]{5,30}", value):
-        return value
-
-    return None
-
-
-def clean_email(value):
-    value = clean_text(value, 255).lower()
-
-    if not value:
-        return None
-
-    if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value):
-        return value
-
-    return None
-
+# ---------- helpers ----------
 
 def get_supabase(access_token=None, refresh_token=None):
     client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-
     if access_token and refresh_token:
         try:
             client.auth.set_session(access_token, refresh_token)
         except Exception:
             pass
-
     if access_token:
         try:
             client.postgrest.auth(access_token)
         except Exception:
             pass
-
     return client
 
 
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        access_token = session.get("access_token")
-        refresh_token = session.get("refresh_token")
-        user_id = session.get("user_id")
-
-        if not access_token or not user_id:
+        if "access_token" not in session:
             if request.path.startswith("/api/"):
                 return jsonify({"error": "unauthorized"}), 401
             return redirect(url_for("login"))
-
         try:
-            sb = get_supabase(access_token, refresh_token)
-            result = (
-                sb.table("profiles")
-                .select("*")
-                .eq("id", user_id)
-                .limit(1)
-                .execute()
-            )
-
+            sb = get_supabase(session["access_token"], session.get("refresh_token"))
+            result = sb.table("profiles").select("id").eq("id", session["user_id"]).execute()
             if not result.data:
                 raise Exception("profile not found")
-
-            g.sb = sb
-            g.profile = result.data[0]
-
         except Exception:
             session.clear()
             flash("Сессия истекла. Войдите заново.")
             return redirect(url_for("login"))
-
         return view(*args, **kwargs)
-
     return wrapped
 
 
-def read_and_validate_file(file_storage, allowed_extensions, max_mb=8):
+def upload_to_bucket(sb, bucket, uid, file_storage):
     if not file_storage or not file_storage.filename:
         return None
-
-    filename = file_storage.filename
-    if "." not in filename:
-        raise ValueError("Недопустимый файл")
-
-    ext = filename.rsplit(".", 1)[-1].lower()
-    if ext not in allowed_extensions:
-        raise ValueError("Можно загружать только изображения")
-
-    data = file_storage.read()
-    if len(data) > max_mb * 1024 * 1024:
-        raise ValueError("Файл слишком большой. Максимум 8 МБ.")
-
-    return ext, data
-
-
-def upload_to_bucket(sb, bucket, uid, file_storage, max_mb=8):
-    prepared = read_and_validate_file(file_storage, ALLOWED_IMAGE_EXTENSIONS, max_mb)
-    if not prepared:
-        return None
-
-    ext, data = prepared
+    ext = file_storage.filename.rsplit(".", 1)[-1].lower()
     path = f"{uid}/{uuid.uuid4()}.{ext}"
-
-    sb.storage.from_(bucket).upload(
-        path,
-        data,
-        {
-            "content-type": file_storage.mimetype or "application/octet-stream",
-        },
-    )
-
+    sb.storage.from_(bucket).upload(path, file_storage.read(),
+                                    {"content-type": file_storage.mimetype})
     return sb.storage.from_(bucket).get_public_url(path)
 
 
-def get_friendship(sb, user_a, user_b):
-    res = (
-        sb.table("friendships")
-        .select("*")
-        .or_(
-            f"and(requester_id.eq.{user_a},addressee_id.eq.{user_b}),"
-            f"and(requester_id.eq.{user_b},addressee_id.eq.{user_a})"
-        )
-        .limit(1)
-        .execute()
-    )
-
-    return res.data[0] if res.data else None
+def get_profile(sb, uid):
+    res = sb.table("profiles").select("*").eq("id", uid).execute()
+    return res.data[0] if res.data else {}
 
 
-def are_friends_db(sb, user_a, user_b):
-    row = get_friendship(sb, user_a, user_b)
-    return bool(row and row.get("status") == "accepted")
+def haversine(lat1, lng1, lat2, lng2):
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
 
+
+# ---------- страницы ----------
 
 @app.route("/")
 def index():
-    if session.get("access_token"):
+    if "access_token" in session:
         return redirect(url_for("map_view"))
     return render_template("index.html")
 
@@ -256,82 +98,75 @@ def register():
     if request.method == "GET":
         return render_template("register.html", categories=CATEGORIES)
 
-    email = clean_text(request.form.get("email"), 255).lower()
+    email = request.form.get("email", "").strip()
     password = request.form.get("password", "")
-    username = clean_text(request.form.get("username"), 30)
-    display_name = clean_text(request.form.get("display_name"), 80) or username
+    username = request.form.get("username", "").strip()
+    display_name = request.form.get("display_name", "").strip() or username
     account_type = request.form.get("account_type", "person")
 
-    if account_type not in ("person", "organization"):
-        account_type = "person"
-
     if not email or not password or not username:
-        flash("Заполните email, username и пароль")
+        flash("Заполните email, имя пользователя и пароль")
         return redirect(url_for("register"))
 
     sb = get_supabase()
-
     try:
         auth_res = sb.auth.sign_up({"email": email, "password": password})
     except Exception as e:
-        flash(f"Ошибка регистрации: {e}")
+        flash(f"Ошибка: {e}")
         return redirect(url_for("register"))
 
     if not auth_res.user:
         flash("Подтвердите email по ссылке в почте")
         return redirect(url_for("login"))
 
-    if not auth_res.session:
-        flash("Подтвердите email по ссылке в почте")
-        return redirect(url_for("login"))
+    if auth_res.session:
+        sb2 = get_supabase(auth_res.session.access_token, auth_res.session.refresh_token)
+        profile_data = {
+            "id": auth_res.user.id,
+            "username": username,
+            "display_name": display_name,
+            "account_type": account_type,
+        }
 
-    sb2 = get_supabase(auth_res.session.access_token, auth_res.session.refresh_token)
+        # --- данные организации при регистрации ---
+        if account_type == "organization":
+            profile_data["category"] = request.form.get("org_category", "").strip() or None
+            profile_data["address"] = request.form.get("org_address", "").strip() or None
+            org_lat = request.form.get("org_lat", "").strip()
+            org_lng = request.form.get("org_lng", "").strip()
+            if org_lat and org_lng:
+                try:
+                    profile_data["lat"] = float(org_lat)
+                    profile_data["lng"] = float(org_lng)
+                except ValueError:
+                    pass
 
-    profile_data = {
-        "id": auth_res.user.id,
-        "username": username,
-        "display_name": display_name,
-        "account_type": account_type,
-    }
+        try:
+            sb2.table("profiles").insert(profile_data).execute()
+        except Exception as e:
+            flash(f"Профиль не сохранён: {e}")
 
-    if account_type == "organization":
-        profile_data["category"] = clean_text(request.form.get("category"), 50) or None
-        profile_data["address"] = clean_text(request.form.get("address"), 200) or None
+        session["access_token"] = auth_res.session.access_token
+        session["refresh_token"] = auth_res.session.refresh_token
+        session["user_id"] = auth_res.user.id
+        return redirect(url_for("map_view"))
 
-    try:
-        sb2.table("profiles").insert(profile_data).execute()
-    except Exception as e:
-        flash(f"Профиль не сохранён: {e}")
-        return redirect(url_for("login"))
-
-    session.permanent = True
-    session["access_token"] = auth_res.session.access_token
-    session["refresh_token"] = auth_res.session.refresh_token
-    session["user_id"] = auth_res.user.id
-
-    return redirect(url_for("map_view"))
+    return redirect(url_for("login"))
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
         return render_template("login.html")
-
-    email = clean_text(request.form.get("email"), 255).lower()
-    password = request.form.get("password", "")
-
     try:
-        res = get_supabase().auth.sign_in_with_password(
-            {"email": email, "password": password}
-        )
-
-        session.permanent = True
+        res = get_supabase().auth.sign_in_with_password({
+            "email": request.form.get("email", "").strip(),
+            "password": request.form.get("password", "")
+        })
         session["access_token"] = res.session.access_token
         session["refresh_token"] = res.session.refresh_token
         session["user_id"] = res.user.id
-
         return redirect(url_for("map_view"))
-
     except Exception:
         flash("Неверный email или пароль")
         return redirect(url_for("login"))
@@ -346,844 +181,408 @@ def logout():
 @app.route("/map")
 @login_required
 def map_view():
-    map_home = {
-        "lat": g.profile.get("home_lat"),
-        "lng": g.profile.get("home_lng"),
-        "name": g.profile.get("home_location_name"),
-    }
-
-    return render_template(
-        "map.html",
-        profile=g.profile,
-        categories=CATEGORIES,
-        map_home=map_home,
-    )
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    profile = get_profile(sb, session["user_id"])
+    if not profile:
+        session.clear()
+        return redirect(url_for("login"))
+    return render_template("map.html", profile=profile, categories=CATEGORIES)
 
 
 @app.route("/feed")
 @login_required
 def feed_view():
-    sb = g.sb
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
-    now_iso = utc_now_iso()
-
-    friends_res = (
-        sb.table("friendships")
-        .select("requester_id, addressee_id")
-        .eq("status", "accepted")
-        .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}")
-        .execute()
-    )
-
-    friend_ids = [uid]
-    for row in friends_res.data or []:
-        friend_id = row["addressee_id"] if row["requester_id"] == uid else row["requester_id"]
-        if friend_id not in friend_ids:
-            friend_ids.append(friend_id)
-
-    spots_res = (
-        sb.table("spots")
-        .select("*, owner:owner_id(username, display_name, avatar_url)")
-        .in_("owner_id", friend_ids)
-        .or_(f"expires_at.is.null,expires_at.gt.{now_iso}")
-        .order("created_at", desc=True)
-        .limit(100)
-        .execute()
-    )
-
-    return render_template(
-        "feed.html",
-        profile=g.profile,
-        spots=spots_res.data or [],
-    )
+    profile = get_profile(sb, uid)
+    friends_res = sb.table("friendships").select("requester_id, addressee_id") \
+        .eq("status", "accepted") \
+        .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
+    friend_ids = [uid] + [f["requester_id"] if f["requester_id"] != uid else f["addressee_id"]
+                          for f in (friends_res.data or [])]
+    spots_res = sb.table("spots") \
+        .select("*, owner:owner_id(username, display_name, avatar_url)") \
+        .in_("owner_id", friend_ids) \
+        .order("created_at", desc=True).limit(50).execute()
+    return render_template("feed.html", spots=spots_res.data or [], profile=profile)
 
 
 @app.route("/messages")
 @login_required
 def messages_view():
-    # При открытии списка чатов помечаем все входящие сообщения как прочитанные
-    try:
-        g.sb.rpc("mark_all_messages_read", {}).execute()
-    except Exception:
-        pass
-
-    return render_template("messages.html", profile=g.profile)
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    profile = get_profile(sb, session["user_id"])
+    return render_template("messages.html", profile=profile)
 
 
 @app.route("/messages/<username>")
 @login_required
 def chat_view(username):
-    sb = g.sb
-    uid = session["user_id"]
-
-    friend_res = (
-        sb.table("profiles")
-        .select("id, username, display_name, avatar_url")
-        .eq("username", username)
-        .limit(1)
-        .execute()
-    )
-
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    profile = get_profile(sb, session["user_id"])
+    friend_res = sb.table("profiles").select("id, username, display_name, avatar_url") \
+        .eq("username", username).execute()
     if not friend_res.data:
         return "Пользователь не найден", 404
-
-    friend = friend_res.data[0]
-
-    if friend["id"] == uid:
-        return redirect(url_for("profile_view", username=username))
-
-    is_friend = are_friends_db(sb, uid, friend["id"])
-
-    return render_template(
-        "chat.html",
-        profile=g.profile,
-        friend=friend,
-        is_friend=is_friend,
-    )
+    return render_template("chat.html", profile=profile, friend=friend_res.data[0])
 
 
 @app.route("/profile/<username>")
 @login_required
 def profile_view(username):
-    sb = g.sb
-    uid = session["user_id"]
-
-    prof_res = (
-        sb.table("profiles")
-        .select("*")
-        .eq("username", username)
-        .limit(1)
-        .execute()
-    )
-
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    prof_res = sb.table("profiles").select("*").eq("username", username).execute()
     if not prof_res.data:
         return "Пользователь не найден", 404
-
     profile = prof_res.data[0]
-
-    spots_res = (
-        sb.table("spots")
-        .select("*")
-        .eq("owner_id", profile["id"])
-        .order("created_at", desc=True)
-        .limit(100)
-        .execute()
-    )
-
-    is_me = profile["id"] == uid
+    spots_res = sb.table("spots").select("*").eq("owner_id", profile["id"]) \
+        .order("created_at", desc=True).execute()
+    tagged_spots = []
+    if profile.get("account_type") == "organization":
+        tagged_res = sb.table("spots") \
+            .select("*, owner:owner_id(username, display_name, avatar_url)") \
+            .eq("organization_id", profile["id"]) \
+            .order("created_at", desc=True).execute()
+        tagged_spots = tagged_res.data or []
+    is_me = profile["id"] == session["user_id"]
     friend_status = None
-
     if not is_me:
-        row = get_friendship(sb, uid, profile["id"])
-        if row and row.get("status") != "declined":
-            friend_status = row
-
-    return render_template(
-        "profile.html",
-        profile=profile,
-        spots=spots_res.data or [],
-        is_me=is_me,
-        friend_status=friend_status,
-        my_id=uid,
-    )
+        f = sb.table("friendships").select("*").or_(
+            f"and(requester_id.eq.{session['user_id']},addressee_id.eq.{profile['id']}),"
+            f"and(requester_id.eq.{profile['id']},addressee_id.eq.{session['user_id']})").execute()
+        if f.data:
+            friend_status = f.data[0]
+    return render_template("profile.html", profile=profile, spots=spots_res.data,
+                           is_me=is_me, friend_status=friend_status,
+                           tagged_spots=tagged_spots, my_id=session["user_id"])
 
 
 @app.route("/friends")
 @login_required
 def friends_view():
-    sb = g.sb
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
-
-    # При открытии страницы друзей — помечаем что пользователь увидел заявки
-    try:
-        now_iso = utc_now_iso()
-        sb.table("profiles").update({"friends_seen_at": now_iso}).eq("id", uid).execute()
-        # Обновляем профиль в g, чтобы в nav.js не показывался старый счётчик
-        g.profile["friends_seen_at"] = now_iso
-    except Exception:
-        pass
-
-    incoming = (
-        sb.table("friendships")
-        .select("*, requester:requester_id(username, display_name, avatar_url)")
-        .eq("addressee_id", uid)
-        .eq("status", "pending")
-        .order("created_at", desc=True)
-        .execute()
-    )
-
-    outgoing = (
-        sb.table("friendships")
-        .select("*, addressee:addressee_id(username, display_name, avatar_url)")
-        .eq("requester_id", uid)
-        .eq("status", "pending")
-        .order("created_at", desc=True)
-        .execute()
-    )
-
-    accepted = (
-        sb.table("friendships")
-        .select(
-            "*, "
-            "requester:requester_id(username, display_name, avatar_url), "
-            "addressee:addressee_id(username, display_name, avatar_url)"
-        )
-        .eq("status", "accepted")
-        .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}")
-        .order("created_at", desc=True)
-        .execute()
-    )
-
-    return render_template(
-        "friends.html",
-        profile=g.profile,
-        incoming=incoming.data or [],
-        outgoing=outgoing.data or [],
-        accepted=accepted.data or [],
-        my_id=uid,
-    )
+    incoming = sb.table("friendships") \
+        .select("*, requester:requester_id(username, display_name, avatar_url)") \
+        .eq("addressee_id", uid).eq("status", "pending").execute()
+    accepted = sb.table("friendships") \
+        .select("*, requester:requester_id(username, display_name, avatar_url),"
+                " addressee:addressee_id(username, display_name, avatar_url)") \
+        .eq("status", "accepted") \
+        .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
+    profile = get_profile(sb, uid)
+    return render_template("friends.html", incoming=incoming.data or [],
+                           accepted=accepted.data or [], my_id=uid, profile=profile)
 
 
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings_view():
-    sb = g.sb
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
 
     if request.method == "GET":
-        return render_template(
-            "settings.html",
-            profile=g.profile,
-            categories=CATEGORIES,
-        )
+        profile = get_profile(sb, uid)
+        return render_template("settings.html", profile=profile, categories=CATEGORIES)
 
-    home_lat = parse_float_or_none(request.form.get("home_lat"))
-    home_lng = parse_float_or_none(request.form.get("home_lng"))
-
-    if home_lat is not None and not (-90 <= home_lat <= 90):
-        home_lat = None
-
-    if home_lng is not None and not (-180 <= home_lng <= 180):
-        home_lng = None
-
+    profile = get_profile(sb, uid)
     update_data = {
-        "display_name": clean_text(request.form.get("display_name"), 80),
-        "bio": clean_text(request.form.get("bio"), 500),
-        "location": clean_text(request.form.get("location"), 100),
-        "home_lat": home_lat,
-        "home_lng": home_lng,
-        "home_location_name": clean_text(request.form.get("home_location_name"), 120) or None,
-        "telegram_username": clean_telegram_username(request.form.get("telegram_username")),
-        "contact_phone": clean_phone(request.form.get("contact_phone")),
-        "contact_email": clean_email(request.form.get("contact_email")),
+        "display_name": request.form.get("display_name", "").strip(),
+        "bio": request.form.get("bio", "").strip(),
+        "location": request.form.get("location", "").strip(),
     }
 
-    if g.profile.get("account_type") == "organization":
-        update_data["category"] = clean_text(request.form.get("category"), 50) or None
-        update_data["address"] = clean_text(request.form.get("address"), 200) or None
+    account_type = profile.get("account_type", "person")
+    if account_type == "organization":
+        update_data["category"] = request.form.get("org_category", "").strip() or None
+        update_data["address"] = request.form.get("org_address", "").strip() or None
+        olat = request.form.get("org_lat", "").strip()
+        olng = request.form.get("org_lng", "").strip()
+        if olat and olng:
+            try:
+                update_data["lat"] = float(olat)
+                update_data["lng"] = float(olng)
+            except ValueError:
+                pass
     else:
-        age = clean_text(request.form.get("age"), 3)
-        update_data["age"] = int(age) if age.isdigit() else None
+        age = request.form.get("age")
+        update_data["age"] = int(age) if age and age.isdigit() else None
 
     avatar = request.files.get("avatar")
+    if avatar and avatar.filename:
+        update_data["avatar_url"] = upload_to_bucket(sb, "avatars", uid, avatar)
 
     try:
-        if avatar and avatar.filename:
-            avatar_url = upload_to_bucket(
-                sb,
-                "avatars",
-                uid,
-                avatar,
-                MAX_IMAGE_MB,
-            )
-            if avatar_url:
-                update_data["avatar_url"] = avatar_url
-
         sb.table("profiles").update(update_data).eq("id", uid).execute()
         flash("Профиль обновлён")
-
-    except ValueError as e:
-        flash(str(e))
     except Exception as e:
         flash(f"Ошибка: {e}")
 
-    return redirect(url_for("profile_view", username=g.profile.get("username", "")))
+    return redirect(url_for("profile_view", username=profile.get("username", "")))
 
+
+# ---------- API: метки ----------
 
 @app.route("/api/spots", methods=["GET"])
 @login_required
 def api_spots_list():
-    sb = g.sb
-    uid = session["user_id"]
-    now_iso = utc_now_iso()
-    category = clean_text(request.args.get("category"), 50)
-
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    now_iso = datetime.now(timezone.utc).isoformat()
     try:
-        sb.table("spots").delete().eq("owner_id", uid).lt("expires_at", now_iso).execute()
+        sb.table("spots").delete().eq("owner_id", session["user_id"]) \
+            .lt("expires_at", now_iso).execute()
     except Exception:
         pass
-
-    query = (
-        sb.table("spots")
-        .select(
-            "*, "
-            "owner:owner_id(username, display_name, avatar_url), "
-            "organization:organization_id(username, display_name, category, is_verified)"
-        )
-        .or_(f"expires_at.is.null,expires_at.gt.{now_iso}")
-        .order("created_at", desc=True)
-        .limit(200)
-    )
-
-    if category:
-        query = query.eq("category", category)
-
-    res = query.execute()
+    res = sb.table("spots") \
+        .select("*, owner:owner_id(username, display_name, avatar_url),"
+                " organization:organization_id(username, display_name, category, is_verified)") \
+        .or_(f"expires_at.is.null,expires_at.gt.{now_iso}") \
+        .order("created_at", desc=True).execute()
     return jsonify(res.data or [])
 
 
 @app.route("/api/spots", methods=["POST"])
 @login_required
 def api_spots_create():
-    sb = g.sb
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+    title = request.form.get("title", "").strip()
+    lat = request.form.get("lat")
+    lng = request.form.get("lng")
 
-    title = clean_text(request.form.get("title"), 120)
-    description = clean_text(request.form.get("description"), 1000)
-    category = clean_text(request.form.get("category"), 50)
-    visibility = request.form.get("visibility", "public")
-    placement_type = request.form.get("placement_type", "geo")
+    if not title or lat is None or lng is None:
+        return jsonify({"error": "title, lat, lng обязательны"}), 400
 
-    if not title:
-        return jsonify({"error": "Нужно указать заголовок метки"}), 400
-
-    try:
-        lat = float(request.form.get("lat"))
-        lng = float(request.form.get("lng"))
-    except Exception:
-        return jsonify({"error": "Некорректные координаты"}), 400
-
-    if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
-        return jsonify({"error": "Некорректные координаты"}), 400
-
-    if visibility not in ("public", "friends"):
-        visibility = "public"
-
-    if placement_type not in ("geo", "manual"):
-        placement_type = "geo"
-
-    if category not in CATEGORIES:
-        category = None
-
-    try:
-        duration_hours = float(request.form.get("duration_hours", "3"))
-    except Exception:
-        duration_hours = 3.0
-
-    duration_hours = max(1.0, min(24.0, duration_hours))
+    duration_hours = max(0.5, min(float(request.form.get("duration_hours", "6")), 48))
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=duration_hours)).isoformat()
 
-    try:
-        profile_res = (
-            sb.table("profiles")
-            .select("account_type")
-            .eq("id", uid)
-            .limit(1)
-            .execute()
-        )
-        acc_type = (profile_res.data[0] if profile_res.data else {}).get("account_type", "person")
-    except Exception:
-        acc_type = "person"
+    profile = get_profile(sb, uid)
+    acc_type = profile.get("account_type", "person")
+
+    if acc_type == "person":
+        sb.table("spots").delete().eq("owner_id", uid).execute()
+
+    data = {
+        "owner_id": uid,
+        "title": title,
+        "description": request.form.get("description", "").strip(),
+        "lat": float(lat),
+        "lng": float(lng),
+        "visibility": request.form.get("visibility", "public"),
+        "placement_type": request.form.get("placement_type", "geo"),
+        "expires_at": expires_at,
+        "is_live": True,
+        "category": request.form.get("category", "").strip() or None,
+    }
+
+    # --- привязка метки к заведению ---
+    organization_id = request.form.get("organization_id", "").strip()
+    if organization_id:
+        data["organization_id"] = organization_id
+
+    photo = request.files.get("photo")
+    if photo and photo.filename:
+        data["photo_url"] = upload_to_bucket(sb, "spot-photos", uid, photo)
 
     try:
-        photo_url = None
-        photo = request.files.get("photo")
-
-        if photo and photo.filename:
-            photo_url = upload_to_bucket(
-                sb,
-                "spot-photos",
-                uid,
-                photo,
-                MAX_IMAGE_MB,
-            )
-
-        if acc_type == "person":
-            sb.table("spots").delete().eq("owner_id", uid).execute()
-
-        data = {
-            "owner_id": uid,
-            "title": title,
-            "description": description,
-            "lat": lat,
-            "lng": lng,
-            "visibility": visibility,
-            "placement_type": placement_type,
-            "expires_at": expires_at,
-            "is_live": True,
-        }
-
-        if category:
-            data["category"] = category
-
-        if photo_url:
-            data["photo_url"] = photo_url
-
         res = sb.table("spots").insert(data).execute()
-        return jsonify(res.data[0] if res.data else {}), 201
-
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify(res.data[0]), 201
     except Exception as e:
-        return jsonify({"error": f"Не удалось создать метку: {e}"}), 400
+        return jsonify({"error": str(e)}), 400
 
 
 @app.route("/api/spots/<int:spot_id>", methods=["DELETE"])
 @login_required
 def api_spots_delete(spot_id):
-    sb = g.sb
-    uid = session["user_id"]
-
-    try:
-        sb.table("spots").delete().eq("id", spot_id).eq("owner_id", uid).execute()
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    sb.table("spots").delete().eq("id", spot_id).eq("owner_id", session["user_id"]).execute()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/spots/<int:spot_id>/comments", methods=["GET", "POST"])
 @login_required
 def api_spot_comments(spot_id):
-    sb = g.sb
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
-
     if request.method == "POST":
-        text = clean_text((request.json or {}).get("text"), 500)
-
+        text = (request.json or {}).get("text", "").strip()
         if not text:
-            return jsonify({"error": "Текст комментария обязателен"}), 400
-
+            return jsonify({"error": "Текст обязателен"}), 400
         try:
-            sb.table("spot_comments").insert(
-                {
-                    "spot_id": spot_id,
-                    "user_id": uid,
-                    "text": text,
-                }
-            ).execute()
-
-            return jsonify({"ok": True}), 201
-
+            sb.table("spot_comments").insert({"spot_id": spot_id, "user_id": uid, "text": text}).execute()
         except Exception as e:
             return jsonify({"error": str(e)}), 400
+        return jsonify({"ok": True}), 201
 
+    res = sb.table("spot_comments") \
+        .select("*, user:user_id(username, display_name, avatar_url)") \
+        .eq("spot_id", spot_id).order("created_at").execute()
+    return jsonify(res.data or [])
+
+
+# ---------- API: организации (НОВОЕ) ----------
+
+@app.route("/api/organizations")
+@login_required
+def api_organizations_list():
+    """Организации с координатами — для вывода на карте как маркеров."""
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    res = sb.table("profiles") \
+        .select("id, username, display_name, avatar_url, category, address, lat, lng, is_verified") \
+        .eq("account_type", "organization") \
+        .not_.is_("lat", "null") \
+        .not_.is_("lng", "null") \
+        .execute()
+    orgs = res.data or []
+    cat = request.args.get("category", "").strip()
+    if cat:
+        orgs = [o for o in orgs if o.get("category") == cat]
+    return jsonify(orgs)
+
+
+@app.route("/api/organizations/search")
+@login_required
+def api_organizations_search():
+    """Поиск заведений рядом с точкой — для привязки метки к заведению."""
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    q = request.args.get("q", "").strip().lower()
     try:
-        res = (
-            sb.table("spot_comments")
-            .select("*, user:user_id(username, display_name, avatar_url)")
-            .eq("spot_id", spot_id)
-            .order("created_at", desc=True)
-            .limit(100)
-            .execute()
-        )
+        lat = float(request.args.get("lat", 0))
+        lng = float(request.args.get("lng", 0))
+    except ValueError:
+        lat, lng = 0, 0
 
-        return jsonify(res.data or [])
+    res = sb.table("profiles") \
+        .select("id, username, display_name, category, address, lat, lng") \
+        .eq("account_type", "organization") \
+        .not_.is_("lat", "null") \
+        .not_.is_("lng", "null") \
+        .execute()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    orgs = res.data or []
+    out = []
+    for o in orgs:
+        name = (o.get("display_name") or "").lower()
+        uname = (o.get("username") or "").lower()
+        cat = (o.get("category") or "").lower()
+        if q and not (q in name or q in uname or q in cat):
+            continue
+        try:
+            dist = haversine(lat, lng, float(o["lat"]), float(o["lng"]))
+        except Exception:
+            dist = 99999
+        o["distance_km"] = round(dist, 2)
+        out.append(o)
 
+    out.sort(key=lambda x: x["distance_km"])
+    return jsonify(out[:10])
+
+
+# ---------- API: друзья / сообщения ----------
 
 @app.route("/api/friends_list")
 @login_required
 def api_friends_list():
-    sb = g.sb
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
-
-    res = (
-        sb.table("friendships")
-        .select("requester_id, addressee_id")
-        .eq("status", "accepted")
-        .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}")
-        .execute()
-    )
-
+    res = sb.table("friendships").select("requester_id, addressee_id") \
+        .eq("status", "accepted") \
+        .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
     friends = []
-
-    for row in res.data or []:
-        friend_id = row["addressee_id"] if row["requester_id"] == uid else row["requester_id"]
-
-        prof = (
-            sb.table("profiles")
-            .select("id, username, display_name, avatar_url")
-            .eq("id", friend_id)
-            .limit(1)
-            .execute()
-        )
-
+    for f in (res.data or []):
+        fid = f["requester_id"] if f["requester_id"] != uid else f["addressee_id"]
+        prof = sb.table("profiles").select("id, username, display_name, avatar_url") \
+            .eq("id", fid).execute()
         if prof.data:
             friends.append(prof.data[0])
-
     return jsonify(friends)
-
-
-@app.route("/api/search_users")
-@login_required
-def api_search_users():
-    sb = g.sb
-    uid = session["user_id"]
-    q = clean_text(request.args.get("q"), 60)
-
-    if not q:
-        return jsonify([])
-
-    def search_by_field(field):
-        return (
-            sb.table("profiles")
-            .select("id, username, display_name, avatar_url, account_type")
-            .ilike(field, f"%{q}%")
-            .neq("id", uid)
-            .limit(10)
-            .execute()
-            .data
-            or []
-        )
-
-    results = []
-    seen = set()
-
-    for item in search_by_field("username") + search_by_field("display_name"):
-        if item["id"] not in seen:
-            seen.add(item["id"])
-            results.append(item)
-
-    return jsonify(results[:20])
 
 
 @app.route("/api/friends/<username>/add", methods=["POST"])
 @login_required
 def api_friend_add(username):
-    sb = g.sb
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
-
-    target_res = (
-        sb.table("profiles")
-        .select("id")
-        .eq("username", username)
-        .limit(1)
-        .execute()
-    )
-
-    if not target_res.data:
+    target = sb.table("profiles").select("id").eq("username", username).execute()
+    if not target.data:
         return jsonify({"error": "Пользователь не найден"}), 404
-
-    target_id = target_res.data[0]["id"]
-
+    target_id = target.data[0]["id"]
     if target_id == uid:
         return jsonify({"error": "Нельзя добавить самого себя"}), 400
-
-    existing = get_friendship(sb, uid, target_id)
-
-    if existing:
-        if existing.get("status") == "accepted":
-            return jsonify({"ok": True, "status": "accepted"})
-
-        if existing.get("status") == "pending":
-            return jsonify(
-                {
-                    "ok": True,
-                    "status": "pending",
-                    "friendship_id": existing.get("id"),
-                    "incoming_for_me": existing.get("addressee_id") == uid,
-                }
-            )
-
-        if existing.get("status") == "declined":
-            try:
-                sb.table("friendships").delete().eq("id", existing["id"]).execute()
-            except Exception:
-                pass
-
-    try:
-        res = (
-            sb.table("friendships")
-            .insert(
-                {
-                    "requester_id": uid,
-                    "addressee_id": target_id,
-                }
-            )
-            .execute()
-        )
-
-        row = res.data[0] if res.data else {}
-
-        return jsonify(
-            {
-                "ok": True,
-                "status": "pending",
-                "friendship_id": row.get("id"),
-                "incoming_for_me": False,
-            }
-        ), 201
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    res = sb.table("friendships").insert({"requester_id": uid, "addressee_id": target_id}).execute()
+    return jsonify({"ok": True, "status": "pending", "friendship": res.data[0]}), 201
 
 
 @app.route("/api/friends/<int:friendship_id>/accept", methods=["POST"])
 @login_required
 def api_friend_accept(friendship_id):
-    sb = g.sb
-    uid = session["user_id"]
-
-    try:
-        sb.table("friendships").update({"status": "accepted"}).eq(
-            "id", friendship_id
-        ).eq("addressee_id", uid).execute()
-
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    sb.table("friendships").update({"status": "accepted"}) \
+        .eq("id", friendship_id).eq("addressee_id", session["user_id"]).execute()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/friends/<int:friendship_id>/decline", methods=["POST"])
 @login_required
 def api_friend_decline(friendship_id):
-    sb = g.sb
-    uid = session["user_id"]
-
-    try:
-        sb.table("friendships").delete().eq("id", friendship_id).eq(
-            "addressee_id", uid
-        ).execute()
-
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    sb.table("friendships").delete().eq("id", friendship_id) \
+        .eq("addressee_id", session["user_id"]).execute()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/friends/<int:friendship_id>", methods=["DELETE"])
 @login_required
 def api_friend_remove(friendship_id):
-    sb = g.sb
-    uid = session["user_id"]
-
-    try:
-        sb.table("friendships").delete().eq("id", friendship_id).or_(
-            f"requester_id.eq.{uid},addressee_id.eq.{uid}"
-        ).execute()
-
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    sb.table("friendships").delete().eq("id", friendship_id) \
+        .or_(f"requester_id.eq.{session['user_id']},addressee_id.eq.{session['user_id']}").execute()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/messages/<friend_id>", methods=["GET", "POST"])
 @login_required
 def api_messages(friend_id):
-    sb = g.sb
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+    if request.method == "POST":
+        text = (request.json or {}).get("text", "").strip()
+        if not text:
+            return jsonify({"error": "Текст обязателен"}), 400
+        sb.table("messages").insert({"sender_id": uid, "receiver_id": friend_id, "text": text}).execute()
+        return jsonify({"ok": True}), 201
 
-    try:
-        if request.method == "POST":
-            if not are_friends_db(sb, uid, friend_id):
-                return jsonify({"error": "Писать можно только друзьям"}), 403
-
-            text = ""
-            image = None
-
-            if request.mimetype == "multipart/form-data":
-                text = clean_text(request.form.get("text"), 2000)
-                image = request.files.get("image")
-            else:
-                payload = request.get_json(silent=True) or {}
-                text = clean_text(payload.get("text"), 2000)
-
-            image_url = None
-
-            if image and image.filename:
-                try:
-                    image_url = upload_to_bucket(
-                        sb,
-                        "chat-images",
-                        uid,
-                        image,
-                        MAX_IMAGE_MB,
-                    )
-                except ValueError as e:
-                    return jsonify({"error": str(e)}), 400
-
-            if not text and not image_url:
-                return jsonify({"error": "Пустое сообщение"}), 400
-
-            sb.table("messages").insert(
-                {
-                    "sender_id": uid,
-                    "receiver_id": friend_id,
-                    "text": text or "",
-                    "image_url": image_url,
-                }
-            ).execute()
-
-            return jsonify({"ok": True}), 201
-
-        res = (
-            sb.table("messages")
-            .select("id, sender_id, receiver_id, text, image_url, created_at, is_read")
-            .or_(
-                f"and(sender_id.eq.{uid},receiver_id.eq.{friend_id}),"
-                f"and(sender_id.eq.{friend_id},receiver_id.eq.{uid})"
-            )
-            .order("created_at")
-            .limit(500)
-            .execute()
-        )
-
-        try:
-            sb.table("messages").update({"is_read": True}).eq(
-                "sender_id", friend_id
-            ).eq("receiver_id", uid).eq("is_read", False).execute()
-        except Exception:
-            pass
-
-        return jsonify(res.data or [])
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    res = sb.table("messages").select("*") \
+        .or_(f"and(sender_id.eq.{uid},receiver_id.eq.{friend_id}),"
+             f"and(sender_id.eq.{friend_id},receiver_id.eq.{uid})") \
+        .order("created_at").execute()
+    sb.table("messages").update({"is_read": True}) \
+        .eq("sender_id", friend_id).eq("receiver_id", uid).eq("is_read", False).execute()
+    return jsonify(res.data or [])
 
 
 @app.route("/api/conversations")
 @login_required
 def api_conversations():
-    sb = g.sb
-    uid = session["user_id"]
-
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     try:
         res = sb.rpc("get_conversations", {}).execute()
-        if isinstance(res.data, list):
-            return jsonify(res.data)
-    except Exception:
-        pass
-
-    friends_res = (
-        sb.table("friendships")
-        .select("requester_id, addressee_id")
-        .eq("status", "accepted")
-        .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}")
-        .execute()
-    )
-
-    conversations = []
-
-    for row in friends_res.data or []:
-        friend_id = row["addressee_id"] if row["requester_id"] == uid else row["requester_id"]
-
-        prof_res = (
-            sb.table("profiles")
-            .select("id, username, display_name, avatar_url")
-            .eq("id", friend_id)
-            .limit(1)
-            .execute()
-        )
-
-        if not prof_res.data:
-            continue
-
-        item = prof_res.data[0]
-
-        last_res = (
-            sb.table("messages")
-            .select("text, image_url, created_at, sender_id")
-            .or_(
-                f"and(sender_id.eq.{uid},receiver_id.eq.{friend_id}),"
-                f"and(sender_id.eq.{friend_id},receiver_id.eq.{uid})"
-            )
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
-        )
-
-        unread_res = (
-            sb.table("messages")
-            .select("id", count="exact")
-            .eq("sender_id", friend_id)
-            .eq("receiver_id", uid)
-            .eq("is_read", False)
-            .execute()
-        )
-
-        last_message_text = None
-        last_message_at = None
-        last_message_mine = False
-
-        if last_res.data:
-            last = last_res.data[0]
-            last_message_text = last.get("text")
-
-            if last.get("image_url") and not last_message_text:
-                last_message_text = "🖼️ Фото"
-
-            last_message_at = last.get("created_at")
-            last_message_mine = last.get("sender_id") == uid
-
-        item.update(
-            {
-                "friend_id": friend_id,
-                "last_message_text": last_message_text,
-                "last_message_at": last_message_at,
-                "last_message_mine": last_message_mine,
-                "unread_count": unread_res.count or 0,
-            }
-        )
-
-        conversations.append(item)
-
-    conversations.sort(key=lambda x: x.get("last_message_at") or "", reverse=True)
-    return jsonify(conversations)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify(res.data or [])
 
 
 @app.route("/api/messages/unread_count")
 @login_required
 def api_unread_count():
-    sb = g.sb
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
-
-    # Непрочитанные сообщения
-    messages_res = (
-        sb.table("messages")
-        .select("id", count="exact")
-        .eq("receiver_id", uid)
-        .eq("is_read", False)
-        .execute()
-    )
-
-    # Заявки в друзья: считаем только те, что пришли ПОСЛЕ того,
-    # как пользователь последний раз заходил на /friends
-    seen_at = g.profile.get("friends_seen_at")
-
-    req_query = (
-        sb.table("friendships")
-        .select("id", count="exact")
-        .eq("addressee_id", uid)
-        .eq("status", "pending")
-    )
-
-    if seen_at:
-        req_query = req_query.gt("created_at", seen_at)
-
-    requests_res = req_query.execute()
-
-    return jsonify(
-        {
-            "messages": messages_res.count or 0,
-            "friend_requests": requests_res.count or 0,
-        }
-    )
+    res = sb.table("messages").select("id", count="exact") \
+        .eq("receiver_id", uid).eq("is_read", False).execute()
+    incoming = sb.table("friendships").select("id", count="exact") \
+        .eq("addressee_id", uid).eq("status", "pending").execute()
+    return jsonify({"messages": res.count or 0, "friend_requests": incoming.count or 0})
 
 
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 5000)),
-        debug=False,
-    )
+    app.run(host="0.0.0.0", port=5000, debug=False)

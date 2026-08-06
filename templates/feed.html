@@ -1,64 +1,59 @@
 {% extends "base.html" %}
-{% from "_nav.html" import bottom_nav %}
-
+{% from "_icons.html" import icon %}
 {% block title %}Лента — Картометр{% endblock %}
-
 {% block content %}
 <div class="app-shell">
-    <div class="page">
-        <div class="topbar">
-            <div>
-                <h1 class="display page-title">📰 Лента</h1>
-                <p class="subtitle">Что происходит у друзей</p>
-            </div>
+    <div class="list-page" style="flex:1; overflow-y:auto;">
+        <div class="page-head">
+            <div><h1 class="display" style="font-size:24px">{{ icon('feed') }} Лента</h1>
+            <p class="subtitle">Что происходит у друзей</p></div>
         </div>
 
         {% if spots %}
             {% for spot in spots %}
-                <div class="card feed-card">
-                    <div class="feed-head">
-                        <div class="avatar">
-                            {% if spot.owner and spot.owner.avatar_url %}
-                                <img src="{{ spot.owner.avatar_url }}" alt="">
-                            {% else %}
-                                {{ (spot.owner.display_name[:1] if spot.owner and spot.owner.display_name else '📍')|upper }}
-                            {% endif %}
-                        </div>
-
-                        <div class="info">
-                            <div class="name">
-                                {{ spot.owner.display_name if spot.owner else 'Кто-то' }}
-                            </div>
-                            <div class="sub">
-                                {% if spot.category %}{{ spot.category }} · {% endif %}
-                                {% if spot.visibility == 'friends' %}🤝 друзья{% else %}🌍 все{% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    {% if spot.photo_url %}
-                        <div class="feed-photo-wrap">
-                            <img class="feed-photo" src="{{ spot.photo_url }}" alt="{{ spot.title }}">
-                        </div>
-                    {% endif %}
-
-                    <div class="feed-body">
-                        <h3 class="feed-title">{{ spot.title }}</h3>
-
-                        {% if spot.description %}
-                            <p class="feed-text">{{ spot.description }}</p>
-                        {% endif %}
+            <div class="card" style="margin-bottom:12px;" data-spot-id="{{ spot.id }}">
+                <div class="spot-thumb-row">
+                    <div class="spot-thumb">{% if spot.photo_url %}<img src="{{ spot.photo_url }}">{% else %}{{ icon('pin') }}{% endif %}</div>
+                    <div class="info">
+                        <div class="name">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}</div>
+                        <div class="sub">{{ spot.title }}</div>
                     </div>
                 </div>
+
+                {% if spot.description %}<p style="margin-top:10px;">{{ spot.description }}</p>{% endif %}
+
+                <div class="hint" style="margin-top:8px;">
+                    {% if spot.category %}{{ spot.category }} · {% endif %}
+                    {% if spot.visibility == 'friends' %}{{ icon('friends') }} Только друзья{% else %}{{ icon('globe') }} Видят все{% endif %}
+                </div>
+
+                <button class="feed-comments-toggle" type="button" data-spot-id="{{ spot.id }}">
+                    {{ icon('chat') }} Комментарии
+                </button>
+
+                <div class="feed-comments" id="feed-comments-{{ spot.id }}" hidden>
+                    <div class="feed-comments-list" id="feed-comments-list-{{ spot.id }}"></div>
+                    <div class="feed-comment-input-row">
+                        <input type="text" class="feed-comment-input" id="feed-comment-input-{{ spot.id }}" placeholder="Написать комментарий..." maxlength="500">
+                        <button class="feed-comment-send" type="button" data-spot-id="{{ spot.id }}">➤</button>
+                    </div>
+                </div>
+            </div>
             {% endfor %}
         {% else %}
-            <div class="empty-state">
-                <span class="em">🌤️</span>
-                <p>Пока тихо. Добавьте друзей, чтобы видеть их метки здесь.</p>
-            </div>
+            <div class="empty-state"><span class="em">{{ icon('cloud') }}</span><p>Пока тихо. Добавьте друзей!</p></div>
         {% endif %}
     </div>
 
-    {{ bottom_nav('feed', profile) }}
+    <nav class="bottom-nav">
+        <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">{{ icon('map') }}</span>Карта</a>
+        <a class="nav-item active" href="{{ url_for('feed_view') }}"><span class="ic">{{ icon('feed') }}</span>Лента</a>
+        <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">{{ icon('friends') }}</span>Друзья</a>
+        <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">{{ icon('chat') }}</span>Чаты</a>
+        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">{{ icon('user') }}</span>Профиль</a>
+    </nav>
 </div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/feed.js') }}"></script>
 {% endblock %}

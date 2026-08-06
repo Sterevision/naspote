@@ -1,201 +1,68 @@
 {% extends "base.html" %}
-
+{% from "_icons.html" import icon %}
 {% block title %}Настройки — Картометр{% endblock %}
-
 {% block content %}
 <div class="app-shell">
-    <div class="page">
-        <div class="topbar">
-            <div>
-                <h1 class="display page-title">⚙️ Настройки</h1>
-                <p class="subtitle">Профиль, домашняя точка и контакты</p>
-            </div>
-        </div>
+    <div class="list-page" style="flex:1; overflow-y:auto;">
+        <div class="page-head"><div><h1 class="display" style="font-size:24px">{{ icon('settings') }} Настройки</h1></div></div>
 
-        <form class="card" method="post" enctype="multipart/form-data">
-            <div class="field">
-                <label>Имя</label>
-                <input class="input" type="text" name="display_name" value="{{ profile.display_name or '' }}" maxlength="80">
-            </div>
-
-            <div class="field">
-                <label>Локация</label>
-                <input class="input" type="text" name="location" value="{{ profile.location or '' }}" maxlength="100">
-            </div>
-
-            <div class="field">
-                <label>О себе</label>
-                <textarea class="input" name="bio" maxlength="500">{{ profile.bio or '' }}</textarea>
-            </div>
+        <form method="post" enctype="multipart/form-data">
+            <div class="field"><label>Имя</label><input type="text" name="display_name" value="{{ profile.display_name or '' }}"></div>
+            <div class="field"><label>Локация</label><input type="text" name="location" value="{{ profile.location or '' }}"></div>
+            <div class="field"><label>О себе</label><textarea name="bio">{{ profile.bio or '' }}</textarea></div>
+            <div class="field"><label>Аватар</label><input type="file" name="avatar" accept="image/*"></div>
 
             {% if profile.account_type == 'organization' %}
-                <div class="field">
-                    <label>Категория заведения</label>
-                    <input class="input" type="text" name="category" value="{{ profile.category or '' }}" maxlength="50">
-                </div>
+            <div class="section-divider"></div>
+            <div class="settings-subtitle">{{ icon('building') }} Данные заведения</div>
 
-                <div class="field">
-                    <label>Адрес</label>
-                    <input class="input" type="text" name="address" value="{{ profile.address or '' }}" maxlength="200">
-                </div>
-            {% else %}
-                <div class="field">
-                    <label>Возраст</label>
-                    <input class="input" type="number" name="age" value="{{ profile.age or '' }}" min="13" max="120">
-                </div>
+            <div class="field">
+                <label>Категория</label>
+                <select name="org_category">
+                    <option value="">— выберите —</option>
+                    {% for c in categories %}
+                    <option value="{{ c }}" {% if profile.category == c %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field"><label>Адрес</label><input type="text" name="org_address" value="{{ profile.address or '' }}"></div>
+
+            <div class="field">
+                <label>Местоположение на карте</label>
+                <div class="location-picker" id="orgPickerMap"></div>
+                <div class="picker-hint">Нажмите на карту или перетащите маркер.</div>
+                <button type="button" class="btn btn-soft btn-sm" id="orgLocateBtn" style="margin-top:8px;">📍 Моё текущее местоположение</button>
+                <div class="coords-readout" id="orgCoords"></div>
+                <input type="hidden" name="org_lat" id="orgLatInput" value="{{ profile.lat or '' }}">
+                <input type="hidden" name="org_lng" id="orgLngInput" value="{{ profile.lng or '' }}">
+            </div>
             {% endif %}
-
-            <div class="field">
-                <label>Аватар</label>
-                <label class="file-drop" for="avatarInput">
-                    <input type="file" id="avatarInput" name="avatar" accept="image/*" hidden>
-                    <div class="file-drop-text">
-                        <span>📷</span>
-                        Загрузить аватар
-                    </div>
-                </label>
-            </div>
-
-            <div class="section-divider"></div>
-
-            <h3 class="settings-subtitle">📍 Домашняя точка карты</h3>
-            <p class="hint">Это место будет открываться на карте по умолчанию, если вы укажете его здесь.</p>
-
-            <div class="field" style="margin-top:14px;">
-                <label>Название места</label>
-                <input class="input" type="text" id="homeName" name="home_location_name" value="{{ profile.home_location_name or '' }}" maxlength="120" placeholder="Например: Дом, офис, любимый бар">
-            </div>
-
-            <div class="two-col">
-                <div class="field">
-                    <label>Широта</label>
-                    <input class="input" type="text" id="homeLat" name="home_lat" value="{{ profile.home_lat if profile.home_lat is not none else '' }}" placeholder="55.7558">
-                </div>
-
-                <div class="field">
-                    <label>Долгота</label>
-                    <input class="input" type="text" id="homeLng" name="home_lng" value="{{ profile.home_lng if profile.home_lng is not none else '' }}" placeholder="37.6173">
-                </div>
-            </div>
-
-            <button class="btn btn-soft btn-block" type="button" id="detectHomeBtn">
-                📍 Определить текущее местоположение
-            </button>
-
-            <div class="section-divider"></div>
-
-            <h3 class="settings-subtitle">✈️ Контакты</h3>
-            <p class="hint">Эти контакты будут видны на вашем профиле.</p>
-
-            <div class="field" style="margin-top:14px;">
-                <label>Telegram</label>
-                <input class="input" type="text" name="telegram_username" value="{{ profile.telegram_username or '' }}" maxlength="32" placeholder="@username">
-            </div>
-
-            <div class="field">
-                <label>Телефон</label>
-                <input class="input" type="text" name="contact_phone" value="{{ profile.contact_phone or '' }}" maxlength="30" placeholder="+7 999 000-00-00">
-            </div>
-
-            <div class="field">
-                <label>Email для связи</label>
-                <input class="input" type="email" name="contact_email" value="{{ profile.contact_email or '' }}" maxlength="255" placeholder="you@example.com">
-            </div>
 
             <button class="btn btn-primary btn-block" type="submit">Сохранить</button>
         </form>
 
-        <a class="btn btn-ghost btn-block logout-btn" href="{{ url_for('logout') }}">Выйти</a>
+        <div class="section-divider"></div>
+        <a class="btn btn-ghost btn-block" href="{{ url_for('logout') }}" style="margin-top:10px;">Выйти</a>
     </div>
 
     <nav class="bottom-nav">
-        <a class="nav-item" href="{{ url_for('map_view') }}">
-            <span class="ic">🗺️</span>
-            <span class="label">Карта</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('feed_view') }}">
-            <span class="ic">📰</span>
-            <span class="label">Лента</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('friends_view') }}">
-            <span class="ic">🤝</span>
-            <span class="label">Друзья</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('messages_view') }}">
-            <span class="ic">💬</span>
-            <span class="label">Чаты</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}">
-            <span class="ic">👤</span>
-            <span class="label">Профиль</span>
-        </a>
+        <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">{{ icon('map') }}</span>Карта</a>
+        <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">{{ icon('feed') }}</span>Лента</a>
+        <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">{{ icon('friends') }}</span>Друзья</a>
+        <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">{{ icon('chat') }}</span>Чаты</a>
+        <a class="nav-item active" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">{{ icon('user') }}</span>Профиль</a>
     </nav>
 </div>
 {% endblock %}
-
 {% block scripts %}
+{% if profile.account_type == 'organization' %}
+<script src="{{ url_for('static', filename='js/location-picker.js') }}"></script>
 <script>
-(function () {
-    'use strict';
-
-    var button = document.getElementById('detectHomeBtn');
-    var latInput = document.getElementById('homeLat');
-    var lngInput = document.getElementById('homeLng');
-    var nameInput = document.getElementById('homeName');
-
-    if (!button || !latInput || !lngInput) {
-        return;
-    }
-
-    button.addEventListener('click', function () {
-        if (!navigator.geolocation) {
-            alert('Геолокация недоступна в этом браузере.');
-            return;
-        }
-
-        if (!window.isSecureContext) {
-            alert('Геолокация работает только по HTTPS или на localhost.');
-            return;
-        }
-
-        button.disabled = true;
-        button.textContent = 'Определяем...';
-
-        navigator.geolocation.getCurrentPosition(function (position) {
-            latInput.value = position.coords.latitude;
-            lngInput.value = position.coords.longitude;
-
-            if (nameInput && !nameInput.value.trim()) {
-                nameInput.value = 'Текущее местоположение';
-            }
-
-            button.disabled = false;
-            button.textContent = '📍 Определить текущее местоположение';
-        }, function (error) {
-            var message = 'Не удалось определить местоположение.';
-
-            if (error.code === 1) {
-                message = 'Доступ к геолокации запрещён. Разрешите доступ в браузере.';
-            } else if (error.code === 2) {
-                message = 'Геолокация недоступна.';
-            } else if (error.code === 3) {
-                message = 'Слишком долго не удаётся определить местоположение.';
-            }
-
-            alert(message);
-
-            button.disabled = false;
-            button.textContent = '📍 Определить текущее местоположение';
-        }, {
-            enableHighAccuracy: true,
-            timeout: 12000,
-            maximumAge: 60000
-        });
-    });
-})();
+document.addEventListener('DOMContentLoaded', function () {
+    var lat = parseFloat(document.getElementById('orgLatInput').value) || null;
+    var lng = parseFloat(document.getElementById('orgLngInput').value) || null;
+    initLocationPicker('orgPickerMap', 'orgLatInput', 'orgLngInput', 'orgLocateBtn', 'orgCoords', lat, lng);
+});
 </script>
+{% endif %}
 {% endblock %}

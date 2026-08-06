@@ -1,40 +1,27 @@
 <!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>{% block title %}Картометр{% endblock %}</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/patch.css') }}">
-
-    {% block head %}{% endblock %}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}Картометр{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/patch.css') }}">
+{% block head %}{% endblock %}
 </head>
 <body>
-    <div class="flash-stack">
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="flash">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-    </div>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
+{% endwith %}
 
-    {% block content %}{% endblock %}
+{% block content %}{% endblock %}
 
-    <script>
-        window.CURRENT_USER_ID = {{ session.get('user_id')|tojson if session.get('user_id') else 'null' }};
-    </script>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
-
-    {% block scripts %}{% endblock %}
+<script>window.CURRENT_USER_ID = {{ session.get('user_id')|tojson if session.get('user_id') else 'null' }};</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>
