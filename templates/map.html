@@ -155,7 +155,7 @@
 
 {% block scripts %}
 <script>
-    window.MAP_HOME = {{ map_home|tojson }};
+   window.MAP_HOME = {{ map_home|default({})|tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 {% endblock %}
