@@ -1,0 +1,20 @@
+{# 
+   Простые emoji-иконки, чтобы не тащить отдельный SVG-спрайт.
+   Используется через {% from "_icons.html" import icon %} + {{ icon('name') }}.
+   Имена соответствуют вызовам icon(...) в feed.html, register.html, settings.html.
+#}
+{% macro icon(name) -%}
+{%- if name == 'map' -%}🗺️
+{%- elif name == 'feed' -%}📰
+{%- elif name == 'friends' -%}🤝
+{%- elif name == 'chat' -%}💬
+{%- elif name == 'user' -%}👤
+{%- elif name == 'pin' -%}📍
+{%- elif name == 'globe' -%}🌍
+{%- elif name == 'cloud' -%}☁️
+{%- elif name == 'building' -%}🏢
+{%- elif name == 'settings' -%}⚙️
+{%- elif name == 'leaf' -%}🌱
+{%- else -%}•
+{%- endif -%}
+{%- endmacro %}

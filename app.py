@@ -108,9 +108,28 @@ def register():
         flash("Заполните email, имя пользователя и пароль")
         return redirect(url_for("register"))
 
+    # Сохраняем данные регистрации в user_metadata. Это нужно, чтобы
+    # профиль можно было создать при первом входе даже если включено
+    # подтверждение email (тогда auth_res.session будет пустым и мы
+    # не сможем сразу вставить строку в profiles — см. login()).
+    signup_meta = {
+        "username": username,
+        "display_name": display_name,
+        "account_type": account_type,
+    }
+    if account_type == "organization":
+        signup_meta["org_category"] = request.form.get("org_category", "").strip() or None
+        signup_meta["org_address"] = request.form.get("org_address", "").strip() or None
+        signup_meta["org_lat"] = request.form.get("org_lat", "").strip() or None
+        signup_meta["org_lng"] = request.form.get("org_lng", "").strip() or None
+
     sb = get_supabase()
     try:
-        auth_res = sb.auth.sign_up({"email": email, "password": password})
+        auth_res = sb.auth.sign_up({
+            "email": email,
+            "password": password,
+            "options": {"data": signup_meta},
+        })
     except Exception as e:
         flash(f"Ошибка: {e}")
         return redirect(url_for("register"))
@@ -166,6 +185,37 @@ def login():
         session["access_token"] = res.session.access_token
         session["refresh_token"] = res.session.refresh_token
         session["user_id"] = res.user.id
+
+        # Если это первый вход после подтверждения email, строки в
+        # profiles ещё может не быть (при регистрации auth_res.session
+        # был пустым). Досоздаём профиль из user_metadata.
+        sb2 = get_supabase(res.session.access_token, res.session.refresh_token)
+        existing = sb2.table("profiles").select("id").eq("id", res.user.id).execute()
+        if not existing.data:
+            meta = res.user.user_metadata or {}
+            username = meta.get("username") or (res.user.email or "user").split("@")[0]
+            profile_data = {
+                "id": res.user.id,
+                "username": username,
+                "display_name": meta.get("display_name") or username,
+                "account_type": meta.get("account_type", "person"),
+            }
+            if profile_data["account_type"] == "organization":
+                if meta.get("org_category"):
+                    profile_data["category"] = meta["org_category"]
+                if meta.get("org_address"):
+                    profile_data["address"] = meta["org_address"]
+                try:
+                    if meta.get("org_lat") and meta.get("org_lng"):
+                        profile_data["lat"] = float(meta["org_lat"])
+                        profile_data["lng"] = float(meta["org_lng"])
+                except ValueError:
+                    pass
+            try:
+                sb2.table("profiles").insert(profile_data).execute()
+            except Exception as e:
+                flash(f"Не удалось создать профиль: {e}")
+
         return redirect(url_for("map_view"))
     except Exception:
         flash("Неверный email или пароль")
@@ -230,7 +280,15 @@ def chat_view(username):
         .eq("username", username).execute()
     if not friend_res.data:
         return "Пользователь не найден", 404
-    return render_template("chat.html", profile=profile, friend=friend_res.data[0])
+    friend = friend_res.data[0]
+
+    fs = sb.table("friendships").select("id").eq("status", "accepted").or_(
+        f"and(requester_id.eq.{session['user_id']},addressee_id.eq.{friend['id']}),"
+        f"and(requester_id.eq.{friend['id']},addressee_id.eq.{session['user_id']})"
+    ).execute()
+    is_friend = bool(fs.data)
+
+    return render_template("chat.html", profile=profile, friend=friend, is_friend=is_friend)
 
 
 @app.route("/profile/<username>")
@@ -297,6 +355,20 @@ def settings_view():
         "bio": request.form.get("bio", "").strip(),
         "location": request.form.get("location", "").strip(),
     }
+
+    update_data["telegram_username"] = request.form.get("telegram_username", "").strip() or None
+    update_data["contact_phone"] = request.form.get("contact_phone", "").strip() or None
+    update_data["contact_email"] = request.form.get("contact_email", "").strip() or None
+    update_data["home_location_name"] = request.form.get("home_location_name", "").strip() or None
+
+    hlat = request.form.get("home_lat", "").strip()
+    hlng = request.form.get("home_lng", "").strip()
+    if hlat and hlng:
+        try:
+            update_data["home_lat"] = float(hlat)
+            update_data["home_lng"] = float(hlng)
+        except ValueError:
+            pass
 
     account_type = profile.get("account_type", "person")
     if account_type == "organization":
@@ -515,7 +587,29 @@ def api_friend_add(username):
     target_id = target.data[0]["id"]
     if target_id == uid:
         return jsonify({"error": "Нельзя добавить самого себя"}), 400
-    res = sb.table("friendships").insert({"requester_id": uid, "addressee_id": target_id}).execute()
+
+    # Пара (requester, addressee) уникальна в обе стороны (см. v8/v10),
+    # так что сначала проверяем — иначе слепой insert упадёт с 500,
+    # если заявка уже есть в любом направлении.
+    existing = sb.table("friendships").select("*").or_(
+        f"and(requester_id.eq.{uid},addressee_id.eq.{target_id}),"
+        f"and(requester_id.eq.{target_id},addressee_id.eq.{uid})"
+    ).execute()
+    if existing.data:
+        row = existing.data[0]
+        if row["status"] == "accepted":
+            return jsonify({"ok": True, "status": "accepted"})
+        if row["requester_id"] == target_id:
+            # он уже позвал нас в друзья — принимаем встречную заявку
+            sb.table("friendships").update({"status": "accepted"}) \
+                .eq("id", row["id"]).execute()
+            return jsonify({"ok": True, "status": "accepted"})
+        return jsonify({"ok": True, "status": "pending"})
+
+    try:
+        res = sb.table("friendships").insert({"requester_id": uid, "addressee_id": target_id}).execute()
+    except Exception:
+        return jsonify({"error": "Не удалось отправить заявку"}), 400
     return jsonify({"ok": True, "status": "pending", "friendship": res.data[0]}), 201
 
 
@@ -552,10 +646,25 @@ def api_messages(friend_id):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
     if request.method == "POST":
-        text = (request.json or {}).get("text", "").strip()
-        if not text:
-            return jsonify({"error": "Текст обязателен"}), 400
-        sb.table("messages").insert({"sender_id": uid, "receiver_id": friend_id, "text": text}).execute()
+        image = request.files.get("image")
+        if image or request.form:
+            text = request.form.get("text", "").strip()
+        else:
+            text = (request.get_json(silent=True) or {}).get("text", "").strip()
+
+        if not text and not (image and image.filename):
+            return jsonify({"error": "Сообщение не может быть пустым"}), 400
+
+        insert_data = {"sender_id": uid, "receiver_id": friend_id}
+        if text:
+            insert_data["text"] = text
+        if image and image.filename:
+            insert_data["image_url"] = upload_to_bucket(sb, "chat-images", uid, image)
+
+        try:
+            sb.table("messages").insert(insert_data).execute()
+        except Exception:
+            return jsonify({"error": "Не удалось отправить. Возможно, вы ещё не друзья."}), 400
         return jsonify({"ok": True}), 201
 
     res = sb.table("messages").select("*") \
