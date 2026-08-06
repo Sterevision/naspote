@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "_nav.html" import bottom_nav %}
 
 {% block title %}Чаты — Картометр{% endblock %}
 
@@ -21,155 +20,35 @@
         </div>
     </div>
 
-    {{ bottom_nav('messages', profile) }}
+    <nav class="bottom-nav">
+        <a class="nav-item" href="{{ url_for('map_view') }}">
+            <span class="ic">🗺️</span>
+            <span class="label">Карта</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('feed_view') }}">
+            <span class="ic">📰</span>
+            <span class="label">Лента</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('friends_view') }}">
+            <span class="ic">🤝</span>
+            <span class="label">Друзья</span>
+        </a>
+
+        <a class="nav-item active" href="{{ url_for('messages_view') }}">
+            <span class="ic">💬</span>
+            <span class="label">Чаты</span>
+        </a>
+
+        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}">
+            <span class="ic">👤</span>
+            <span class="label">Профиль</span>
+        </a>
+    </nav>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-(function () {
-    'use strict';
-
-    const list = document.getElementById('conversationsList');
-
-    function escapeHtml(value) {
-        const div = document.createElement('div');
-        div.textContent = value === null || value === undefined ? '' : String(value);
-        return div.innerHTML;
-    }
-
-    function formatTime(iso) {
-        if (!iso) return '';
-
-        const date = new Date(iso);
-        if (isNaN(date.getTime())) return '';
-
-        const now = new Date();
-
-        if (date.toDateString() === now.toDateString()) {
-            return date.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-
-        return date.toLocaleDateString([], {
-            day: '2-digit',
-            month: '2-digit'
-        });
-    }
-
-    function renderEmpty(message) {
-        list.innerHTML = `
-            <div class="empty-state">
-                <span class="em">💬</span>
-                <p>${escapeHtml(message)}</p>
-            </div>
-        `;
-    }
-
-    function renderConversations(items) {
-        if (!Array.isArray(items) || !items.length) {
-            renderEmpty('Пока нет чатов. Добавьте друзей, чтобы начать переписку.');
-            return;
-        }
-
-        list.innerHTML = '';
-
-        items.forEach(function (item) {
-            if (!item.username) return;
-
-            const link = document.createElement('a');
-            link.className = 'card row-card conversation-card';
-            link.href = '/messages/' + encodeURIComponent(item.username);
-
-            const avatar = document.createElement('div');
-            avatar.className = 'avatar';
-
-            if (item.avatar_url) {
-                const img = document.createElement('img');
-                img.src = item.avatar_url;
-                img.alt = '';
-                avatar.appendChild(img);
-            } else {
-                avatar.textContent = (item.display_name || item.username || '?').charAt(0).toUpperCase();
-            }
-
-            const info = document.createElement('div');
-            info.className = 'info';
-
-            const name = document.createElement('div');
-            name.className = 'name';
-            name.textContent = item.display_name || item.username;
-
-            const sub = document.createElement('div');
-            sub.className = 'sub';
-
-            if (item.last_message_text) {
-                sub.textContent = (item.last_message_mine ? 'Вы: ' : '') + item.last_message_text;
-            } else {
-                sub.textContent = 'Нет сообщений';
-            }
-
-            info.appendChild(name);
-            info.appendChild(sub);
-
-            const right = document.createElement('div');
-            right.className = 'conversation-right';
-
-            const time = document.createElement('div');
-            time.className = 'hint';
-            time.textContent = formatTime(item.last_message_at);
-            right.appendChild(time);
-
-            if (item.unread_count > 0) {
-                const badge = document.createElement('span');
-                badge.className = 'unread-badge';
-                badge.textContent = item.unread_count;
-                right.appendChild(badge);
-            }
-
-            link.appendChild(avatar);
-            link.appendChild(info);
-            link.appendChild(right);
-
-            list.appendChild(link);
-        });
-    }
-
-    async function loadConversations() {
-        try {
-            const res = await fetch('/api/conversations', {
-                credentials: 'same-origin'
-            });
-
-            if (res.status === 401) {
-                window.location.href = '/login';
-                return;
-            }
-
-            if (!res.ok) {
-                throw new Error('failed');
-            }
-
-            const items = await res.json();
-            renderConversations(items || []);
-        } catch (e) {
-            renderEmpty('Не удалось загрузить чаты. Обновите страницу.');
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        if (!list) return;
-
-        loadConversations();
-
-        setInterval(function () {
-            if (!document.hidden) {
-                loadConversations();
-            }
-        }, 15000);
-    });
-})();
-</script>
+<script src="{{ url_for('static', filename='js/messages.js') }}"></script>
 {% endblock %}

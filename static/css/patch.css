@@ -20,9 +20,9 @@
     box-shadow: var(--shadow-sm, 0 8px 24px rgba(15, 23, 42, 0.06)) !important;
 }
 
-/* Верхняя панель карты: оставляем место справа */
+/* Верхняя панель карты */
 .map-top {
-    right: 70px;
+    right: 14px;
 }
 
 .map-btn {
@@ -196,60 +196,6 @@
 
 /* Вложение в чате */
 .chat-attach-preview {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 10px 14px 0;
-    padding: 10px;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid var(--line, rgba(15, 23, 42, 0.08));
-}
-
-.chat-attach-preview img {
-    width: 62px;
-    height: 62px;
-    object-fit: cover;
-    border-radius: 16px;
-}
-
-.chat-attach-meta {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.chat-attach-meta div {
-    font-size: 13px;
-    font-weight: 700;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Картинка внутри сообщения */
-.chat-image {
-    max-width: 240px;
-    max-height: 240px;
-    border-radius: 16px;
-    object-fit: cover;
-    margin-bottom: 6px;
-}
-
-/* Маленькие аватарки для комментариев */
-.avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-/* =========================================================
-   PATCH v12 — компактное превью вложения + счётчики-числа
-========================================================= */
-
-/* Превью вложения — компактный квадрат с крестиком в углу */
-.chat-attach-preview {
     display: inline-flex;
     position: relative;
     margin: 8px 14px 0;
@@ -269,7 +215,6 @@
     display: block;
 }
 
-/* Кнопка ✕ в правом верхнем углу превью — маленькая */
 .attach-remove {
     position: absolute;
     top: 4px;
@@ -325,4 +270,176 @@
     padding: 0;
     top: 6px;
     right: 12px;
+}
+
+/* Бургер-меню на карте */
+.burger-panel {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 45;
+    width: 280px;
+    max-height: calc(100% - 36px);
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(24px);
+    border-radius: 24px;
+    border: 1px solid var(--line, rgba(15, 23, 42, 0.08));
+    box-shadow: var(--shadow-lg, 0 24px 70px rgba(15, 23, 42, 0.16));
+    padding: 18px;
+    transform: translateX(320px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.28s ease, opacity 0.28s ease;
+}
+
+.burger-panel.open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.burger-section {
+    margin-bottom: 18px;
+}
+
+.burger-section:last-child {
+    margin-bottom: 0;
+}
+
+.burger-title {
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted, #64748b);
+    margin-bottom: 10px;
+}
+
+.burger-panel .category-scroller {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.burger-panel .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 0;
+}
+
+#burgerToggle {
+    font-size: 20px;
+    font-weight: 900;
+}
+
+#burgerToggle.active {
+    background: var(--primary, #6d5cff);
+    color: #fff;
+}
+
+/* Упоминания @username */
+.mention-field {
+    position: relative;
+}
+
+.mention-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--line, rgba(15, 23, 42, 0.08));
+    border-radius: 16px;
+    box-shadow: var(--shadow-md, 0 16px 40px rgba(15, 23, 42, 0.10));
+    max-height: 240px;
+    overflow-y: auto;
+    margin-top: 6px;
+    display: none;
+}
+
+.mention-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.mention-item:hover {
+    background: rgba(109, 92, 255, 0.08);
+}
+
+.mention-item .info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mention-item .name {
+    font-weight: 700;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mention-item .sub {
+    color: var(--muted, #64748b);
+    font-size: 12px;
+}
+
+.mention {
+    color: var(--primary, #6d5cff);
+    font-weight: 700;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(109, 92, 255, 0.3);
+    transition: border-color 0.15s ease;
+}
+
+.mention:hover {
+    border-color: var(--primary, #6d5cff);
+}
+
+/* Геолокация в настройках */
+.geo-status {
+    margin-top: 12px;
+    padding: 11px 14px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    animation: geo-in 0.25s ease;
+}
+
+.geo-status.success {
+    background: rgba(22, 163, 74, 0.12);
+    color: #15803d;
+}
+
+.geo-status.error {
+    background: rgba(239, 68, 68, 0.12);
+    color: #b91c1c;
+}
+
+@keyframes geo-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Маленькие аватарки для комментариев */
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
