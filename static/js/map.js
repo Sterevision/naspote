@@ -14,6 +14,7 @@
     var orgMarkersLayer = null;
 
     var home = window.MAP_HOME || null;
+    var targetSpotId = new URLSearchParams(window.location.search).get('spot');
 
     function $(id) {
         return document.getElementById(id);
@@ -306,6 +307,19 @@
 
             allSpots = await response.json();
             applyFilter();
+
+            if (targetSpotId) {
+                var target = allSpots.find(function (s) {
+                    return String(s.id) === String(targetSpotId);
+                });
+
+                if (target && map) {
+                    map.setView([target.lat, target.lng], 16);
+                    openSpot(target);
+                }
+
+                targetSpotId = null;
+            }
         } catch (error) {
             // silent
         }

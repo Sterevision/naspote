@@ -43,7 +43,7 @@
         conversations.forEach(function (c) {
             if (!c.username) return;
             var link = document.createElement('a');
-            link.className = 'row-card';
+            link.className = 'card row-card';
             link.href = '/messages/' + encodeURIComponent(c.username);
 
             var avatar = document.createElement('div');
