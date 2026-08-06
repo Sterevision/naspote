@@ -182,11 +182,17 @@ def logout():
 @login_required
 def map_view():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
-    profile = get_profile(sb, session["user_id"])
-    if not profile:
+    result = sb.table("profiles").select("*").eq("id", session["user_id"]).execute()
+    if not result.data:
         session.clear()
         return redirect(url_for("login"))
-    return render_template("map.html", profile=profile, categories=CATEGORIES)
+    profile = result.data[0]
+    map_home = {
+        "lat": profile.get("home_lat"),
+        "lng": profile.get("home_lng"),
+        "name": profile.get("home_location_name"),
+    }
+    return render_template("map.html", profile=profile, categories=CATEGORIES, map_home=map_home)
 
 
 @app.route("/feed")
