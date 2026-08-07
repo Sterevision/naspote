@@ -1,161 +1,74 @@
 {% extends "base.html" %}
-
 {% block title %}Карта — Картометр{% endblock %}
-
 {% block content %}
-<div class="app-shell map-app">
-    <div class="map-wrap">
-        <div id="map"></div>
-
-        <div class="map-top">
-            <div class="category-scroller" id="categoryScroller">
-                <div class="chip selected" data-cat="">Все</div>
-                {% for c in categories %}
-                    <div class="chip" data-cat="{{ c }}">{{ c }}</div>
-                {% endfor %}
-            </div>
-
-            <button class="map-btn" id="legendToggle" type="button">🎨</button>
-
-            <div class="legend-panel" id="legendPanel">
-                <div class="legend-row"><span class="legend-dot mine"></span> Ваши метки</div>
-                <div class="legend-row"><span class="legend-dot friends"></span> Только для друзей</div>
-                <div class="legend-row"><span class="legend-dot public"></span> Видят все</div>
-                <div class="legend-row"><span class="legend-dot manual"></span> Ручная расстановка</div>
-            </div>
-        </div>
-
-        <div class="map-status" id="mapStatus" style="display:none;"></div>
-
-        <div class="fab-column">
-            <button class="fab-mini" id="manualToggle" type="button">✋</button>
-            <button class="fab-mini" id="locateMe" type="button">📍</button>
-            <button class="fab-add" id="openAddSpot" type="button">+</button>
-        </div>
-
-        <div class="manual-banner" id="manualBanner">
-            <span>✋ Режим ручной расстановки — нажмите на карту</span>
-            <button type="button" id="manualBannerClose">✕</button>
-        </div>
-    </div>
-
-    <nav class="bottom-nav">
-        <a class="nav-item active" href="{{ url_for('map_view') }}">
-            <span class="ic">🗺️</span>
-            <span class="label">Карта</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('feed_view') }}">
-            <span class="ic">📰</span>
-            <span class="label">Лента</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('friends_view') }}">
-            <span class="ic">🤝</span>
-            <span class="label">Друзья</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('messages_view') }}">
-            <span class="ic">💬</span>
-            <span class="label">Чаты</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}">
-            <span class="ic">👤</span>
-            <span class="label">Профиль</span>
-        </a>
-    </nav>
+<div class="app-shell">
+<div class="map-wrap">
+<div id="map"></div>
+<div class="map-top">
+<div class="category-scroller" id="categoryScroller">
+<div class="chip selected" data-cat="">Все</div>
+{% for c in categories %}
+<div class="chip" data-cat="{{ c }}">{{ c }}</div>
+{% endfor %}
+</div>
+<button class="map-btn" id="legendToggle" type="button">🎨</button>
+</div>
+<div class="legend-panel" id="legendPanel">
+<div class="legend-row"><span class="legend-dot mine"></span> Ваши метки</div>
+<div class="legend-row"><span class="legend-dot friends"></span> Только для друзей</div>
+<div class="legend-row"><span class="legend-dot public"></span> Видят все</div>
+<div class="legend-row"><span class="legend-dot manual"></span> Расставлено вручную</div>
+<div class="legend-row">⚡ Волна — пульсирует</div>
+</div>
+<div class="fab-column">
+<button class="fab-mini" id="manualToggle" type="button">✋</button>
+<button class="fab-mini" id="locateMe" type="button">📍</button>
+<button class="big-add" id="openAddSpot" type="button">+</button>
+</div>
+<div class="manual-mode-banner" id="manualBanner">
+<span>✋ Режим ручной расстановки — нажмите на карту</span>
+<button type="button" id="manualBannerClose">✕</button>
+</div>
+<div id="mapStatus" class="map-status" style="display:none;"></div>
+</div>
+<nav class="bottom-nav">
+<a class="nav-item active" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span><span class="label">Карта</span></a>
+<a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">📰</span><span class="label">Лента</span></a>
+<a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span><span class="label">Друзья</span></a>
+<a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">💬</span><span class="label">Чаты</span></a>
+<a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span><span class="label">Профиль</span></a>
+</nav>
 </div>
 
 <div class="sheet-overlay" id="addSpotOverlay">
-    <div class="sheet">
-        <div class="sheet-handle"></div>
-        <button class="sheet-close" id="closeSheet" type="button">✕</button>
-
-        <h3>📍 Новая метка</h3>
-
-        <form id="addSpotForm" enctype="multipart/form-data">
-            <input type="hidden" name="lat" id="latInput">
-            <input type="hidden" name="lng" id="lngInput">
-            <input type="hidden" name="placement_type" id="placementInput" value="geo">
-            <input type="hidden" name="category" id="categoryInput">
-            <input type="hidden" name="duration_hours" id="durationInput" value="3">
-            <input type="hidden" name="visibility" id="visibilityInput" value="public">
-
-            <div class="field">
-                <label>Что тут происходит?</label>
-                <input class="input" id="spotTitle" name="title" maxlength="120" required>
-            </div>
-
-            <div class="field">
-                <label>Пара слов</label>
-                <textarea class="input" id="spotDescription" name="description" maxlength="1000"></textarea>
-            </div>
-
-            <div class="field">
-                <label>Категория</label>
-                <div class="category-picker" id="addCategoryPicker">
-                    {% for c in categories %}
-                        <div class="chip" data-cat="{{ c }}">{{ c }}</div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="field">
-                <label>Сколько на карте?</label>
-                <div class="duration-toggle">
-                    <div class="duration-option" data-h="1">1 ч</div>
-                    <div class="duration-option selected" data-h="3">3 ч</div>
-                    <div class="duration-option" data-h="6">6 ч</div>
-                    <div class="duration-option" data-h="24">сутки</div>
-                </div>
-            </div>
-
-            <div class="field">
-                <label>Кто увидит?</label>
-                <div class="segmented">
-                    <div class="segmented-item selected" data-vis="public">🌍 Все</div>
-                    <div class="segmented-item" data-vis="friends">🤝 Друзья</div>
-                </div>
-            </div>
-
-            <div class="field">
-                <label>Фотография</label>
-                <label class="file-drop" for="spotPhoto">
-                    <input type="file" id="spotPhoto" name="photo" accept="image/*" hidden>
-                    <div class="file-drop-text" id="photoDropText">
-                        <span>📷</span>
-                        Добавить фото к метке
-                    </div>
-                    <img id="photoPreview" alt="Предпросмотр" hidden>
-                </label>
-            </div>
-
-<div class="field">
-    <label>Привязать к заведению (необязательно)</label>
-    <div class="org-search-box">
-        <input type="text" id="orgSearchInput" placeholder="Найти заведение рядом..." autocomplete="off">
-        <div class="org-search-results" id="orgResults"></div>
-        <div id="orgChip"></div>
-    </div>
-</div>
+<div class="sheet">
+<div class="sheet-handle"></div>
+<button class="sheet-close" id="closeSheet" type="button">✕</button>
+<h3>📍 Новая метка</h3>
+<form id="addSpotForm">
+<input type="hidden" name="lat" id="latInput">
+<input type="hidden" name="lng" id="lngInput">
+<input type="hidden" name="placement_type" id="placementInput" value="geo">
+<input type="hidden" name="category" id="categoryInput">
 <input type="hidden" name="organization_id" id="orgIdInput">
-
-            <button class="btn btn-primary btn-block" id="submitSpotBtn" type="submit">
-                Поставить метку
-            </button>
-        </form>
-    </div>
+<input type="hidden" name="duration_hours" id="durationInput" value="3">
+<input type="hidden" name="visibility" id="visibilityInput" value="public">
+<div class="field"><label>Что тут происходит?</label><input class="input" id="spotTitle" name="title" maxlength="120" required></div>
+<div class="field"><label>Пара слов</label><textarea class="input" id="spotDescription" name="description" maxlength="1000"></textarea></div>
+<div class="field"><label>Категория</label><div class="category-picker" id="addCategoryPicker">{% for c in categories %}<div class="chip" data-cat="{{ c }}">{{ c }}</div>{% endfor %}</div></div>
+<div class="field"><label>Сколько на карте?</label><div class="duration-toggle"><div class="duration-option" data-h="1">1 ч</div><div class="duration-option selected" data-h="3">3 ч</div><div class="duration-option" data-h="6">6 ч</div><div class="duration-option" data-h="24">сутки</div></div></div>
+<div class="field"><label>Кто увидит?</label><div class="segmented"><div class="segmented-item selected" data-vis="public">🌍 Все</div><div class="segmented-item" data-vis="friends">🤝 Друзья</div></div></div>
+<div class="field"><label>Фотография</label><label class="file-drop" for="spotPhoto"><span class="file-drop-text" id="photoDropText"><span>📷</span>Добавить фото к метке</span><img id="photoPreview" hidden></label><input type="file" id="spotPhoto" name="photo" accept="image/*" hidden></div>
+<div class="field"><label>Привязать к заведению (необязательно)</label><div class="org-search-box"><input class="input" type="text" id="orgSearch" placeholder="Название заведения..."><div class="org-search-results" id="orgSearchResults"></div><div id="orgSelected"></div></div></div>
+<button class="btn btn-primary btn-block" id="submitSpotBtn" type="submit">Поставить метку</button>
+</form>
 </div>
-
-<div class="sheet-overlay" id="spotSheetOverlay">
-    <div class="sheet" id="spotSheetContent"></div>
 </div>
+<div class="sheet-overlay" id="spotSheetOverlay"><div class="sheet" id="spotSheetContent"></div></div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-   window.MAP_HOME = {{ map_home|default({})|tojson }};
+window.MAP_HOME = {{ map_home|default({})|tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 {% endblock %}

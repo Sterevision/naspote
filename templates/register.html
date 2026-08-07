@@ -1,54 +1,26 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
 {% block title %}Регистрация — Картометр{% endblock %}
 {% block content %}
-<div class="center-page">
-    <div class="auth-box card">
-        <div class="logo-circle">{{ icon('leaf') }}</div>
-        <h1 class="display" style="text-align:center">Создать профиль</h1>
-
-        <form method="post" action="{{ url_for('register') }}">
-            <div class="field">
-                <label>Кто вы?</label>
-                <div class="visibility-toggle" id="accountTypePicker">
-                    <div class="vis-option selected" data-type="person">{{ icon('user') }} Человек</div>
-                    <div class="vis-option" data-type="organization">{{ icon('building') }} Заведение</div>
-                </div>
-                <input type="hidden" name="account_type" id="accountTypeInput" value="person">
-            </div>
-
-            <div class="field"><label>Имя</label><input type="text" name="display_name" maxlength="80" required></div>
-            <div class="field"><label>Username (латиницей)</label><input type="text" name="username" maxlength="30" required></div>
-            <div class="field"><label>Email</label><input type="email" name="email" autocomplete="email" required></div>
-            <div class="field"><label>Пароль</label><input type="password" name="password" minlength="8" required></div>
-
-            <!-- ---- поля заведения ---- -->
-            <div class="org-fields" id="orgFields">
-                <div class="field">
-                    <label>Категория заведения</label>
-                    <select name="org_category">
-                        <option value="">— выберите —</option>
-                        {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div class="field"><label>Адрес</label><input type="text" name="org_address" maxlength="200" placeholder="Улица, дом"></div>
-
-                <div class="field">
-                    <label>Местоположение на карте</label>
-                    <div class="location-picker" id="orgPickerMap"></div>
-                    <div class="picker-hint">Нажмите на карту, чтобы поставить точку. Маркер можно перетащить.</div>
-                    <button type="button" class="btn btn-soft btn-sm" id="orgLocateBtn" style="margin-top:8px;">📍 Моё текущее местоположение</button>
-                    <div class="coords-readout" id="orgCoords"></div>
-                    <input type="hidden" name="org_lat" id="orgLatInput">
-                    <input type="hidden" name="org_lng" id="orgLngInput">
-                </div>
-            </div>
-
-            <button class="btn btn-primary btn-block" type="submit">Зарегистрироваться</button>
-        </form>
-
-        <div class="switch-link">Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a></div>
-    </div>
+<div class="auth-page">
+<div class="card auth-card">
+<div class="logo">🌱</div>
+<h1 class="display" style="text-align:center">Создать профиль</h1>
+<form method="post" action="{{ url_for('register') }}">
+<div class="field"><label>Кто вы?</label><div class="segmented" id="accountTypePicker"><div class="vis-option selected" data-type="person">🙋 Человек</div><div class="vis-option" data-type="organization">🏢 Заведение</div></div><input type="hidden" name="account_type" id="accountTypeInput" value="person"></div>
+<div class="field"><label for="display_name">Имя</label><input class="input" type="text" id="display_name" name="display_name" maxlength="80" required></div>
+<div class="field"><label for="username">Username (латиницей)</label><input class="input" type="text" id="username" name="username" maxlength="30" required></div>
+<div class="field"><label for="email">Email</label><input class="input" type="email" id="email" name="email" autocomplete="email" required></div>
+<div class="field"><label for="password">Пароль</label><input class="input" type="password" id="password" name="password" minlength="8" required></div>
+<div class="orgFields" id="orgFields">
+<div class="settings-subtitle">Данные заведения</div>
+<div class="field"><label>Категория заведения</label><select class="input" name="org_category"><option value="">— выберите —</option>{% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select></div>
+<div class="field"><label>Адрес</label><input class="input" type="text" name="org_address"></div>
+<div class="field"><label>Местоположение на карте</label><div class="location-picker" id="orgPickerMap"></div><div class="picker-hint">Нажмите на карту, чтобы поставить точку. Маркер можно перетащить.</div><div class="coords-readout" id="orgCoords"></div><input type="hidden" name="org_lat" id="orgLatInput"><input type="hidden" name="org_lng" id="orgLngInput"><button type="button" class="btn btn-soft btn-sm" id="orgLocateBtn" style="margin-top:8px;">📍 Моё текущее местоположение</button></div>
+</div>
+<button class="btn btn-primary btn-block" type="submit">Зарегистрироваться</button>
+</form>
+<div class="switch-link">Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a></div>
+</div>
 </div>
 {% endblock %}
 {% block scripts %}

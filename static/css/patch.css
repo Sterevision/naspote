@@ -1,5 +1,5 @@
 /* =========================================================
-   PATCH — фиксы критики + механика заведений + лента/чат/настройки
+PATCH — фиксы критики + механика заведений + лента/чат/настройки
 ========================================================= */
 
 /* ---- 1. Баннер ручной расстановки: не наезжает и не обрезается ---- */
@@ -24,7 +24,7 @@
     white-space: normal;
     opacity: 0;
     pointer-events: none;
-    transition: opacity .22s var(--ease), transform .22s var(--ease);
+    transition: opacity .22s ease, transform .22s ease;
 }
 .manual-mode-banner.open {
     opacity: 1;
@@ -36,15 +36,15 @@
 /* ---- 2. Маркеры заведений на карте ---- */
 .org-pin {
     width: 28px; height: 28px;
-    background: var(--ink);
-    border: 2px solid var(--paper);
+    background: var(--text);
+    border: 2px solid var(--surface-solid);
     border-radius: 7px;
     box-shadow: var(--shadow-sm);
     display: flex; align-items: center; justify-content: center;
-    color: var(--paper);
+    color: var(--surface-solid);
 }
 .org-pin svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; }
-.org-pin.verified { background: var(--flare); }
+.org-pin.verified { background: var(--primary); }
 
 /* ---- 3. Скелетон загрузки чатов ---- */
 .skeleton-row {
@@ -52,11 +52,11 @@
     padding: 13px 14px;
     background: var(--surface);
     border-radius: var(--radius-md);
-    border: 1px solid var(--line-soft);
+    border: 1px solid var(--line);
     margin-bottom: 8px;
 }
 .skeleton {
-    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-solid) 50%, var(--surface-2) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.2s infinite;
     border-radius: var(--radius-sm);
@@ -64,7 +64,7 @@
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .skeleton.avatar { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; }
 .skeleton.lines { flex: 1; height: 34px; }
-#conversationsList { animation: fade-in .25s var(--ease); }
+#conversationsList { animation: fade-in .25s ease; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- 4. Комментарии в ленте ---- */
@@ -73,34 +73,34 @@
     margin-top: 12px;
     background: var(--surface-2);
     border: 1.5px solid var(--line);
-    border-radius: var(--radius-pill);
+    border-radius: 999px;
     padding: 8px 16px;
     font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-    color: var(--ink-soft); cursor: pointer;
-    transition: all .15s var(--ease);
+    color: var(--muted); cursor: pointer;
+    transition: all .15s ease;
 }
-.feed-comments-toggle:hover { border-color: var(--ink); color: var(--ink); }
-.feed-comments { margin-top: 14px; border-top: 1px solid var(--line-soft); padding-top: 14px; }
+.feed-comments-toggle:hover { border-color: var(--text); color: var(--text); }
+.feed-comments { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
 .feed-comment-row { display: flex; gap: 10px; padding: 8px 0; }
 .feed-comment-row .avatar { width: 30px; height: 30px; font-size: 12px; }
 .feed-comment-row .c-name { font-size: 13px; font-weight: 600; }
-.feed-comment-row .c-text { font-size: 14px; color: var(--ink-soft); }
+.feed-comment-row .c-text { font-size: 14px; color: var(--muted); }
 .feed-comment-input-row { display: flex; gap: 8px; margin-top: 10px; }
 .feed-comment-input-row input {
     flex: 1; padding: 10px 14px;
-    border: 1.5px solid var(--line); border-radius: var(--radius-pill);
+    border: 1.5px solid var(--line); border-radius: 999px;
     font-size: 14px; background: var(--surface);
 }
-.feed-comment-input-row input:focus { outline: none; border-color: var(--flare); }
+.feed-comment-input-row input:focus { outline: none; border-color: var(--primary); }
 .feed-comment-send {
     width: 40px; height: 40px; border-radius: 50%;
-    background: var(--flare); color: var(--paper); border: none;
+    background: var(--primary); color: #fff; border: none;
     font-size: 15px; cursor: pointer; flex-shrink: 0;
 }
 
 /* ---- 5. Форма заведения (регистрация + настройки) ---- */
-.org-fields { display: none; margin-top: 4px; }
-.org-fields.open { display: block; animation: fade-in .25s var(--ease); }
+.orgFields { display: none; margin-top: 4px; }
+.orgFields.open { display: block; animation: fade-in .25s ease; }
 .location-picker {
     height: 220px;
     border-radius: var(--radius-md);
@@ -110,7 +110,7 @@
 }
 .location-picker .leaflet-container { height: 100%; width: 100%; }
 .picker-hint { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
-.coords-readout { font-family: var(--font-mono); font-size: 12px; color: var(--flare-ink); margin-top: 6px; }
+.coords-readout { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--primary-dark); margin-top: 6px; }
 
 /* ---- 6. list-page / page-head ---- */
 .list-page {
@@ -151,14 +151,14 @@
 .org-search-results:empty { display: none; }
 .org-result-row {
     padding: 11px 14px; font-size: 14px; cursor: pointer;
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line);
 }
 .org-result-row:last-child { border-bottom: none; }
 .org-result-row:hover { background: var(--surface-2); }
 .org-selected-chip {
     display: inline-flex; align-items: center; gap: 8px;
-    padding: 8px 14px; background: var(--flare-wash); color: var(--flare-ink);
-    border-radius: var(--radius-pill); font-size: 13.5px; font-weight: 600; margin-top: 8px;
+    padding: 8px 14px; background: var(--primary-soft); color: var(--primary-dark);
+    border-radius: 999px; font-size: 13.5px; font-weight: 600; margin-top: 8px;
 }
 .org-selected-chip button { background: none; border: none; color: inherit; cursor: pointer; }
 
@@ -166,7 +166,7 @@
 .feed-card {
     padding: 0;
     overflow: hidden;
-    transition: transform .15s var(--ease), box-shadow .15s var(--ease);
+    transition: transform .15s ease, box-shadow .15s ease;
 }
 .feed-card:hover {
     transform: translateY(-1px);
@@ -182,7 +182,7 @@
 .feed-head-name {
     font-weight: 700;
     font-size: 15px;
-    color: var(--ink);
+    color: var(--text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -210,10 +210,10 @@
     font-weight: 700;
     font-size: 17px;
     margin-bottom: 6px;
-    color: var(--ink);
+    color: var(--text);
 }
 .feed-text {
-    color: var(--ink-soft);
+    color: var(--muted);
     font-size: 14.5px;
     line-height: 1.55;
     margin: 0;
@@ -226,7 +226,7 @@
     gap: 4px;
     padding: 12px;
     margin: 0 14px;
-    border-top: 1px solid var(--line-soft);
+    border-top: 1px solid var(--line);
     background: var(--surface);
     max-height: 180px;
     overflow-y: auto;
@@ -234,18 +234,17 @@
 }
 .emoji-panel.open {
     display: flex !important;
-    animation: fade-in .2s var(--ease);
+    animation: fade-in .2s ease;
 }
 .emoji-btn {
     width: 38px; height: 38px;
     border: 0; border-radius: 10px;
     background: transparent;
     font-size: 20px; cursor: pointer;
-    transition: background .12s var(--ease);
+    transition: background .12s ease;
 }
 .emoji-btn:hover,
 .emoji-btn:active { background: var(--surface-2); }
-
 .tool-btn {
     width: 44px; height: 44px;
     border-radius: 50%;
@@ -254,7 +253,7 @@
     font-size: 18px;
     display: inline-flex; align-items: center; justify-content: center;
     cursor: pointer; flex-shrink: 0;
-    transition: background .15s var(--ease);
+    transition: background .15s ease;
 }
 .tool-btn:hover { background: var(--surface-2); }
 .tool-btn:active { transform: scale(0.94); }
@@ -278,8 +277,8 @@
     border-radius: var(--radius-sm);
     font-size: 15px;
     background: var(--surface);
-    color: var(--ink);
-    transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
+    color: var(--text);
+    transition: border-color .18s ease, box-shadow .18s ease;
     font-family: inherit;
 }
 .settings-form textarea.input {
@@ -289,11 +288,9 @@
 }
 .settings-form .input:focus {
     outline: none;
-    border-color: var(--flare);
-    box-shadow: 0 0 0 4px var(--flare-wash);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--primary-soft);
 }
-
-/* file-drop для аватара */
 .file-drop {
     display: block;
     border: 1.5px dashed var(--line);
@@ -301,11 +298,11 @@
     background: var(--surface);
     overflow: hidden;
     cursor: pointer;
-    transition: border-color .18s var(--ease), background .18s var(--ease);
+    transition: border-color .18s ease, background .18s ease;
 }
 .file-drop:hover {
-    border-color: var(--flare);
-    background: var(--flare-wash);
+    border-color: var(--primary);
+    background: var(--primary-soft);
 }
 .file-drop-text {
     padding: 22px 16px;
@@ -319,3 +316,57 @@
     text-align: center;
 }
 .file-drop-text span { font-size: 22px; }
+
+/* ---- 10. Бейджи непрочитанного в навигации ---- */
+.nav-count {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 900;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fff;
+    line-height: 1;
+}
+
+/* ---- 11. Переключатель типов аккаунта ---- */
+.vis-option {
+    flex: 1;
+    padding: 13px 10px;
+    text-align: center;
+    border-radius: 16px;
+    background: var(--surface-2);
+    border: 1px solid transparent;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.vis-option.selected {
+    background: #fff;
+    color: var(--text);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--primary-soft);
+}
+
+/* ---- 12. FAB кнопки на карте ---- */
+.big-add {
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    border: 0;
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    color: #fff;
+    font-size: 31px;
+    box-shadow: 0 18px 40px rgba(109, 92, 255, 0.42);
+    cursor: pointer;
+}
