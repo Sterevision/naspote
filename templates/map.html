@@ -59,7 +59,13 @@
 <div class="field"><label>Сколько на карте?</label><div class="duration-toggle"><div class="duration-option" data-h="1">1 ч</div><div class="duration-option selected" data-h="3">3 ч</div><div class="duration-option" data-h="6">6 ч</div><div class="duration-option" data-h="24">сутки</div></div></div>
 <div class="field"><label>Кто увидит?</label><div class="segmented"><div class="segmented-item selected" data-vis="public">🌍 Все</div><div class="segmented-item" data-vis="friends">🤝 Друзья</div></div></div>
 <div class="field"><label>Фотография</label><label class="file-drop" for="spotPhoto"><span class="file-drop-text" id="photoDropText"><span>📷</span>Добавить фото к метке</span><img id="photoPreview" hidden></label><input type="file" id="spotPhoto" name="photo" accept="image/*" hidden></div>
-<div class="field"><label>Привязать к заведению (необязательно)</label><div class="org-search-box"><input class="input" type="text" id="orgSearch" placeholder="Название заведения..."><div class="org-search-results" id="orgSearchResults"></div><div id="orgSelected"></div></div></div>
+<div class="field"><label>Привязать к заведению (необязательно)</label>
+<div class="org-search-box">
+<input class="input" type="text" id="orgSearch" placeholder="Название заведения..." autocomplete="off">
+<div class="org-search-results" id="orgSearchResults"></div>
+<div id="orgSelected"></div>
+</div>
+</div>
 <button class="btn btn-primary btn-block" id="submitSpotBtn" type="submit">Поставить метку</button>
 </form>
 </div>
@@ -71,4 +77,81 @@
 window.MAP_HOME = {{ map_home|default({})|tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script>
+/* ---------- привязка метки к заведению (НОВОЕ) ---------- */
+(function () {
+'use strict';
+var searchInput = document.getElementById('orgSearch');
+var resultsBox = document.getElementById('orgSearchResults');
+var selectedBox = document.getElementById('orgSelected');
+var orgIdInput = document.getElementById('orgIdInput');
+if (!searchInput || !resultsBox || !orgIdInput) return;
+var timer = null;
+function esc(v) {
+    var d = document.createElement('div');
+    d.textContent = v === null || v === undefined ? '' : String(v);
+    return d.innerHTML;
+}
+function clearSelection() {
+    orgIdInput.value = '';
+    selectedBox.innerHTML = '';
+    resultsBox.innerHTML = '';
+    searchInput.disabled = false;
+    searchInput.value = '';
+}
+function selectOrg(org) {
+    orgIdInput.value = org.id;
+    resultsBox.innerHTML = '';
+    searchInput.disabled = true;
+    selectedBox.innerHTML = '<div class="org-selected-chip">🏢 ' + esc(org.display_name) +
+        ' <button type="button" id="orgClearBtn">✕</button></div>';
+    var clearBtn = document.getElementById('orgClearBtn');
+    if (clearBtn) clearBtn.addEventListener('click', clearSelection);
+}
+searchInput.addEventListener('input', function () {
+    clearTimeout(timer);
+    var q = searchInput.value.trim();
+    if (q.length < 2) { resultsBox.innerHTML = ''; return; }
+    timer = setTimeout(async function () {
+        try {
+            var lat = (document.getElementById('latInput') || {}).value || 0;
+            var lng = (document.getElementById('lngInput') || {}).value || 0;
+            var res = await fetch('/api/organizations/search?q=' + encodeURIComponent(q) +
+                '&lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng),
+                { credentials: 'same-origin' });
+            if (!res.ok) return;
+            var orgs = await res.json();
+            if (!orgs.length) {
+                resultsBox.innerHTML = '<div class="org-result-row" style="color:var(--muted);">Ничего не найдено</div>';
+                return;
+            }
+            resultsBox.innerHTML = orgs.map(function (o) {
+                return '<div class="org-result-row" data-id="' + esc(o.id) + '">' + esc(o.display_name) +
+                    ' <span style="color:var(--muted);font-size:12px;">' +
+                    (o.category ? esc(o.category) : '') +
+                    (o.distance_km !== null && o.distance_km !== undefined ? ' · ' + o.distance_km + ' км' : '') +
+                    '</span></div>';
+            }).join('');
+            resultsBox.querySelectorAll('.org-result-row[data-id]').forEach(function (row) {
+                row.addEventListener('click', function () {
+                    var org = null;
+                    for (var i = 0; i < orgs.length; i++) {
+                        if (String(orgs[i].id) === String(row.dataset.id)) { org = orgs[i]; break; }
+                    }
+                    if (org) selectOrg(org);
+                });
+            });
+        } catch (e) { /* silent */ }
+    }, 300);
+});
+// когда шторка закрылась после создания метки — сбрасываем выбор заведения
+var overlay = document.getElementById('addSpotOverlay');
+if (overlay && typeof MutationObserver !== 'undefined') {
+    var mo = new MutationObserver(function () {
+        if (!overlay.classList.contains('open')) clearSelection();
+    });
+    mo.observe(overlay, { attributes: true, attributeFilter: ['class'] });
+}
+})();
+</script>
 {% endblock %}
