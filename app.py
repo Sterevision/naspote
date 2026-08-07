@@ -313,6 +313,13 @@ def profile_view(username):
 def friends_view():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+    # Обновляем "последний раз видел заявки" — чтобы бейдж сбрасывался
+    try:
+        sb.table("profiles").update({
+            "friends_seen_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", uid).execute()
+    except Exception:
+        pass
     incoming = sb.table("friendships") \
         .select("*, requester:requester_id(username, display_name, avatar_url)") \
         .eq("addressee_id", uid).eq("status", "pending").execute()
@@ -678,8 +685,14 @@ def api_unread_count():
     uid = session["user_id"]
     res = sb.table("messages").select("id", count="exact") \
         .eq("receiver_id", uid).eq("is_read", False).execute()
-    incoming = sb.table("friendships").select("id", count="exact") \
-        .eq("addressee_id", uid).eq("status", "pending").execute()
+    # Считаем только новые заявки (созданные после последнего просмотра страницы друзей)
+    profile = get_profile(sb, uid)
+    seen_at = profile.get("friends_seen_at")
+    q = sb.table("friendships").select("id", count="exact") \
+        .eq("addressee_id", uid).eq("status", "pending")
+    if seen_at:
+        q = q.gt("created_at", seen_at)
+    incoming = q.execute()
     return jsonify({"messages": res.count or 0, "friend_requests": incoming.count or 0})
 
 

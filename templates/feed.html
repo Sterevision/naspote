@@ -9,6 +9,7 @@
 {% if spots %}
 {% for spot in spots %}
 <div class="card feed-card">
+<a href="{{ url_for('map_view', spot=spot.id) }}" class="feed-card-link">
 <div class="feed-head">
 <div class="avatar">{% if spot.owner and spot.owner.avatar_url %}<img src="{{ spot.owner.avatar_url }}">{% else %}{{ (spot.owner.display_name[:1] if spot.owner and spot.owner.display_name else '?')|upper }}{% endif %}</div>
 <div class="feed-head-info">
@@ -22,6 +23,9 @@
 <div class="feed-body">
 <div class="feed-title">{{ spot.title }}</div>
 {% if spot.description %}<p class="feed-text">{{ spot.description }}</p>{% endif %}
+</div>
+</a>
+<div class="feed-body" style="padding-top:0; border-top:1px solid var(--line);">
 <button class="feed-comments-toggle" data-spot-id="{{ spot.id }}">💬 Комментарии</button>
 <div class="feed-comments" id="feed-comments-{{ spot.id }}" hidden>
 <div id="feed-comments-list-{{ spot.id }}"></div>
@@ -45,6 +49,12 @@
 <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span><span class="label">Профиль</span></a>
 </nav>
 </div>
+{% endblock %}
+{% block head %}
+<style>
+.feed-card-link { display: block; text-decoration: none; color: inherit; }
+.feed-card-link:hover .feed-title { color: var(--primary-dark); }
+</style>
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/feed.js') }}"></script>
