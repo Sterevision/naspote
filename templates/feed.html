@@ -2,6 +2,8 @@
 {% block title %}Лента — Картометр{% endblock %}
 {% block head %}
 <style>
+.feed-card-link { display: block; text-decoration: none; color: inherit; }
+.feed-card-link:hover .feed-title { color: var(--primary-dark); }
 .feed-actions {
     display: flex;
     align-items: center;
@@ -33,6 +35,29 @@
 }
 .reaction-btn.reacted .r-count { color: var(--primary-dark); }
 .reaction-btn:active { transform: scale(.9); }
+.feed-map-wrap { position: relative; }
+.feed-map { height: 150px; width: 100%; background: var(--surface-2); }
+.feed-map-hint {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--primary-dark);
+    pointer-events: none;
+}
+.feed-map-pin {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(15,23,42,.3);
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -59,13 +84,17 @@
 <div class="feed-title">{{ spot.title }}</div>
 {% if spot.description %}<p class="feed-text">{{ spot.description }}</p>{% endif %}
 </div>
+<div class="feed-map-wrap">
+<div class="feed-map" data-lat="{{ spot.lat }}" data-lng="{{ spot.lng }}" data-spot="{{ spot.id }}"></div>
+<div class="feed-map-hint">🗺️ Открыть на карте</div>
+</div>
 </a>
 <div class="feed-body feed-actions">
 <div class="reactions-row" id="reactions-{{ spot.id }}" data-spot-id="{{ spot.id }}">
 <button class="reaction-btn" type="button" data-spot-id="{{ spot.id }}" data-emoji="🔥">🔥<span class="r-count"></span></button>
 <button class="reaction-btn" type="button" data-spot-id="{{ spot.id }}" data-emoji="❤️">❤️<span class="r-count"></span></button>
 <button class="reaction-btn" type="button" data-spot-id="{{ spot.id }}" data-emoji="😂">😂<span class="r-count"></span></button>
-<button class="reaction-btn" type="button" data-spot-id="{{ spot.id }}" data-emoji="🎉">🎉<span class="r-count"></span></button>
+<button class="reaction-btn" type="button" data-spot-id="{{ spot.id }}" data-emoji="🎉"><span class="r-count"></span></button>
 </div>
 <button class="feed-comments-toggle" data-spot-id="{{ spot.id }}">💬 Комментарии</button>
 </div>

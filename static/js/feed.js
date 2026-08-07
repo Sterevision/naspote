@@ -6,7 +6,7 @@ function esc(value) {
     return div.innerHTML;
 }
 
-/* ---------- комментарии (как раньше) ---------- */
+/* ---------- комментарии ---------- */
 function renderComments(listEl, comments) {
     if (!comments.length) {
         listEl.innerHTML = '<p class="hint">Пока нет комментариев</p>';
@@ -49,7 +49,7 @@ async function sendComment(spotId) {
     } catch (e) { /* silent */ }
 }
 
-/* ---------- реакции (НОВОЕ) ---------- */
+/* ---------- реакции ---------- */
 async function loadReactions(spotId) {
     var row = document.getElementById('reactions-' + spotId);
     if (!row) return;
@@ -79,6 +79,52 @@ async function toggleReaction(spotId, emoji) {
         });
         await loadReactions(spotId);
     } catch (e) { /* silent */ }
+}
+
+/* ---------- мини-карты в ленте (НОВОЕ) ---------- */
+function initFeedMaps() {
+    if (typeof L === 'undefined') return;
+    var maps = document.querySelectorAll('.feed-map');
+    if (!maps.length) return;
+    var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            var el = entry.target;
+            observer.unobserve(el);
+            if (el._mapInit) return;
+            el._mapInit = true;
+            var lat = parseFloat(el.dataset.lat);
+            var lng = parseFloat(el.dataset.lng);
+            if (isNaN(lat) || isNaN(lng)) return;
+            var mini = L.map(el, {
+                zoomControl: false,
+                dragging: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                touchZoom: false,
+                keyboard: false,
+                attributionControl: false
+            }).setView([lat, lng], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(mini);
+            L.marker([lat, lng], {
+                interactive: false,
+                icon: L.divIcon({
+                    className: '',
+                    html: '<div class="feed-map-pin"></div>',
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                })
+            }).addTo(mini);
+            var go = function () {
+                window.location.href = '/map?spot=' + encodeURIComponent(el.dataset.spot);
+            };
+            mini.on('click', go);
+            el.addEventListener('click', go);
+        });
+    }, { rootMargin: '120px' });
+    maps.forEach(function (m) { observer.observe(m); });
 }
 
 /* ---------- привязка событий ---------- */
@@ -115,5 +161,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.reactions-row').forEach(function (row) {
         loadReactions(row.dataset.spotId);
     });
+    // мини-карты
+    initFeedMaps();
 });
 })();
