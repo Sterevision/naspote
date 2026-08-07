@@ -313,7 +313,6 @@ def profile_view(username):
 def friends_view():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
-    # Обновляем "последний раз видел заявки" — чтобы бейдж сбрасывался
     try:
         sb.table("profiles").update({
             "friends_seen_at": datetime.now(timezone.utc).isoformat()
@@ -685,7 +684,6 @@ def api_unread_count():
     uid = session["user_id"]
     res = sb.table("messages").select("id", count="exact") \
         .eq("receiver_id", uid).eq("is_read", False).execute()
-    # Считаем только новые заявки (созданные после последнего просмотра страницы друзей)
     profile = get_profile(sb, uid)
     seen_at = profile.get("friends_seen_at")
     q = sb.table("friendships").select("id", count="exact") \
@@ -694,6 +692,53 @@ def api_unread_count():
         q = q.gt("created_at", seen_at)
     incoming = q.execute()
     return jsonify({"messages": res.count or 0, "friend_requests": incoming.count or 0})
+
+
+# ---------- API: реакции на метки (НОВОЕ) ----------
+
+@app.route("/api/spots/<int:spot_id>/reactions", methods=["GET"])
+@login_required
+def api_spot_reactions_get(spot_id):
+    """Получить все реакции на метку с подсчётом."""
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    try:
+        res = sb.rpc("get_spot_reactions", {"p_spot_id": spot_id}).execute()
+        return jsonify(res.data or [])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/spots/<int:spot_id>/reactions/<emoji>", methods=["POST", "DELETE"])
+@login_required
+def api_spot_reaction_toggle(spot_id, emoji):
+    """Поставить или убрать реакцию. POST = поставить, DELETE = убрать."""
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    uid = session["user_id"]
+
+    valid_emojis = ['🔥', '❤️', '😂', '🎉']
+    if emoji not in valid_emojis:
+        return jsonify({"error": "Недопустимая реакция"}), 400
+
+    if request.method == "POST":
+        try:
+            sb.table("spot_reactions").insert({
+                "spot_id": spot_id,
+                "user_id": uid,
+                "emoji": emoji
+            }).execute()
+            return jsonify({"ok": True, "action": "added"}), 201
+        except Exception:
+            return jsonify({"ok": True, "action": "already_exists"})
+
+    else:
+        try:
+            sb.table("spot_reactions").delete() \
+                .eq("spot_id", spot_id) \
+                .eq("user_id", uid) \
+                .eq("emoji", emoji).execute()
+            return jsonify({"ok": True, "action": "removed"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
 
 
 if __name__ == "__main__":
