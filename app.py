@@ -84,7 +84,7 @@ def haversine(lat1, lng1, lat2, lng2):
 
 
 def parse_iso(value):
-    """Разбор даты из Supabase ('2026-01-01T10:00:00+00:00' или с 'Z')."""
+    """Разбор даты из Supabase ('...+00:00' или с 'Z')."""
     if not value:
         return None
     try:
@@ -623,7 +623,7 @@ def api_users_search():
     """Поиск людей по username или имени — для добавления в друзья."""
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
-    q = request.args.get("q", "").strip()
+    q = request.args.get("q", "").strip().replace("@", "", 1) if request.args.get("q", "").strip().startswith("@") else request.args.get("q", "").strip()
     if len(q) < 2:
         return jsonify([])
     fields = "id, username, display_name, avatar_url, account_type"
