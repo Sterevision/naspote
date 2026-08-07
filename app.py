@@ -83,6 +83,16 @@ def haversine(lat1, lng1, lat2, lng2):
     return 2 * r * math.asin(math.sqrt(a))
 
 
+def parse_iso(value):
+    """Разбор даты из Supabase ('2026-01-01T10:00:00+00:00' или с 'Z')."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
 # ---------- страницы ----------
 
 @app.route("/")
@@ -303,9 +313,45 @@ def profile_view(username):
             f"and(requester_id.eq.{profile['id']},addressee_id.eq.{session['user_id']})").execute()
         if f.data:
             friend_status = f.data[0]
+
+    # ---------- статистика заведения (НОВОЕ) ----------
+    org_stats = None
+    if profile.get("account_type") == "organization":
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = now - timedelta(days=7)
+        spot_ids = [s["id"] for s in tagged_spots]
+        unique_people = set(s.get("owner_id") for s in tagged_spots if s.get("owner_id"))
+        comments_count = 0
+        reactions_count = 0
+        if spot_ids:
+            try:
+                c_res = sb.table("spot_comments").select("id", count="exact") \
+                    .in_("spot_id", spot_ids).execute()
+                comments_count = c_res.count or 0
+            except Exception:
+                comments_count = 0
+            try:
+                r_res = sb.table("spot_reactions").select("id", count="exact") \
+                    .in_("spot_id", spot_ids).execute()
+                reactions_count = r_res.count or 0
+            except Exception:
+                reactions_count = 0
+        org_stats = {
+            "total": len(tagged_spots),
+            "today": sum(1 for s in tagged_spots
+                         if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= today_start),
+            "week": sum(1 for s in tagged_spots
+                        if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= week_start),
+            "people": len(unique_people),
+            "comments": comments_count,
+            "reactions": reactions_count,
+        }
+
     return render_template("profile.html", profile=profile, spots=spots_res.data,
                            is_me=is_me, friend_status=friend_status,
-                           tagged_spots=tagged_spots, my_id=session["user_id"])
+                           tagged_spots=tagged_spots, my_id=session["user_id"],
+                           org_stats=org_stats)
 
 
 @app.route("/friends")
@@ -569,7 +615,7 @@ def api_friends_list():
     return jsonify(friends)
 
 
-# ---------- API: поиск людей (НОВОЕ) ----------
+# ---------- API: поиск людей ----------
 
 @app.route("/api/users/search")
 @login_required
