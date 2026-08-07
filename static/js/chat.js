@@ -1,390 +1,695 @@
 (function () {
-    'use strict';
-
-    var friendId = window.CHAT_FRIEND_ID;
-    var canChat = window.CHAT_CAN_CHAT;
-    var currentUserId = window.CURRENT_USER_ID;
-
-    var chatBody = null;
-    var chatInput = null;
-    var chatSend = null;
-    var attachInput = null;
-    var attachPreview = null;
-    var attachPreviewImg = null;
-    var attachRemove = null;
-    var emojiToggle = null;
-    var emojiPanel = null;
-
-    var selectedFile = null;
-    var lastCount = -1;
-    var initialLoadDone = false;
-
-    var EMOJIS = [
-        '😀', '😃', '😄', '😁', '😆',
-        '😂', '🤣', '😊', '😇', '🙂',
-        '😉', '😍', '😘', '😜', '🤪',
-        '🤔', '🤨', '😐', '😏', '😴',
-        '🥱', '😷', '🤒', '🥳', '😎',
-        '🤓', '😳', '🥺', '😭', '😤',
-        '😡', '🤯', '😱', '🫠', '👋',
-        '👍', '👎', '👏', '🙌', '🤝',
-        '🙏', '💪', '❤️', '🧡', '💛',
-        '💚', '💙', '💜', '🖤', '💔',
-        '🔥', '⚡', '🎉', '🎊', '🎈',
-        '🍕', '🍔', '🍟', '🌭', '🍿',
-        '☕', '🍺', '🍻', '🥂', '🍷',
-        '📍', '🗺️', '🚕', '🚇', '🌙'
-    ];
-
-    function $(id) {
-        return document.getElementById(id);
-    }
-
-    function safeUrl(url) {
-        if (!url) {
-            return '';
-        }
-
-        var value = String(url);
-
-        if (/^https?:\/\//i.test(value)) {
-            return value;
-        }
-
+'use strict';
+var map = null;
+var markersLayer = null;
+var youMarker = null;
+var pendingLat = 55.75;
+var pendingLng = 37.62;
+var manualMode = false;
+var activeCategory = '';
+var allSpots = [];
+var allOrganizations = [];
+var orgMarkersLayer = null;
+var home = window.MAP_HOME || null;
+var targetSpotId = new URLSearchParams(window.location.search).get('spot');
+function $(id) {
+    return document.getElementById(id);
+}
+function esc(value) {
+    var div = document.createElement('div');
+    div.textContent = value === null || value === undefined ? '' : String(value);
+    return div.innerHTML;
+}
+function safeUrl(url) {
+    if (!url) {
         return '';
     }
-
-    function isNearBottom() {
-        if (!chatBody) {
-            return false;
-        }
-
-        return chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 100;
+    var value = String(url);
+    return /^https?:\/\//i.test(value) ? value : '';
+}
+function timeLeft(iso) {
+    if (!iso) {
+        return '';
     }
-
-    function scrollToBottom() {
-        if (!chatBody) {
-            return;
-        }
-
-        chatBody.scrollTop = chatBody.scrollHeight;
+    var diff = new Date(iso) - new Date();
+    if (diff <= 0) {
+        return 'завершилась';
     }
-
-    function renderEmpty(message) {
-        if (!chatBody) {
-            return;
-        }
-
-        chatBody.innerHTML = '';
-
-        var empty = document.createElement('div');
-        empty.className = 'empty-state';
-
-        var p = document.createElement('p');
-        p.textContent = message;
-
-        empty.appendChild(p);
-        chatBody.appendChild(empty);
+    var hours = Math.floor(diff / 3600000);
+    var minutes = Math.floor((diff % 3600000) / 60000);
+    if (hours > 0) {
+        return hours + ' ч ' + minutes + ' м';
     }
-
-    function renderMessages(messages) {
-        if (!chatBody) {
+    if (minutes > 0) {
+        return minutes + ' м';
+    }
+    return 'меньше минуты';
+}
+function showMapStatus(text, isError) {
+    var el = $('mapStatus');
+    if (!el) {
+        return;
+    }
+    el.textContent = text;
+    el.className = 'map-status' + (isError ? ' error' : '');
+    el.style.display = 'block';
+    clearTimeout(el._timer);
+    el._timer = setTimeout(function () {
+        el.style.display = 'none';
+    }, 5000);
+}
+function isWaveActive(spot) {
+    return !!spot.wave_ends_at && new Date(spot.wave_ends_at) > new Date();
+}
+function pinColor(spot) {
+    if (spot.placement_type === 'manual') {
+        return 'var(--manual)';
+    }
+    if (String(spot.owner_id) === String(window.CURRENT_USER_ID || '')) {
+        return 'var(--mine)';
+    }
+    if (spot.visibility === 'friends') {
+        return 'var(--friends)';
+    }
+    return 'var(--public)';
+}
+function setYouMarker(lat, lng) {
+    var icon = L.divIcon({
+        className: '',
+        html: '<div class="you-dot"></div>',
+        iconSize: [18, 18],
+        iconAnchor: [9, 9]
+    });
+    if (youMarker) {
+        youMarker.setLatLng([lat, lng]);
+    } else {
+        youMarker = L.marker([lat, lng], {
+            icon: icon,
+            zIndexOffset: 1200
+        }).addTo(map);
+    }
+}
+function locateUser(isAuto) {
+    if (!navigator.geolocation) {
+        if (!isAuto) {
+            showMapStatus('Геолокация недоступна в этом браузере', true);
+        }
+        return;
+    }
+    if (!window.isSecureContext) {
+        showMapStatus('Геолокация работает только по HTTPS или на localhost', true);
+        return;
+    }
+    showMapStatus('Определяем местоположение...');
+    navigator.geolocation.getCurrentPosition(function (position) {
+        pendingLat = position.coords.latitude;
+        pendingLng = position.coords.longitude;
+        if (map) {
+            map.setView([pendingLat, pendingLng], 15);
+        }
+        setYouMarker(pendingLat, pendingLng);
+        showMapStatus('Вы здесь');
+    }, function (error) {
+        var message = 'Не удалось определить местоположение';
+        if (error.code === 1) {
+            message = 'Доступ к геолокации запрещён. Разрешите доступ в браузере.';
+        } else if (error.code === 2) {
+            message = 'Геолокация недоступна на этом устройстве.';
+        } else if (error.code === 3) {
+            message = 'Время ожидания геолокации истекло.';
+        }
+        showMapStatus(message, true);
+    }, {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 60000
+    });
+}
+function initMap() {
+    var mapElement = $('map');
+    if (!mapElement) {
+        return;
+    }
+    var center = [pendingLat, pendingLng];
+    var zoom = 13;
+    if (home && home.lat !== null && home.lng !== null && home.lat !== undefined && home.lng !== undefined) {
+        pendingLat = Number(home.lat);
+        pendingLng = Number(home.lng);
+        center = [pendingLat, pendingLng];
+        zoom = 14;
+    }
+    map = L.map('map', {
+        zoomControl: false
+    }).setView(center, zoom);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap, © CARTO'
+    }).addTo(map);
+    L.control.zoom({
+        position: 'bottomleft'
+    }).addTo(map);
+    markersLayer = L.layerGroup().addTo(map);
+    orgMarkersLayer = L.layerGroup().addTo(map);
+    if (home && home.lat !== null && home.lng !== null) {
+        setYouMarker(pendingLat, pendingLng);
+    } else {
+        locateUser(true);
+    }
+    map.on('click', function (event) {
+        if (!manualMode) {
             return;
         }
-
-        chatBody.innerHTML = '';
-
-        if (!messages.length) {
-            renderEmpty('Сообщений пока нет. Напишите первое!');
-            return;
-        }
-
-        messages.forEach(function (message) {
-            var mine = String(message.sender_id) === String(currentUserId);
-
-            var bubble = document.createElement('div');
-            bubble.className = 'bubble ' + (mine ? 'mine' : 'theirs');
-
-            if (message.image_url) {
-                var imageUrl = safeUrl(message.image_url);
-
-                if (imageUrl) {
-                    var link = document.createElement('a');
-                    link.href = imageUrl;
-                    link.target = '_blank';
-                    link.rel = 'noopener';
-
-                    var img = document.createElement('img');
-                    img.src = imageUrl;
-                    img.alt = 'Изображение';
-                    img.className = 'chat-image';
-
-                    link.appendChild(img);
-                    bubble.appendChild(link);
-                }
+        openAddSheet(event.latlng.lat, event.latlng.lng, 'manual');
+    });
+}
+function applyFilter() {
+    if (!markersLayer) {
+        return;
+    }
+    markersLayer.clearLayers();
+    allSpots
+        .filter(function (spot) {
+            // метки, привязанные к заведению, на карте не дублируются:
+            // вместо них точку показывает квадратик заведения с буквой
+            if (spot.organization_id) {
+                return false;
             }
-
-            if (message.text) {
-                var text = document.createElement('div');
-                text.textContent = message.text;
-                bubble.appendChild(text);
+            return !activeCategory || spot.category === activeCategory;
+        })
+        .forEach(function (spot) {
+            var color = pinColor(spot);
+            var waveClass = isWaveActive(spot) ? ' wave' : '';
+            var icon = L.divIcon({
+                className: '',
+                html: '<div class="spot-pin' + waveClass + '" style="background:' + color + '; color:' + color + '"></div>',
+                iconSize: [30, 30],
+                iconAnchor: [15, 26]
+            });
+            L.marker([spot.lat, spot.lng], {
+                icon: icon
+            })
+                .addTo(markersLayer)
+                .on('click', function () {
+                    openSpot(spot);
+                });
+        });
+    loadOrganizations();
+}
+function renderOrganizations() {
+    if (!orgMarkersLayer) {
+        return;
+    }
+    orgMarkersLayer.clearLayers();
+    allOrganizations
+        .filter(function (org) {
+            return !activeCategory || org.category === activeCategory;
+        })
+        .forEach(function (org) {
+            var letter = esc((org.display_name || '?').charAt(0).toUpperCase());
+            var colors = org.is_verified
+                ? 'background:var(--primary); color:#fff;'
+                : 'background:#0f172a; color:#fff;';
+            var icon = L.divIcon({
+                className: '',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15],
+                html: '<div class="org-pin' + (org.is_verified ? ' verified' : '') + '" style="' + colors + 'font-family:var(--font-display); font-weight:700; font-size:13px; line-height:1; text-align:center;">' + letter + '</div>'
+            });
+            L.marker([org.lat, org.lng], {
+                icon: icon,
+                zIndexOffset: 900
+            })
+                .addTo(orgMarkersLayer)
+                .on('click', function () {
+                    window.location.href = '/profile/' + encodeURIComponent(org.username);
+                });
+        });
+}
+async function loadOrganizations() {
+    try {
+        var res = await fetch('/api/organizations', {
+            credentials: 'same-origin'
+        });
+        if (!res.ok) {
+            return;
+        }
+        allOrganizations = await res.json();
+        renderOrganizations();
+    } catch (e) {
+        // silent
+    }
+}
+async function loadSpots() {
+    try {
+        var response = await fetch('/api/spots', {
+            credentials: 'same-origin'
+        });
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        if (!response.ok) {
+            return;
+        }
+        allSpots = await response.json();
+        applyFilter();
+        if (targetSpotId) {
+            var target = allSpots.find(function (s) {
+                return String(s.id) === String(targetSpotId);
+            });
+            if (target && map) {
+                map.setView([target.lat, target.lng], 16);
+                openSpot(target);
             }
-
-            if (message.created_at) {
-                var date = new Date(message.created_at);
-
-                if (!isNaN(date.getTime())) {
-                    var meta = document.createElement('div');
-                    meta.className = 'bubble-time';
-                    meta.textContent = date.toLocaleTimeString([], {
+            targetSpotId = null;
+        }
+    } catch (error) {
+        // silent
+    }
+}
+function openAddSheet(lat, lng, placement) {
+    if ($('latInput')) {
+        $('latInput').value = lat;
+    }
+    if ($('lngInput')) {
+        $('lngInput').value = lng;
+    }
+    if ($('placementInput')) {
+        $('placementInput').value = placement || 'geo';
+    }
+    if ($('addSpotOverlay')) {
+        $('addSpotOverlay').classList.add('open');
+    }
+}
+function closeAddSheet() {
+    if ($('addSpotOverlay')) {
+        $('addSpotOverlay').classList.remove('open');
+    }
+}
+function closeSpotSheet() {
+    if ($('spotSheetOverlay')) {
+        $('spotSheetOverlay').classList.remove('open');
+    }
+}
+function resetAddForm() {
+    var form = $('addSpotForm');
+    if (form) {
+        form.reset();
+    }
+    if ($('categoryInput')) {
+        $('categoryInput').value = '';
+    }
+    if ($('durationInput')) {
+        $('durationInput').value = '3';
+    }
+    if ($('visibilityInput')) {
+        $('visibilityInput').value = 'public';
+    }
+    if ($('placementInput')) {
+        $('placementInput').value = 'geo';
+    }
+    document.querySelectorAll('#addCategoryPicker .chip').forEach(function (chip) {
+        chip.classList.remove('selected');
+    });
+    document.querySelectorAll('.duration-option').forEach(function (option) {
+        option.classList.remove('selected');
+    });
+    var defaultDuration = document.querySelector('.duration-option[data-h="3"]');
+    if (defaultDuration) {
+        defaultDuration.classList.add('selected');
+    }
+    document.querySelectorAll('.segmented-item[data-vis]').forEach(function (option) {
+        option.classList.remove('selected');
+    });
+    var defaultVisibility = document.querySelector('.segmented-item[data-vis="public"]');
+    if (defaultVisibility) {
+        defaultVisibility.classList.add('selected');
+    }
+    var preview = $('photoPreview');
+    var dropText = $('photoDropText');
+    if (preview) {
+        preview.src = '';
+        preview.hidden = true;
+    }
+    if (dropText) {
+        dropText.style.display = 'flex';
+    }
+}
+async function loadComments(spotId) {
+    var box = $('spotComments');
+    if (!box) {
+        return;
+    }
+    try {
+        var response = await fetch('/api/spots/' + spotId + '/comments', {
+            credentials: 'same-origin'
+        });
+        if (!response.ok) {
+            box.innerHTML = '<p class="hint">Не удалось загрузить комментарии</p>';
+            return;
+        }
+        var comments = await response.json();
+        if (!comments.length) {
+            box.innerHTML = '<p class="hint">Пока нет комментариев</p>';
+            return;
+        }
+        box.innerHTML = comments.map(function (comment) {
+            var name = comment.user ? (comment.user.display_name || comment.user.username || 'Пользователь') : 'Пользователь';
+            var initial = name.charAt(0).toUpperCase();
+            var date = '';
+            if (comment.created_at) {
+                var d = new Date(comment.created_at);
+                if (!isNaN(d.getTime())) {
+                    date = d.toLocaleDateString([], {
+                        day: '2-digit',
+                        month: '2-digit'
+                    }) + ' ' + d.toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit'
                     });
-                    bubble.appendChild(meta);
                 }
             }
-
-            chatBody.appendChild(bubble);
-        });
+            return '<div class="comment-row">' +
+                '<div class="avatar avatar-sm">' +
+                (comment.user && comment.user.avatar_url ? '<img src="' + esc(safeUrl(comment.user.avatar_url)) + '" alt="">' : esc(initial)) +
+                '</div>' +
+                '<div class="info">' +
+                '<div class="name">' + esc(name) + '</div>' +
+                '<div class="sub">' + esc(comment.text || '') + '</div>' +
+                '<div class="hint">' + esc(date) + '</div>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+    } catch (error) {
+        box.innerHTML = '<p class="hint">Ошибка загрузки комментариев</p>';
     }
-
-    async function loadMessages(forceScroll) {
-        if (!friendId || !chatBody) {
+}
+async function sendComment(spotId) {
+    var input = $('commentInput');
+    if (!input) {
+        return;
+    }
+    var text = input.value.trim();
+    if (!text) {
+        return;
+    }
+    input.value = '';
+    try {
+        var response = await fetch('/api/spots/' + spotId + '/comments', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text: text })
+        });
+        if (response.status === 401) {
+            window.location.href = '/login';
             return;
         }
-
-        try {
-            var response = await fetch('/api/messages/' + encodeURIComponent(friendId), {
-                credentials: 'same-origin'
+        if (!response.ok) {
+            var data = await response.json().catch(function () {
+                return {};
             });
-
-            if (response.status === 401) {
-                window.location.href = '/login';
+            alert(data.error || 'Не удалось отправить комментарий');
+        }
+        await loadComments(spotId);
+    } catch (error) {
+        alert('Ошибка сети');
+    }
+}
+function openSpot(spot) {
+    var content = $('spotSheetContent');
+    if (!content) {
+        return;
+    }
+    var isMine = String(spot.owner_id) === String(window.CURRENT_USER_ID || '');
+    var photoUrl = safeUrl(spot.photo_url);
+    var html = '';
+    html += '<div class="sheet-handle"></div>';
+    html += '<button class="sheet-close" id="spotSheetClose" type="button">✕</button>';
+    html += '<h3>' + esc(spot.title) + '</h3>';
+    var meta = [];
+    if (spot.owner && spot.owner.display_name) {
+        meta.push(esc(spot.owner.display_name));
+    }
+    if (spot.category) {
+        meta.push(esc(spot.category));
+    }
+    if (spot.visibility === 'friends') {
+        meta.push('🤝 только друзья');
+    } else {
+        meta.push('🌍 видят все');
+    }
+    if (spot.expires_at) {
+        meta.push('⏳ ' + timeLeft(spot.expires_at));
+    }
+    if (meta.length) {
+        html += '<p class="hint" style="margin-bottom:14px;">' + meta.join(' · ') + '</p>';
+    }
+    if (photoUrl) {
+        html += '<img src="' + esc(photoUrl) + '" alt="" style="width:100%; border-radius:22px; object-fit:cover; max-height:320px; margin-bottom:14px;">';
+    }
+    if (spot.description) {
+        html += '<p style="margin-bottom:14px;">' + esc(spot.description) + '</p>';
+    }
+    html += '<div class="section-title">💬 Комментарии</div>';
+    html += '<div id="spotComments"></div>';
+    html += '<div class="comment-input-row">' +
+        '<input class="input" type="text" id="commentInput" maxlength="500" placeholder="Написать комментарий...">' +
+        '<button class="btn btn-primary btn-sm" id="sendComment" type="button">➤</button>' +
+        '</div>';
+    if (isMine) {
+        html += '<button class="btn btn-ghost btn-block" id="deleteSpotBtn" type="button" style="margin-top:14px;">🗑 Убрать метку</button>';
+    }
+    content.innerHTML = html;
+    if ($('spotSheetOverlay')) {
+        $('spotSheetOverlay').classList.add('open');
+    }
+    var closeButton = $('spotSheetClose');
+    if (closeButton) {
+        closeButton.onclick = closeSpotSheet;
+    }
+    loadComments(spot.id);
+    var sendCommentButton = $('sendComment');
+    if (sendCommentButton) {
+        sendCommentButton.onclick = function () {
+            sendComment(spot.id);
+        };
+    }
+    var commentInput = $('commentInput');
+    if (commentInput) {
+        commentInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                sendComment(spot.id);
+            }
+        });
+    }
+    var deleteButton = $('deleteSpotBtn');
+    if (deleteButton) {
+        deleteButton.onclick = async function () {
+            if (!confirm('Убрать метку?')) {
                 return;
             }
-
-            if (response.status === 403) {
-                renderEmpty('Чат доступен только между друзьями.');
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error('load failed');
-            }
-
-            var messages = await response.json();
-
-            if (!Array.isArray(messages)) {
-                messages = [];
-            }
-
-            if (messages.length !== lastCount) {
-                var stick = forceScroll || !initialLoadDone || isNearBottom();
-
-                renderMessages(messages);
-
-                if (stick) {
-                    scrollToBottom();
+            try {
+                var response = await fetch('/api/spots/' + spot.id, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+                if (!response.ok) {
+                    var data = await response.json().catch(function () {
+                        return {};
+                    });
+                    alert(data.error || 'Не удалось удалить метку');
+                    return;
                 }
-
-                lastCount = messages.length;
+                closeSpotSheet();
+                loadSpots();
+            } catch (error) {
+                alert('Ошибка сети');
             }
-
-            initialLoadDone = true;
-        } catch (error) {
-            if (!initialLoadDone) {
-                renderEmpty('Не удалось загрузить сообщения.');
-            }
-        }
+        };
     }
-
-    function clearAttachment() {
-        selectedFile = null;
-
-        if (attachInput) {
-            attachInput.value = '';
-        }
-
-        if (attachPreview) {
-            attachPreview.hidden = true;
-        }
-
-        if (attachPreviewImg) {
-            attachPreviewImg.src = '';
-        }
-    }
-
-    function selectFile(file) {
-        if (!file) {
-            return;
-        }
-
-        if (!file.type || file.type.indexOf('image/') !== 0) {
-            alert('В чат можно отправлять только изображения.');
-            return;
-        }
-
-        if (file.size > 8 * 1024 * 1024) {
-            alert('Файл слишком большой. Максимум 8 МБ.');
-            return;
-        }
-
-        selectedFile = file;
-
-        if (attachPreview && attachPreviewImg) {
-            attachPreviewImg.src = URL.createObjectURL(file);
-            attachPreview.hidden = false;
-        }
-    }
-
-    function insertEmoji(emoji) {
-        if (!chatInput) {
-            return;
-        }
-
-        chatInput.value += emoji;
-        chatInput.focus();
-    }
-
-    function renderEmojiPanel() {
-        if (!emojiPanel) {
-            return;
-        }
-
-        emojiPanel.innerHTML = '';
-
-        EMOJIS.forEach(function (emoji) {
-            var button = document.createElement('button');
-            button.className = 'emoji-btn';
-            button.type = 'button';
-            button.textContent = emoji;
-
-            button.addEventListener('click', function () {
-                insertEmoji(emoji);
-            });
-
-            emojiPanel.appendChild(button);
+}
+function bindUI() {
+    var openAddSpot = $('openAddSpot');
+    if (openAddSpot) {
+        openAddSpot.addEventListener('click', function () {
+            openAddSheet(pendingLat, pendingLng, 'geo');
         });
     }
-
-    async function sendMessage() {
-        if (!canChat || !chatInput || !friendId) {
-            return;
-        }
-
-        var text = chatInput.value.trim();
-
-        if (!text && !selectedFile) {
-            return;
-        }
-
-        if (chatSend) {
-            chatSend.disabled = true;
-        }
-
-        try {
-            var response;
-
-            if (selectedFile) {
-                var formData = new FormData();
-                formData.append('text', text);
-                formData.append('image', selectedFile);
-
-                response = await fetch('/api/messages/' + encodeURIComponent(friendId), {
+    var closeSheet = $('closeSheet');
+    if (closeSheet) {
+        closeSheet.addEventListener('click', closeAddSheet);
+    }
+    var addSpotOverlay = $('addSpotOverlay');
+    if (addSpotOverlay) {
+        addSpotOverlay.addEventListener('click', function (event) {
+            if (event.target === addSpotOverlay) {
+                closeAddSheet();
+            }
+        });
+    }
+    var spotSheetOverlay = $('spotSheetOverlay');
+    if (spotSheetOverlay) {
+        spotSheetOverlay.addEventListener('click', function (event) {
+            if (event.target === spotSheetOverlay) {
+                closeSpotSheet();
+            }
+        });
+    }
+    var locateMe = $('locateMe');
+    if (locateMe) {
+        locateMe.addEventListener('click', function () {
+            locateUser(false);
+        });
+    }
+    var manualToggle = $('manualToggle');
+    var manualBanner = $('manualBanner');
+    var manualBannerClose = $('manualBannerClose');
+    if (manualToggle && manualBanner) {
+        manualToggle.addEventListener('click', function () {
+            manualMode = !manualMode;
+            manualToggle.classList.toggle('active', manualMode);
+            manualBanner.classList.toggle('open', manualMode);
+        });
+    }
+    if (manualBannerClose && manualBanner && manualToggle) {
+        manualBannerClose.addEventListener('click', function () {
+            manualMode = false;
+            manualToggle.classList.remove('active');
+            manualBanner.classList.remove('open');
+        });
+    }
+    var legendToggle = $('legendToggle');
+    var legendPanel = $('legendPanel');
+    if (legendToggle && legendPanel) {
+        legendToggle.addEventListener('click', function () {
+            legendPanel.classList.toggle('open');
+        });
+    }
+    document.querySelectorAll('#categoryScroller .chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            document.querySelectorAll('#categoryScroller .chip').forEach(function (item) {
+                item.classList.remove('selected');
+            });
+            chip.classList.add('selected');
+            activeCategory = chip.dataset.cat || '';
+            applyFilter();
+        });
+    });
+    document.querySelectorAll('#addCategoryPicker .chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            var alreadySelected = chip.classList.contains('selected');
+            document.querySelectorAll('#addCategoryPicker .chip').forEach(function (item) {
+                item.classList.remove('selected');
+            });
+            if (!alreadySelected) {
+                chip.classList.add('selected');
+                if ($('categoryInput')) {
+                    $('categoryInput').value = chip.dataset.cat || '';
+                }
+            } else {
+                if ($('categoryInput')) {
+                    $('categoryInput').value = '';
+                }
+            }
+        });
+    });
+    document.querySelectorAll('.duration-option').forEach(function (option) {
+        option.addEventListener('click', function () {
+            document.querySelectorAll('.duration-option').forEach(function (item) {
+                item.classList.remove('selected');
+            });
+            option.classList.add('selected');
+            if ($('durationInput')) {
+                $('durationInput').value = option.dataset.h || '3';
+            }
+        });
+    });
+    document.querySelectorAll('.segmented-item[data-vis]').forEach(function (option) {
+        option.addEventListener('click', function () {
+            document.querySelectorAll('.segmented-item[data-vis]').forEach(function (item) {
+                item.classList.remove('selected');
+            });
+            option.classList.add('selected');
+            if ($('visibilityInput')) {
+                $('visibilityInput').value = option.dataset.vis || 'public';
+            }
+        });
+    });
+    var photoInput = $('spotPhoto');
+    var photoPreview = $('photoPreview');
+    var photoDropText = $('photoDropText');
+    if (photoInput && photoPreview && photoDropText) {
+        photoInput.addEventListener('change', function () {
+            var file = this.files && this.files[0];
+            if (!file) {
+                photoPreview.src = '';
+                photoPreview.hidden = true;
+                photoDropText.style.display = 'flex';
+                return;
+            }
+            var url = URL.createObjectURL(file);
+            photoPreview.src = url;
+            photoPreview.hidden = false;
+            photoDropText.style.display = 'none';
+        });
+    }
+    var form = $('addSpotForm');
+    if (form) {
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            var submitButton = $('submitSpotBtn');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Ставим метку...';
+            }
+            try {
+                var formData = new FormData(form);
+                var response = await fetch('/api/spots', {
                     method: 'POST',
                     credentials: 'same-origin',
                     body: formData
                 });
-            } else {
-                response = await fetch('/api/messages/' + encodeURIComponent(friendId), {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ text: text })
-                });
-            }
-
-            if (response.status === 401) {
-                window.location.href = '/login';
-                return;
-            }
-
-            if (!response.ok) {
-                var data = await response.json().catch(function () {
-                    return {};
-                });
-
-                alert(data.error || 'Не удалось отправить сообщение.');
-                return;
-            }
-
-            chatInput.value = '';
-            clearAttachment();
-
-            await loadMessages(true);
-        } catch (error) {
-            alert('Ошибка сети. Попробуйте ещё раз.');
-        } finally {
-            if (chatSend) {
-                chatSend.disabled = false;
-            }
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        chatBody = $('chatBody');
-        chatInput = $('chatInput');
-        chatSend = $('chatSend');
-        attachInput = $('attachInput');
-        attachPreview = $('attachPreview');
-        attachPreviewImg = $('attachPreviewImg');
-        attachRemove = $('attachRemove');
-        emojiToggle = $('emojiToggle');
-        emojiPanel = $('emojiPanel');
-
-        if (!chatBody || !friendId) {
-            return;
-        }
-
-        renderEmojiPanel();
-
-        if (chatSend) {
-            chatSend.addEventListener('click', sendMessage);
-        }
-
-        if (chatInput && canChat) {
-            chatInput.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    sendMessage();
+                if (response.status === 401) {
+                    window.location.href = '/login';
+                    return;
                 }
-            });
-        }
-
-        if (attachInput && canChat) {
-            attachInput.addEventListener('change', function () {
-                selectFile(this.files && this.files[0]);
-            });
-        }
-
-        if (attachRemove) {
-            attachRemove.addEventListener('click', clearAttachment);
-        }
-
-        if (emojiToggle && emojiPanel) {
-            emojiToggle.addEventListener('click', function () {
-                emojiPanel.classList.toggle('open');
-            });
-        }
-
-        loadMessages(true);
-
-        setInterval(function () {
-            if (!document.hidden) {
-                loadMessages(false);
+                if (response.ok) {
+                    closeAddSheet();
+                    resetAddForm();
+                    loadSpots();
+                } else {
+                    var data = await response.json().catch(function () {
+                        return {};
+                    });
+                    alert(data.error || 'Не получилось создать метку.');
+                }
+            } catch (error) {
+                alert('Ошибка сети');
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Поставить метку';
+                }
             }
-        }, 5000);
-    });
+        });
+    }
+}
+document.addEventListener('DOMContentLoaded', function () {
+    if (!$('map')) {
+        return;
+    }
+    initMap();
+    bindUI();
+    loadSpots();
+    setInterval(function () {
+        if (!document.hidden) {
+            loadSpots();
+            loadOrganizations();
+        }
+    }, 30000);
+});
 })();

@@ -169,6 +169,11 @@ function applyFilter() {
     markersLayer.clearLayers();
     allSpots
         .filter(function (spot) {
+            // метки, привязанные к заведению, на карте не дублируются:
+            // вместо них точку показывает квадратик заведения с буквой
+            if (spot.organization_id) {
+                return false;
+            }
             return !activeCategory || spot.category === activeCategory;
         })
         .forEach(function (spot) {
@@ -207,7 +212,7 @@ function renderOrganizations() {
             var icon = L.divIcon({
                 className: '',
                 iconSize: [30, 30],
-                iconAnchor: [15, 42],
+                iconAnchor: [15, 15],
                 html: '<div class="org-pin' + (org.is_verified ? ' verified' : '') + '" style="' + colors + 'font-family:var(--font-display); font-weight:700; font-size:13px; line-height:1; text-align:center;">' + letter + '</div>'
             });
             L.marker([org.lat, org.lng], {

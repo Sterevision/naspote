@@ -35,5 +35,5 @@
 window.CHAT_FRIEND_ID = {{ friend.id|tojson }};
 window.CHAT_CAN_CHAT = {{ is_friend|tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}?v=2"></script>
 {% endblock %}
