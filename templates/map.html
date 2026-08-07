@@ -78,7 +78,7 @@ window.MAP_HOME = {{ map_home|default({})|tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 <script>
-/* ---------- привязка метки к заведению (НОВОЕ) ---------- */
+/* ---------- привязка метки к заведению ---------- */
 (function () {
 'use strict';
 var searchInput = document.getElementById('orgSearch');
@@ -144,7 +144,6 @@ searchInput.addEventListener('input', function () {
         } catch (e) { /* silent */ }
     }, 300);
 });
-// когда шторка закрылась после создания метки — сбрасываем выбор заведения
 var overlay = document.getElementById('addSpotOverlay');
 if (overlay && typeof MutationObserver !== 'undefined') {
     var mo = new MutationObserver(function () {

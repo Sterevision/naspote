@@ -424,3 +424,38 @@ PATCH — фиксы критики + механика заведений + ле
 .comment-row .name { font-weight: 700; font-size: 13.5px; }
 .comment-row .sub { color: var(--text); font-size: 14px; line-height: 1.4; }
 .comment-row .hint { margin-top: 2px; }
+
+/* ---- 14. Фиксы карты: статус GPS, крестик баннера, легенда (НОВОЕ) ---- */
+.map-status {
+    position: absolute;
+    top: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    background: rgba(15, 23, 42, 0.9);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 999px;
+    box-shadow: var(--shadow-md);
+    max-width: calc(100% - 28px);
+    text-align: center;
+}
+.map-status.error { background: var(--danger); }
+.manual-mode-banner button {
+    border: 0;
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.legend-panel { z-index: 25; }
