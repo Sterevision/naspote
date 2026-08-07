@@ -169,8 +169,6 @@ function applyFilter() {
     markersLayer.clearLayers();
     allSpots
         .filter(function (spot) {
-            // метки, привязанные к заведению, на карте не дублируются:
-            // вместо них точку показывает квадратик заведения с буквой
             if (spot.organization_id) {
                 return false;
             }
@@ -217,7 +215,7 @@ function renderOrganizations() {
             });
             L.marker([org.lat, org.lng], {
                 icon: icon,
-                zIndexOffset: 900
+                zIndexOffset: 1500
             })
                 .addTo(orgMarkersLayer)
                 .on('click', function () {
