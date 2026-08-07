@@ -8,6 +8,11 @@
 <div><h1 class="display" style="font-size:24px">🤝 Друзья</h1><p class="subtitle">Заявки, поиск и переписка</p></div>
 </div>
 
+<div class="card" style="margin-bottom:14px; padding:12px;">
+<input class="input" type="text" id="peopleSearch" placeholder="🔍 Поиск людей: @username или имя" autocomplete="off" style="border-radius:999px;">
+<div class="org-search-results" id="peopleSearchResults"></div>
+</div>
+
 {% if incoming %}
 <div class="section-title">Хотят добавить · {{ incoming|length }}</div>
 {% for req in incoming %}
@@ -44,7 +49,7 @@
 </div>
 {% endfor %}
 {% else %}
-<div class="empty-state"><span class="em">🤝</span><p>Пока нет друзей. Найдите людей через их профили.</p></div>
+<div class="empty-state"><span class="em">🤝</span><p>Пока нет друзей. Найдите людей через поиск выше.</p></div>
 {% endif %}
 </div>
 {{ bottom_nav('friends', profile) }}
@@ -65,6 +70,62 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.cancel-friend-btn').forEach(function (btn) {
         btn.onclick = async function () { if (confirm('Отменить заявку?')) { await fetch('/api/friends/' + btn.dataset.id, {method: 'DELETE'}); location.reload(); } };
     });
+
+    /* ---------- поиск людей (НОВОЕ) ---------- */
+    var searchInput = document.getElementById('peopleSearch');
+    var searchResults = document.getElementById('peopleSearchResults');
+    var searchTimer = null;
+    function escHtml(v) {
+        var d = document.createElement('div');
+        d.textContent = v === null || v === undefined ? '' : String(v);
+        return d.innerHTML;
+    }
+    function renderPeople(people, query) {
+        if (!people.length) {
+            searchResults.innerHTML = '<div class="org-result-row" style="color:var(--muted);">Никого не нашли по запросу «' + escHtml(query) + '»</div>';
+            return;
+        }
+        searchResults.innerHTML = people.map(function (p) {
+            var initial = (p.display_name || p.username || '?').charAt(0).toUpperCase();
+            return '<div class="org-result-row" style="display:flex; align-items:center; gap:10px;">' +
+                '<div class="avatar" style="width:36px; height:36px; font-size:14px;">' +
+                (p.avatar_url ? '<img src="' + escHtml(p.avatar_url) + '">' : escHtml(initial)) +
+                '</div>' +
+                '<div style="flex:1; min-width:0;">' +
+                '<div style="font-weight:800; font-size:14px;">' + escHtml(p.display_name) + '</div>' +
+                '<div style="color:var(--muted); font-size:12.5px;">@' + escHtml(p.username) + '</div>' +
+                '</div>' +
+                '<button class="btn btn-primary btn-sm add-person-btn" data-username="' + escHtml(p.username) + '">🤝</button>' +
+                '</div>';
+        }).join('');
+        searchResults.querySelectorAll('.add-person-btn').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+                btn.disabled = true;
+                try {
+                    var res = await fetch('/api/friends/' + encodeURIComponent(btn.dataset.username) + '/add', { method: 'POST', credentials: 'same-origin' });
+                    var data = await res.json().catch(function () { return {}; });
+                    if (data.status === 'accepted') { btn.textContent = '✅'; }
+                    else if (data.status === 'pending') { btn.textContent = '⏳'; }
+                    else { btn.disabled = false; }
+                } catch (e) { btn.disabled = false; }
+            });
+        });
+    }
+    if (searchInput && searchResults) {
+        searchInput.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            var q = searchInput.value.trim();
+            if (q.length < 2) { searchResults.innerHTML = ''; return; }
+            searchTimer = setTimeout(async function () {
+                try {
+                    var res = await fetch('/api/users/search?q=' + encodeURIComponent(q), { credentials: 'same-origin' });
+                    if (!res.ok) return;
+                    var people = await res.json();
+                    renderPeople(people, q);
+                } catch (e) { /* silent */ }
+            }, 300);
+        });
+    }
 });
 </script>
 {% endblock %}

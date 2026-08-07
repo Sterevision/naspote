@@ -569,6 +569,31 @@ def api_friends_list():
     return jsonify(friends)
 
 
+# ---------- API: поиск людей (НОВОЕ) ----------
+
+@app.route("/api/users/search")
+@login_required
+def api_users_search():
+    """Поиск людей по username или имени — для добавления в друзья."""
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    uid = session["user_id"]
+    q = request.args.get("q", "").strip()
+    if len(q) < 2:
+        return jsonify([])
+    fields = "id, username, display_name, avatar_url, account_type"
+    try:
+        res1 = sb.table("profiles").select(fields).ilike("username", f"%{q}%").limit(10).execute()
+        res2 = sb.table("profiles").select(fields).ilike("display_name", f"%{q}%").limit(10).execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    merged = {}
+    for row in (res1.data or []) + (res2.data or []):
+        merged[row["id"]] = row
+    people = [p for p in merged.values() if p["id"] != uid]
+    people.sort(key=lambda p: (p.get("username") or "").lower())
+    return jsonify(people[:10])
+
+
 @app.route("/api/friends/<username>/add", methods=["POST"])
 @login_required
 def api_friend_add(username):
@@ -694,7 +719,7 @@ def api_unread_count():
     return jsonify({"messages": res.count or 0, "friend_requests": incoming.count or 0})
 
 
-# ---------- API: реакции на метки (НОВОЕ) ----------
+# ---------- API: реакции на метки ----------
 
 @app.route("/api/spots/<int:spot_id>/reactions", methods=["GET"])
 @login_required
