@@ -1,5 +1,40 @@
 {% extends "base.html" %}
 {% block title %}Лента — Картометр{% endblock %}
+{% block head %}
+<style>
+.feed-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+.reactions-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.reaction-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    background: var(--surface-2);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+.reaction-btn .r-count { font-size: 12px; font-weight: 800; color: var(--muted); }
+.reaction-btn .r-count:empty { display: none; }
+.reaction-btn.has-count { background: #fff; border-color: var(--line-strong); }
+.reaction-btn.reacted {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.reaction-btn.reacted .r-count { color: var(--primary-dark); }
+.reaction-btn:active { transform: scale(.9); }
+</style>
+{% endblock %}
 {% block content %}
 <div class="app-shell">
 <div class="list-page" style="flex:1; overflow-y:auto;">
@@ -25,8 +60,16 @@
 {% if spot.description %}<p class="feed-text">{{ spot.description }}</p>{% endif %}
 </div>
 </a>
-<div class="feed-body" style="padding-top:0; border-top:1px solid var(--line);">
+<div class="feed-body feed-actions">
+<div class="reactions-row" id="reactions-{{ spot.id }}" data-spot-id="{{ spot.id }}">
+<button class="reaction-btn" type="button" data-spot-id="{{ spot.id }}" data-emoji="🔥">🔥<span class="r-count"></span></button>
+<button class="reaction-btn" type="button" data-spot-id="{{ spot.id }}" data-emoji="❤️">❤️<span class="r-count"></span></button>
+<button class="reaction-btn" type="button" data-spot-id="{{ spot.id }}" data-emoji="😂">😂<span class="r-count"></span></button>
+<button class="reaction-btn" type="button" data-spot-id="{{ spot.id }}" data-emoji="🎉"><span class="r-count"></span></button>
+</div>
 <button class="feed-comments-toggle" data-spot-id="{{ spot.id }}">💬 Комментарии</button>
+</div>
+<div class="feed-body" style="padding-top:0;">
 <div class="feed-comments" id="feed-comments-{{ spot.id }}" hidden>
 <div id="feed-comments-list-{{ spot.id }}"></div>
 <div class="feed-comment-input-row">
@@ -49,12 +92,6 @@
 <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span><span class="label">Профиль</span></a>
 </nav>
 </div>
-{% endblock %}
-{% block head %}
-<style>
-.feed-card-link { display: block; text-decoration: none; color: inherit; }
-.feed-card-link:hover .feed-title { color: var(--primary-dark); }
-</style>
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/feed.js') }}"></script>
