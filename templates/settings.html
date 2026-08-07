@@ -1,84 +1,87 @@
 {% extends "base.html" %}
+{% from "_nav.html" import bottom_nav %}
 {% block title %}Настройки — Картометр{% endblock %}
 {% block content %}
 <div class="app-shell">
 <div class="list-page" style="flex:1; overflow-y:auto;">
-    <div class="page-head">
-        <div>
-            <h1 class="display" style="font-size:24px">⚙️ Настройки</h1>
-            <p class="subtitle">Профиль и аватар</p>
-        </div>
-    </div>
+<div class="page-head"><div><h1 class="display" style="font-size:24px">⚙️ Настройки</h1><p class="subtitle">Профиль, контакты и домашняя точка</p></div></div>
+<form method="post" enctype="multipart/form-data" class="settings-form">
 
-    <form class="card settings-form" method="post" enctype="multipart/form-data">
-        <input type="hidden" name="form_name" value="profile">
-
-        <div class="field">
-            <label>Имя</label>
-            <input class="input" type="text" name="display_name" value="{{ profile.display_name or '' }}" maxlength="80">
-        </div>
-
-        <div class="field">
-            <label>Локация</label>
-            <input class="input" type="text" name="location" value="{{ profile.location or '' }}" maxlength="100" placeholder="Например: Москва">
-        </div>
-
-        <div class="field">
-            <label>О себе</label>
-            <textarea class="input" name="bio" maxlength="500" placeholder="Пара слов о себе">{{ profile.bio or '' }}</textarea>
-        </div>
-
-        {% if profile.account_type == 'organization' %}
-        <div class="section-divider"></div>
-        <div class="settings-subtitle">🏢 Данные заведения</div>
-
-        <div class="field">
-            <label>Категория</label>
-            <select class="input" name="category">
-                <option value="">— выберите —</option>
-                {% for c in categories %}
-                <option value="{{ c }}" {% if profile.category == c %}selected{% endif %}>{{ c }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="field">
-            <label>Адрес</label>
-            <input class="input" type="text" name="address" value="{{ profile.address or '' }}" maxlength="200">
-        </div>
-        {% else %}
-        <div class="field">
-            <label>Возраст</label>
-            <input class="input" type="number" name="age" value="{{ profile.age or '' }}" min="13" max="120">
-        </div>
-        {% endif %}
-
-        <div class="section-divider"></div>
-
-        <div class="field">
-            <label>Аватар</label>
-            <label class="file-drop" for="avatarInput">
-                <input type="file" id="avatarInput" name="avatar" accept="image/*" hidden>
-                <div class="file-drop-text">
-                    <span>📷</span>
-                    Загрузить новый аватар
-                </div>
-            </label>
-        </div>
-
-        <button class="btn btn-primary btn-block" type="submit">Сохранить</button>
-    </form>
-
-    <div class="section-divider"></div>
-    <a class="btn btn-ghost btn-block" href="{{ url_for('logout') }}" style="margin-top:10px;">Выйти</a>
+<div class="section-title">Профиль и аватар</div>
+<div class="field"><label>Имя</label><input class="input" type="text" name="display_name" value="{{ profile.display_name or '' }}" required></div>
+<div class="field"><label>О себе</label><textarea class="input" name="bio" maxlength="500">{{ profile.bio or '' }}</textarea></div>
+<div class="field"><label>Локация (текстом)</label><input class="input" type="text" name="location" value="{{ profile.location or '' }}" maxlength="100"></div>
+<div class="field">
+<label>Аватар</label>
+<label class="file-drop" for="avatarInput">
+<span class="file-drop-text" id="avatarDropText">
+<span>📷</span>
+{% if profile.avatar_url %}Заменить аватар{% else %}Загрузить новый аватар{% endif %}
+</span>
+<img id="avatarPreview" src="{{ profile.avatar_url or '' }}" {% if not profile.avatar_url %}hidden{% endif %} style="width:100%; max-height:200px; object-fit:cover;">
+</label>
+<input type="file" id="avatarInput" name="avatar" accept="image/*" hidden>
 </div>
 
-<nav class="bottom-nav">
-    <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span>Карта</a>
-    <a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">📰</span>Лента</a>
-    <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span>Друзья</a>
-    <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">💬</span>Чаты</a>
-    <a class="nav-item active" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span>Профиль</a>
-</nav>
+<div class="section-title">Контакты</div>
+<div class="field"><label>Telegram username (без @)</label><input class="input" type="text" name="telegram_username" value="{{ profile.telegram_username or '' }}" maxlength="32"></div>
+<div class="field"><label>Телефон</label><input class="input" type="text" name="contact_phone" value="{{ profile.contact_phone or '' }}" maxlength="30"></div>
+<div class="field"><label>Email</label><input class="input" type="email" name="contact_email" value="{{ profile.contact_email or '' }}" maxlength="255"></div>
+
+<div class="section-title">Домашняя точка на карте</div>
+<div class="field"><label>Название места (например, "Дом")</label><input class="input" type="text" name="home_location_name" value="{{ profile.home_location_name or '' }}" maxlength="120"></div>
+<div class="field"><label>Координаты (можно оставить пустым)</label>
+<div style="display:flex; gap:8px;">
+<input class="input" type="number" step="any" name="home_lat" placeholder="Широта" value="{{ profile.home_lat or '' }}">
+<input class="input" type="number" step="any" name="home_lng" placeholder="Долгота" value="{{ profile.home_lng or '' }}">
 </div>
+</div>
+
+{% if profile.account_type == 'organization' %}
+<div class="section-title">🏢 Данные заведения</div>
+<div class="field"><label>Категория</label>
+<select class="input" name="org_category">
+<option value="">— выберите —</option>
+{% for c in categories %}
+<option value="{{ c }}" {% if profile.category == c %}selected{% endif %}>{{ c }}</option>
+{% endfor %}
+</select>
+</div>
+<div class="field"><label>Адрес</label><input class="input" type="text" name="org_address" value="{{ profile.address or '' }}"></div>
+<div class="field"><label>Координаты заведения</label>
+<div style="display:flex; gap:8px;">
+<input class="input" type="number" step="any" name="org_lat" placeholder="Широта" value="{{ profile.lat or '' }}">
+<input class="input" type="number" step="any" name="org_lng" placeholder="Долгота" value="{{ profile.lng or '' }}">
+</div>
+</div>
+{% else %}
+<div class="section-title">Личные данные</div>
+<div class="field"><label>Возраст</label><input class="input" type="number" name="age" min="13" max="120" value="{{ profile.age or '' }}"></div>
+{% endif %}
+
+<button class="btn btn-primary btn-block" type="submit" style="margin-top:10px;">Сохранить изменения</button>
+</form>
+
+<div class="section-divider"></div>
+<a class="btn btn-ghost btn-block logout-btn" href="{{ url_for('logout') }}">Выйти из аккаунта</a>
+</div>
+{{ bottom_nav('profile', profile) }}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+var avatarInput = document.getElementById('avatarInput');
+var avatarPreview = document.getElementById('avatarPreview');
+var avatarDropText = document.getElementById('avatarDropText');
+if (avatarInput && avatarPreview && avatarDropText) {
+avatarInput.addEventListener('change', function () {
+var file = this.files && this.files[0];
+if (!file) { return; }
+var url = URL.createObjectURL(file);
+avatarPreview.src = url;
+avatarPreview.hidden = false;
+avatarDropText.style.display = 'none';
+});
+}
+</script>
 {% endblock %}

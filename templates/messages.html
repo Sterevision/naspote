@@ -1,54 +1,17 @@
 {% extends "base.html" %}
-
+{% from "_nav.html" import bottom_nav %}
 {% block title %}Чаты — Картометр{% endblock %}
-
 {% block content %}
 <div class="app-shell">
-    <div class="page">
-        <div class="topbar">
-            <div>
-                <h1 class="display page-title">💬 Чаты</h1>
-                <p class="subtitle">Личные сообщения между друзьями</p>
-            </div>
-        </div>
-
-        <div id="conversationsList">
-            <div class="empty-state">
-                <span class="em">⏳</span>
-                <p>Загрузка...</p>
-            </div>
-        </div>
-    </div>
-
-    <nav class="bottom-nav">
-        <a class="nav-item" href="{{ url_for('map_view') }}">
-            <span class="ic">🗺️</span>
-            <span class="label">Карта</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('feed_view') }}">
-            <span class="ic">📰</span>
-            <span class="label">Лента</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('friends_view') }}">
-            <span class="ic">🤝</span>
-            <span class="label">Друзья</span>
-        </a>
-
-        <a class="nav-item active" href="{{ url_for('messages_view') }}">
-            <span class="ic">💬</span>
-            <span class="label">Чаты</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}">
-            <span class="ic">👤</span>
-            <span class="label">Профиль</span>
-        </a>
-    </nav>
+<div class="list-page" style="flex:1; overflow-y:auto;">
+<div class="page-head">
+<div><h1 class="display" style="font-size:24px">💬 Чаты</h1><p class="subtitle">Личные сообщения между друзьями</p></div>
+</div>
+<div id="conversationsList"></div>
+</div>
+{{ bottom_nav('messages', profile) }}
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/messages.js') }}"></script>
 {% endblock %}

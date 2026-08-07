@@ -1,188 +1,87 @@
 {% extends "base.html" %}
-
+{% from "_nav.html" import bottom_nav %}
 {% block title %}{{ profile.display_name }} — Картометр{% endblock %}
-
 {% block content %}
 <div class="app-shell">
-    <div class="page">
-        <div class="card profile-card">
-            <div class="avatar avatar-lg">
-                {% if profile.avatar_url %}
-                    <img src="{{ profile.avatar_url }}" alt="">
-                {% else %}
-                    {{ profile.display_name[:1]|upper }}
-                {% endif %}
-            </div>
+<div class="list-page" style="flex:1; overflow-y:auto;">
+<div class="card profile-card">
+<div class="avatar avatar-lg">{% if profile.avatar_url %}<img src="{{ profile.avatar_url }}">{% else %}{{ profile.display_name[:1]|upper }}{% endif %}</div>
+<div class="profile-name-row"><h1 class="display" style="font-size:22px;">{{ profile.display_name }}</h1>{% if profile.is_verified %}<span class="verified">✅</span>{% endif %}</div>
+<div class="hint">@{{ profile.username }}{% if profile.age %} · {{ profile.age }}{% endif %}{% if profile.location %} · {{ profile.location }}{% endif %}</div>
+{% if profile.bio %}<p class="profile-bio">{{ profile.bio }}</p>{% endif %}
 
-            <div class="profile-name-row">
-                <h1 class="display profile-name">{{ profile.display_name }}</h1>
+{% if profile.telegram_username or profile.contact_phone or profile.contact_email %}
+<div style="display:flex; flex-direction:column; gap:6px; margin-top:14px; align-items:center;">
+{% if profile.telegram_username %}<a href="https://t.me/{{ profile.telegram_username }}" target="_blank" class="hint" style="color:var(--primary-dark);">✈️ @{{ profile.telegram_username }}</a>{% endif %}
+{% if profile.contact_phone %}<a href="tel:{{ profile.contact_phone }}" class="hint" style="color:var(--primary-dark);">📞 {{ profile.contact_phone }}</a>{% endif %}
+{% if profile.contact_email %}<a href="mailto:{{ profile.contact_email }}" class="hint" style="color:var(--primary-dark);">✉️ {{ profile.contact_email }}</a>{% endif %}
+</div>
+{% endif %}
 
-                {% if profile.is_verified %}
-                    <span class="verified">✅</span>
-                {% endif %}
-            </div>
+{% if profile.account_type != 'organization' %}
+<div class="level-badge"><span class="level-num">{{ profile.level or 1 }}</span>Уровень · {{ profile.xp or 0 }} XP</div>
+{% endif %}
 
-            <div class="hint">
-                @{{ profile.username }}
-                {% if profile.age %} · {{ profile.age }}{% endif %}
-                {% if profile.location %} · {{ profile.location }}{% endif %}
-            </div>
+<div class="profile-actions">
+{% if is_me %}
+<a class="btn btn-soft" href="{{ url_for('settings_view') }}">⚙️ Настройки</a>
+{% elif friend_status is none %}
+<button class="btn btn-primary" id="addFriendBtn">🤝 Добавить в друзья</button>
+{% elif friend_status.status == 'accepted' %}
+<a class="btn btn-primary" href="{{ url_for('chat_view', username=profile.username) }}">💬 Написать</a>
+{% elif friend_status.addressee_id == my_id %}
+<button class="btn btn-success" id="acceptFriendBtn">✓ Принять заявку</button>
+{% else %}
+<button class="btn btn-ghost" disabled>Заявка отправлена</button>
+{% endif %}
+</div>
+</div>
 
-            {% if profile.bio %}
-                <p class="profile-bio">{{ profile.bio }}</p>
-            {% endif %}
+<div class="section-title">Метки · {{ spots|length }}</div>
+{% if spots %}
+{% for spot in spots %}
+<div class="card row-card">
+<div class="spot-thumb">{% if spot.photo_url %}<img src="{{ spot.photo_url }}">{% else %}📍{% endif %}</div>
+<div class="info">
+<div class="name">{{ spot.title }}</div>
+<div class="sub">{% if spot.visibility == 'friends' %}🤝 Только друзья{% else %}🌍 Видят все{% endif %}</div>
+</div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state"><span class="em">🗺️</span><p>Меток пока нет</p></div>
+{% endif %}
 
-            {% if profile.telegram_username or profile.contact_phone or profile.contact_email %}
-                <div class="contact-chips">
-                    {% if profile.telegram_username %}
-                        <a class="contact-chip" href="https://t.me/{{ profile.telegram_username }}" target="_blank" rel="noopener">
-                            ✈️ @{{ profile.telegram_username }}
-                        </a>
-                    {% endif %}
+{% if tagged_spots %}
+<div class="section-title">Люди отмечались здесь · {{ tagged_spots|length }}</div>
+{% for spot in tagged_spots %}
+<div class="card row-card">
+<div class="avatar">{% if spot.owner and spot.owner.avatar_url %}<img src="{{ spot.owner.avatar_url }}">{% else %}{{ (spot.owner.display_name[:1] if spot.owner and spot.owner.display_name else '?')|upper }}{% endif %}</div>
+<div class="info">
+<div class="name">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}</div>
+<div class="sub">{{ spot.title }}</div>
+</div>
+</div>
+{% endfor %}
+{% endif %}
 
-                    {% if profile.contact_phone %}
-                        <a class="contact-chip" href="tel:{{ profile.contact_phone }}">
-                            📞 {{ profile.contact_phone }}
-                        </a>
-                    {% endif %}
-
-                    {% if profile.contact_email %}
-                        <a class="contact-chip" href="mailto:{{ profile.contact_email }}">
-                            ✉️ {{ profile.contact_email }}
-                        </a>
-                    {% endif %}
-                </div>
-            {% endif %}
-
-            {% if profile.account_type != 'organization' %}
-                <div class="level-badge">
-                    <span class="level-num">{{ profile.level or 1 }}</span>
-                    Уровень · {{ profile.xp or 0 }} XP
-                </div>
-            {% endif %}
-
-            <div class="profile-actions">
-                {% if is_me %}
-                    <a class="btn btn-soft" href="{{ url_for('settings_view') }}">⚙️ Настройки</a>
-                {% elif friend_status is none %}
-                    <button class="btn btn-primary" id="addFriendBtn">🤝 Добавить в друзья</button>
-                {% elif friend_status.status == 'accepted' %}
-                    <a class="btn btn-primary" href="{{ url_for('chat_view', username=profile.username) }}">💬 Написать</a>
-                {% elif friend_status.addressee_id == my_id %}
-                    <button class="btn btn-success" id="acceptFriendBtn">✓ Принять заявку</button>
-                {% else %}
-                    <button class="btn btn-ghost" disabled>Заявка отправлена</button>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="section-title">Метки · {{ spots|length }}</div>
-
-        {% if spots %}
-            {% for spot in spots %}
-                <div class="card row-card">
-                    <div class="spot-thumb">
-                        {% if spot.photo_url %}
-                            <img src="{{ spot.photo_url }}" alt="">
-                        {% else %}
-                            📍
-                        {% endif %}
-                    </div>
-
-                    <div class="info">
-                        <div class="name">{{ spot.title }}</div>
-                        <div class="sub">
-                            {% if spot.visibility == 'friends' %}
-                                🤝 Только друзья
-                            {% else %}
-                                🌍 Видят все
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <span class="em">🗺️</span>
-                <p>Меток пока нет</p>
-            </div>
-        {% endif %}
-    </div>
-
-    <nav class="bottom-nav">
-        <a class="nav-item" href="{{ url_for('map_view') }}">
-            <span class="ic">🗺️</span>
-            <span class="label">Карта</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('feed_view') }}">
-            <span class="ic">📰</span>
-            <span class="label">Лента</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('friends_view') }}">
-            <span class="ic">🤝</span>
-            <span class="label">Друзья</span>
-        </a>
-
-        <a class="nav-item" href="{{ url_for('messages_view') }}">
-            <span class="ic">💬</span>
-            <span class="label">Чаты</span>
-        </a>
-
-        <a class="nav-item active" href="{{ url_for('profile_view', username=profile.username) }}">
-            <span class="ic">👤</span>
-            <span class="label">Профиль</span>
-        </a>
-    </nav>
+</div>
+{{ bottom_nav('profile', profile) }}
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-(function () {
-    'use strict';
-
-    var addBtn = document.getElementById('addFriendBtn');
-    var acceptBtn = document.getElementById('acceptFriendBtn');
-
-    if (addBtn) {
-        addBtn.addEventListener('click', async function () {
-            addBtn.disabled = true;
-            addBtn.textContent = '...';
-
-            var res = await fetch('/api/friends/{{ profile.username }}/add', {
-                method: 'POST',
-                credentials: 'same-origin'
-            });
-
-            if (res.status === 401) {
-                window.location.href = '/login';
-                return;
-            }
-
-            window.location.reload();
-        });
-    }
-
-    if (acceptBtn) {
-        acceptBtn.addEventListener('click', async function () {
-            acceptBtn.disabled = true;
-            acceptBtn.textContent = '...';
-
-            var res = await fetch('/api/friends/{{ friend_status.id }}/accept', {
-                method: 'POST',
-                credentials: 'same-origin'
-            });
-
-            if (res.status === 401) {
-                window.location.href = '/login';
-                return;
-            }
-
-            window.location.reload();
-        });
-    }
-})();
+var addBtn = document.getElementById('addFriendBtn');
+if (addBtn) addBtn.onclick = async function () {
+addBtn.disabled = true; addBtn.textContent = 'Отправляем...';
+await fetch('/api/friends/{{ profile.username }}/add', {method:'POST'});
+location.reload();
+};
+var acceptBtn = document.getElementById('acceptFriendBtn');
+if (acceptBtn) acceptBtn.onclick = async function () {
+acceptBtn.disabled = true; acceptBtn.textContent = 'Принимаем...';
+await fetch('/api/friends/{{ friend_status.id }}/accept', {method:'POST'});
+location.reload();
+};
 </script>
 {% endblock %}
