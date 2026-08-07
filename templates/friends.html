@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.onclick = async function () { if (confirm('Отменить заявку?')) { await fetch('/api/friends/' + btn.dataset.id, {method: 'DELETE'}); location.reload(); } };
     });
 
-    /* ---------- поиск людей (НОВОЕ) ---------- */
+    /* ---------- поиск людей ---------- */
     var searchInput = document.getElementById('peopleSearch');
     var searchResults = document.getElementById('peopleSearchResults');
     var searchTimer = null;
@@ -114,14 +114,15 @@ document.addEventListener('DOMContentLoaded', function () {
     if (searchInput && searchResults) {
         searchInput.addEventListener('input', function () {
             clearTimeout(searchTimer);
-            var q = searchInput.value.trim();
+            var raw = searchInput.value.trim();
+            var q = raw.replace(/^@+/, '').trim();
             if (q.length < 2) { searchResults.innerHTML = ''; return; }
             searchTimer = setTimeout(async function () {
                 try {
                     var res = await fetch('/api/users/search?q=' + encodeURIComponent(q), { credentials: 'same-origin' });
                     if (!res.ok) return;
                     var people = await res.json();
-                    renderPeople(people, q);
+                    renderPeople(people, raw);
                 } catch (e) { /* silent */ }
             }, 300);
         });
