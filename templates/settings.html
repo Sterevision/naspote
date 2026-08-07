@@ -4,7 +4,7 @@
 {% block content %}
 <div class="app-shell">
 <div class="list-page" style="flex:1; overflow-y:auto;">
-<div class="page-head"><div><h1 class="display" style="font-size:24px">⚙️ Настройки</h1><p class="subtitle">Профиль, контакты и домашняя точка</p></div></div>
+<div class="page-head"><div><h1 class="display" style="font-size:24px">⚙️ Настройки</h1><p class="subtitle">Профиль, контакты и точки на карте</p></div></div>
 <form method="post" enctype="multipart/form-data" class="settings-form">
 
 <div class="section-title">Профиль и аватар</div>
@@ -28,9 +28,10 @@
 <div class="field"><label>Телефон</label><input class="input" type="text" name="contact_phone" value="{{ profile.contact_phone or '' }}" maxlength="30"></div>
 <div class="field"><label>Email</label><input class="input" type="email" name="contact_email" value="{{ profile.contact_email or '' }}" maxlength="255"></div>
 
-<div class="section-title">Домашняя точка на карте</div>
-<div class="field"><label>Название места (например, "Дом")</label><input class="input" type="text" name="home_location_name" value="{{ profile.home_location_name or '' }}" maxlength="120"></div>
-<div class="field"><label>Координаты (можно оставить пустым)</label>
+<div class="section-title">🏠 Домашняя точка (личная)</div>
+<p class="hint" style="margin:0 0 10px;">Здесь будет открываться карта при входе. Видите только вы, никто больше.</p>
+<div class="field"><label>Название места (например, «Дом»)</label><input class="input" type="text" name="home_location_name" value="{{ profile.home_location_name or '' }}" maxlength="120"></div>
+<div class="field"><label>Координаты домашней точки (необязательно)</label>
 <div style="display:flex; gap:8px;">
 <input class="input" type="number" step="any" name="home_lat" placeholder="Широта" value="{{ profile.home_lat or '' }}">
 <input class="input" type="number" step="any" name="home_lng" placeholder="Долгота" value="{{ profile.home_lng or '' }}">
@@ -48,7 +49,8 @@
 </select>
 </div>
 <div class="field"><label>Адрес</label><input class="input" type="text" name="org_address" value="{{ profile.address or '' }}"></div>
-<div class="field"><label>Координаты заведения</label>
+<div class="field"><label>Точка заведения на карте (видна всем)</label>
+<p class="hint" style="margin:0 0 8px;">По этим координатам заведение появляется на карте, находится в поиске и в «привязке к заведению». Без них привязка не работает.</p>
 <div style="display:flex; gap:8px;">
 <input class="input" type="number" step="any" name="org_lat" placeholder="Широта" value="{{ profile.lat or '' }}">
 <input class="input" type="number" step="any" name="org_lng" placeholder="Долгота" value="{{ profile.lng or '' }}">
