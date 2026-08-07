@@ -190,7 +190,6 @@ function applyFilter() {
         });
     loadOrganizations();
 }
-var ORG_ICON = '<svg viewBox="0 0 20 20"><path d="M4 17V5.5A1.5 1.5 0 0 1 5.5 4h5A1.5 1.5 0 0 1 12 5.5V17"/><path d="M12 8h2.5A1.5 1.5 0 0 1 16 9.5V17"/><path d="M3 17h14"/><path d="M6.5 7h1M6.5 9.5h1M6.5 12h1M9.5 7h1M9.5 9.5h1M9.5 12h1"/></svg>';
 function renderOrganizations() {
     if (!orgMarkersLayer) {
         return;
@@ -201,11 +200,12 @@ function renderOrganizations() {
             return !activeCategory || org.category === activeCategory;
         })
         .forEach(function (org) {
+            var letter = esc((org.display_name || '?').charAt(0).toUpperCase());
             var icon = L.divIcon({
                 className: '',
                 iconSize: [30, 30],
                 iconAnchor: [15, 15],
-                html: '<div class="org-pin' + (org.is_verified ? ' verified' : '') + '">' + ORG_ICON + '</div>'
+                html: '<div class="org-pin' + (org.is_verified ? ' verified' : '') + '" style="font-family:var(--font-display); font-weight:700; font-size:13px;">' + letter + '</div>'
             });
             L.marker([org.lat, org.lng], {
                 icon: icon
