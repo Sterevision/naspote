@@ -207,11 +207,12 @@ function renderOrganizations() {
             var icon = L.divIcon({
                 className: '',
                 iconSize: [30, 30],
-                iconAnchor: [15, 15],
-                html: '<div class="org-pin' + (org.is_verified ? ' verified' : '') + '" style="' + colors + 'font-family:var(--font-display); font-weight:700; font-size:13px;">' + letter + '</div>'
+                iconAnchor: [15, 42],
+                html: '<div class="org-pin' + (org.is_verified ? ' verified' : '') + '" style="' + colors + 'font-family:var(--font-display); font-weight:700; font-size:13px; line-height:1; text-align:center;">' + letter + '</div>'
             });
             L.marker([org.lat, org.lng], {
-                icon: icon
+                icon: icon,
+                zIndexOffset: 900
             })
                 .addTo(orgMarkersLayer)
                 .on('click', function () {
