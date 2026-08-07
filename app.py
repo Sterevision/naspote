@@ -107,10 +107,6 @@ def register():
         flash("Заполните email, имя пользователя и пароль")
         return redirect(url_for("register"))
 
-    # Сохраняем данные регистрации в user_metadata. Это нужно, чтобы
-    # профиль можно было создать при первом входе даже если включено
-    # подтверждение email (тогда auth_res.session будет пустым и мы
-    # не сможем сразу вставить строку в profiles — см. login()).
     signup_meta = {
         "username": username,
         "display_name": display_name,
@@ -145,7 +141,6 @@ def register():
             "display_name": display_name,
             "account_type": account_type,
         }
-        # --- данные организации при регистрации ---
         if account_type == "organization":
             profile_data["category"] = request.form.get("org_category", "").strip() or None
             profile_data["address"] = request.form.get("org_address", "").strip() or None
@@ -183,9 +178,6 @@ def login():
         session["refresh_token"] = res.session.refresh_token
         session["user_id"] = res.user.id
 
-        # Если это первый вход после подтверждения email, строки в
-        # profiles ещё может не быть (при регистрации auth_res.session
-        # был пустым). Досоздаём профиль из user_metadata.
         sb2 = get_supabase(res.session.access_token, res.session.refresh_token)
         existing = sb2.table("profiles").select("id").eq("id", res.user.id).execute()
         if not existing.data:
@@ -324,6 +316,9 @@ def friends_view():
     incoming = sb.table("friendships") \
         .select("*, requester:requester_id(username, display_name, avatar_url)") \
         .eq("addressee_id", uid).eq("status", "pending").execute()
+    outgoing = sb.table("friendships") \
+        .select("*, addressee:addressee_id(username, display_name, avatar_url)") \
+        .eq("requester_id", uid).eq("status", "pending").execute()
     accepted = sb.table("friendships") \
         .select("*, requester:requester_id(username, display_name, avatar_url), "
                 "addressee:addressee_id(username, display_name, avatar_url)") \
@@ -331,6 +326,7 @@ def friends_view():
         .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
     profile = get_profile(sb, uid)
     return render_template("friends.html", incoming=incoming.data or [],
+                           outgoing=outgoing.data or [],
                            accepted=accepted.data or [], my_id=uid, profile=profile)
 
 
@@ -446,7 +442,6 @@ def api_spots_create():
         "category": request.form.get("category", "").strip() or None,
     }
 
-    # --- привязка метки к заведению ---
     organization_id = request.form.get("organization_id", "").strip()
     if organization_id:
         data["organization_id"] = organization_id
@@ -580,9 +575,6 @@ def api_friend_add(username):
     if target_id == uid:
         return jsonify({"error": "Нельзя добавить самого себя"}), 400
 
-    # Пара (requester, addressee) уникальна в обе стороны (см. v8/v10),
-    # так что сначала проверяем — иначе слепой insert упадёт с 500,
-    # если заявка уже есть в любом направлении.
     existing = sb.table("friendships").select("*").or_(
         f"and(requester_id.eq.{uid},addressee_id.eq.{target_id}),"
         f"and(requester_id.eq.{target_id},addressee_id.eq.{uid})"
@@ -592,7 +584,6 @@ def api_friend_add(username):
         if row["status"] == "accepted":
             return jsonify({"ok": True, "status": "accepted"})
         if row["requester_id"] == target_id:
-            # он уже позвал нас в друзья — принимаем встречную заявку
             sb.table("friendships").update({"status": "accepted"}) \
                 .eq("id", row["id"]).execute()
             return jsonify({"ok": True, "status": "accepted"})

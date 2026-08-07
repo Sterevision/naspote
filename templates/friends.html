@@ -1,290 +1,70 @@
 {% extends "base.html" %}
 {% from "_nav.html" import bottom_nav %}
-
 {% block title %}Друзья — Картометр{% endblock %}
-
 {% block content %}
 <div class="app-shell">
-    <div class="page">
-        <div class="topbar">
-            <div>
-                <h1 class="display page-title">🤝 Друзья</h1>
-                <p class="subtitle">Заявки, поиск и переписка</p>
-            </div>
-        </div>
+<div class="list-page" style="flex:1; overflow-y:auto;">
+<div class="page-head">
+<div><h1 class="display" style="font-size:24px">🤝 Друзья</h1><p class="subtitle">Заявки, поиск и переписка</p></div>
+</div>
 
-        <div class="card">
-            <div class="field">
-                <label>Найти людей</label>
-                <input class="input" id="friendSearch" type="text" placeholder="Имя или @username" autocomplete="off">
-            </div>
+{% if incoming %}
+<div class="section-title">Хотят добавить · {{ incoming|length }}</div>
+{% for req in incoming %}
+<div class="card row-card">
+<div class="avatar">{% if req.requester.avatar_url %}<img src="{{ req.requester.avatar_url }}">{% else %}{{ req.requester.display_name[:1]|upper }}{% endif %}</div>
+<div class="info"><div class="name">{{ req.requester.display_name }}</div><div class="sub">@{{ req.requester.username }}</div></div>
+<button class="btn btn-success btn-sm accept-friend-btn" data-id="{{ req.id }}">✓</button>
+<button class="btn btn-soft btn-sm decline-friend-btn" data-id="{{ req.id }}">✕</button>
+</div>
+{% endfor %}
+{% endif %}
 
-            <div id="searchResults"></div>
-        </div>
+{% if outgoing %}
+<div class="section-title">Заявки отправлены · {{ outgoing|length }}</div>
+{% for out in outgoing %}
+<div class="card row-card">
+<div class="avatar">{% if out.addressee.avatar_url %}<img src="{{ out.addressee.avatar_url }}">{% else %}{{ out.addressee.display_name[:1]|upper }}{% endif %}</div>
+<div class="info"><div class="name">{{ out.addressee.display_name }}</div><div class="sub">@{{ out.addressee.username }} · ожидает</div></div>
+<button class="btn btn-soft btn-sm cancel-friend-btn" data-id="{{ out.id }}">✕</button>
+</div>
+{% endfor %}
+{% endif %}
 
-        {% if incoming %}
-            <div class="section-title">Хотят добавить · {{ incoming|length }}</div>
-
-            {% for req in incoming %}
-                <div class="card row-card">
-                    <div class="avatar">
-                        {% if req.requester.avatar_url %}
-                            <img src="{{ req.requester.avatar_url }}" alt="">
-                        {% else %}
-                            {{ req.requester.display_name[:1]|upper }}
-                        {% endif %}
-                    </div>
-
-                    <div class="info">
-                        <div class="name">{{ req.requester.display_name }}</div>
-                        <div class="sub">@{{ req.requester.username }}</div>
-                    </div>
-
-                    <div class="row-actions">
-                        <button class="btn btn-success btn-sm accept-friend-btn" data-id="{{ req.id }}">✓</button>
-                        <button class="btn btn-ghost btn-sm decline-friend-btn" data-id="{{ req.id }}">✕</button>
-                    </div>
-                </div>
-            {% endfor %}
-        {% endif %}
-
-        {% if outgoing %}
-            <div class="section-title">Заявки отправлены · {{ outgoing|length }}</div>
-
-            {% for out in outgoing %}
-                <div class="card row-card">
-                    <div class="avatar">
-                        {% if out.addressee.avatar_url %}
-                            <img src="{{ out.addressee.avatar_url }}" alt="">
-                        {% else %}
-                            {{ out.addressee.display_name[:1]|upper }}
-                        {% endif %}
-                    </div>
-
-                    <div class="info">
-                        <div class="name">{{ out.addressee.display_name }}</div>
-                        <div class="sub">@{{ out.addressee.username }} · ожидает</div>
-                    </div>
-
-                    <div class="row-actions">
-                        <button class="btn btn-ghost btn-sm remove-friend-btn" data-id="{{ out.id }}">✕</button>
-                    </div>
-                </div>
-            {% endfor %}
-        {% endif %}
-
-        <div class="section-title">Ваши друзья · {{ accepted|length }}</div>
-
-        {% if accepted %}
-            {% for f in accepted %}
-                {% set friend = f.requester if f.requester_id != my_id else f.addressee %}
-
-                <div class="card row-card">
-                    <div class="avatar">
-                        {% if friend.avatar_url %}
-                            <img src="{{ friend.avatar_url }}" alt="">
-                        {% else %}
-                            {{ friend.display_name[:1]|upper }}
-                        {% endif %}
-                    </div>
-
-                    <div class="info">
-                        <div class="name">{{ friend.display_name }}</div>
-                        <div class="sub">@{{ friend.username }}</div>
-                    </div>
-
-                    <div class="row-actions">
-                        <a class="btn btn-soft btn-sm" href="{{ url_for('chat_view', username=friend.username) }}">💬</a>
-                        <a class="btn btn-soft btn-sm" href="{{ url_for('profile_view', username=friend.username) }}">👤</a>
-                        <button class="btn btn-ghost btn-sm remove-friend-btn" data-id="{{ f.id }}">✕</button>
-                    </div>
-                </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <span class="em">🤝</span>
-                <p>Пока нет друзей. Найдите людей через поиск выше.</p>
-            </div>
-        {% endif %}
-    </div>
-
-    {{ bottom_nav('friends', profile) }}
+<div class="section-title">Ваши друзья · {{ accepted|length }}</div>
+{% if accepted %}
+{% for f in accepted %}
+{% set friend = f.requester if f.requester_id != my_id else f.addressee %}
+<div class="card row-card">
+<div class="avatar">{% if friend.avatar_url %}<img src="{{ friend.avatar_url }}">{% else %}{{ friend.display_name[:1]|upper }}{% endif %}</div>
+<div class="info"><div class="name">{{ friend.display_name }}</div><div class="sub">@{{ friend.username }}</div></div>
+<a class="btn btn-soft btn-sm" href="{{ url_for('chat_view', username=friend.username) }}">💬</a>
+<a class="btn btn-soft btn-sm" href="{{ url_for('profile_view', username=friend.username) }}">👤</a>
+<button class="btn btn-ghost btn-sm remove-friend-btn" data-id="{{ f.id }}">✕</button>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state"><span class="em">🤝</span><p>Пока нет друзей. Найдите людей через их профили.</p></div>
+{% endif %}
+</div>
+{{ bottom_nav('friends', profile) }}
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-(function () {
-    'use strict';
-
-    async function apiRequest(url, method) {
-        const res = await fetch(url, {
-            method: method || 'POST',
-            credentials: 'same-origin'
-        });
-
-        if (res.status === 401) {
-            window.location.href = '/login';
-            return null;
-        }
-
-        return res;
-    }
-
-    function reload() {
-        window.location.reload();
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.accept-friend-btn').forEach(function (btn) {
-            btn.addEventListener('click', async function () {
-                btn.disabled = true;
-                await apiRequest('/api/friends/' + btn.dataset.id + '/accept', 'POST');
-                reload();
-            });
-        });
-
-        document.querySelectorAll('.decline-friend-btn').forEach(function (btn) {
-            btn.addEventListener('click', async function () {
-                btn.disabled = true;
-                await apiRequest('/api/friends/' + btn.dataset.id + '/decline', 'POST');
-                reload();
-            });
-        });
-
-        document.querySelectorAll('.remove-friend-btn').forEach(function (btn) {
-            btn.addEventListener('click', async function () {
-                if (!confirm('Удалить из друзей?')) return;
-
-                btn.disabled = true;
-                await apiRequest('/api/friends/' + btn.dataset.id, 'DELETE');
-                reload();
-            });
-        });
-
-        const searchInput = document.getElementById('friendSearch');
-        const searchResults = document.getElementById('searchResults');
-
-        if (!searchInput || !searchResults) return;
-
-        let timer = null;
-
-        function escapeHtml(value) {
-            const div = document.createElement('div');
-            div.textContent = value === null || value === undefined ? '' : String(value);
-            return div.innerHTML;
-        }
-
-        function renderSearchResults(items) {
-            if (!items.length) {
-                searchResults.innerHTML = '<div class="hint search-empty">Ничего не найдено</div>';
-                return;
-            }
-
-            searchResults.innerHTML = '';
-
-            items.forEach(function (user) {
-                const row = document.createElement('div');
-                row.className = 'row-card inline-card';
-
-                const avatar = document.createElement('div');
-                avatar.className = 'avatar';
-
-                if (user.avatar_url) {
-                    const img = document.createElement('img');
-                    img.src = user.avatar_url;
-                    img.alt = '';
-                    avatar.appendChild(img);
-                } else {
-                    avatar.textContent = (user.display_name || user.username || '?').charAt(0).toUpperCase();
-                }
-
-                const info = document.createElement('div');
-                info.className = 'info';
-
-                const name = document.createElement('div');
-                name.className = 'name';
-                name.textContent = user.display_name || user.username;
-
-                const sub = document.createElement('div');
-                sub.className = 'sub';
-                sub.textContent = '@' + user.username;
-
-                info.appendChild(name);
-                info.appendChild(sub);
-
-                const button = document.createElement('button');
-                button.className = 'btn btn-primary btn-sm';
-                button.textContent = 'Добавить';
-                button.dataset.username = user.username;
-
-                button.addEventListener('click', async function () {
-                    button.disabled = true;
-                    button.textContent = '...';
-
-                    const res = await apiRequest('/api/friends/' + encodeURIComponent(user.username) + '/add', 'POST');
-
-                    if (!res) return;
-
-                    const data = await res.json().catch(function () {
-                        return {};
-                    });
-
-                    if (res.ok) {
-                        if (data.status === 'accepted') {
-                            button.textContent = '✓ Друзья';
-                        } else {
-                            button.textContent = '✓ Заявка';
-                        }
-                    } else {
-                        button.disabled = false;
-                        button.textContent = 'Ошибка';
-                        alert(data.error || 'Не удалось отправить заявку');
-                    }
-                });
-
-                row.appendChild(avatar);
-                row.appendChild(info);
-                row.appendChild(button);
-
-                searchResults.appendChild(row);
-            });
-        }
-
-        searchInput.addEventListener('input', function () {
-            clearTimeout(timer);
-
-            const q = searchInput.value.trim();
-
-            if (!q) {
-                searchResults.innerHTML = '';
-                return;
-            }
-
-            timer = setTimeout(async function () {
-                try {
-                    const res = await fetch('/api/search_users?q=' + encodeURIComponent(q), {
-                        credentials: 'same-origin'
-                    });
-
-                    if (res.status === 401) {
-                        window.location.href = '/login';
-                        return;
-                    }
-
-                    if (!res.ok) {
-                        searchResults.innerHTML = '<div class="hint search-empty">Ошибка поиска</div>';
-                        return;
-                    }
-
-                    const items = await res.json();
-                    renderSearchResults(items || []);
-                } catch (e) {
-                    searchResults.innerHTML = '<div class="hint search-empty">Ошибка сети</div>';
-                }
-            }, 300);
-        });
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.accept-friend-btn').forEach(function (btn) {
+        btn.onclick = async function () { await fetch('/api/friends/' + btn.dataset.id + '/accept', {method: 'POST'}); location.reload(); };
     });
-})();
+    document.querySelectorAll('.decline-friend-btn').forEach(function (btn) {
+        btn.onclick = async function () { await fetch('/api/friends/' + btn.dataset.id + '/decline', {method: 'POST'}); location.reload(); };
+    });
+    document.querySelectorAll('.remove-friend-btn').forEach(function (btn) {
+        btn.onclick = async function () { if (confirm('Удалить из друзей?')) { await fetch('/api/friends/' + btn.dataset.id, {method: 'DELETE'}); location.reload(); } };
+    });
+    document.querySelectorAll('.cancel-friend-btn').forEach(function (btn) {
+        btn.onclick = async function () { if (confirm('Отменить заявку?')) { await fetch('/api/friends/' + btn.dataset.id, {method: 'DELETE'}); location.reload(); } };
+    });
+});
 </script>
 {% endblock %}

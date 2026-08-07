@@ -3,63 +3,49 @@
 {% block content %}
 <div class="app-shell">
 <div class="list-page" style="flex:1; overflow-y:auto;">
-    <div class="page-head">
-        <div>
-            <h1 class="display" style="font-size:24px">📰 Лента</h1>
-            <p class="subtitle">Что происходит у друзей</p>
-        </div>
-    </div>
-
-    {% if spots %}
-        {% for spot in spots %}
-        <a class="card feed-card" href="/map?spot={{ spot.id }}" style="display:block; margin-bottom:14px; text-decoration:none; color:inherit;">
-            <div class="feed-head">
-                <div class="avatar">
-                    {% if spot.owner and spot.owner.avatar_url %}
-                        <img src="{{ spot.owner.avatar_url }}" alt="">
-                    {% else %}
-                        {{ (spot.owner.display_name[:1] if spot.owner and spot.owner.display_name else '?')|upper }}
-                    {% endif %}
-                </div>
-                <div class="feed-head-info">
-                    <div class="feed-head-name">
-                        {{ spot.owner.display_name if spot.owner else 'Кто-то' }}
-                        {% if spot.wave_ends_at %} ⚡{% endif %}
-                    </div>
-                    <div class="feed-head-sub">
-                        @{{ spot.owner.username if spot.owner else 'unknown' }}
-                        {% if spot.category %} · {{ spot.category }}{% endif %}
-                        · {% if spot.visibility == 'friends' %}🤝 друзья{% else %}🌍 все{% endif %}
-                    </div>
-                </div>
-            </div>
-
-            {% if spot.photo_url %}
-            <div class="feed-photo-wrap">
-                <img class="feed-photo" src="{{ spot.photo_url }}" alt="{{ spot.title }}">
-            </div>
-            {% endif %}
-
-            <div class="feed-body">
-                <div class="feed-title">{{ spot.title }}</div>
-                {% if spot.description %}<p class="feed-text">{{ spot.description }}</p>{% endif %}
-            </div>
-        </a>
-        {% endfor %}
-    {% else %}
-        <div class="empty-state">
-            <span class="em">🌤️</span>
-            <p>Пока тихо. Добавьте друзей!</p>
-        </div>
-    {% endif %}
+<div class="page-head">
+<div><h1 class="display" style="font-size:24px">📰 Лента</h1><p class="subtitle">Что происходит у друзей</p></div>
 </div>
-
+{% if spots %}
+{% for spot in spots %}
+<div class="card feed-card">
+<div class="feed-head">
+<div class="avatar">{% if spot.owner and spot.owner.avatar_url %}<img src="{{ spot.owner.avatar_url }}">{% else %}{{ (spot.owner.display_name[:1] if spot.owner and spot.owner.display_name else '?')|upper }}{% endif %}</div>
+<div class="feed-head-info">
+<div class="feed-head-name">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}{% if spot.wave_ends_at %} ⚡{% endif %}</div>
+<div class="feed-head-sub">@{{ spot.owner.username if spot.owner else 'unknown' }}{% if spot.category %} · {{ spot.category }}{% endif %} · {% if spot.visibility == 'friends' %}🤝 друзья{% else %}🌍 все{% endif %}</div>
+</div>
+</div>
+{% if spot.photo_url %}
+<div class="feed-photo-wrap"><img class="feed-photo" src="{{ spot.photo_url }}" alt=""></div>
+{% endif %}
+<div class="feed-body">
+<div class="feed-title">{{ spot.title }}</div>
+{% if spot.description %}<p class="feed-text">{{ spot.description }}</p>{% endif %}
+<button class="feed-comments-toggle" data-spot-id="{{ spot.id }}">💬 Комментарии</button>
+<div class="feed-comments" id="feed-comments-{{ spot.id }}" hidden>
+<div id="feed-comments-list-{{ spot.id }}"></div>
+<div class="feed-comment-input-row">
+<input class="feed-comment-input" id="feed-comment-input-{{ spot.id }}" placeholder="Написать комментарий..." maxlength="500">
+<button class="feed-comment-send" data-spot-id="{{ spot.id }}">➤</button>
+</div>
+</div>
+</div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state"><span class="em">🌤️</span><p>Пока тихо. Добавьте друзей!</p></div>
+{% endif %}
+</div>
 <nav class="bottom-nav">
-    <a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span>Карта</a>
-    <a class="nav-item active" href="{{ url_for('feed_view') }}"><span class="ic">📰</span>Лента</a>
-    <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span>Друзья</a>
-    <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">💬</span>Чаты</a>
-    <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span>Профиль</a>
+<a class="nav-item" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span><span class="label">Карта</span></a>
+<a class="nav-item active" href="{{ url_for('feed_view') }}"><span class="ic">📰</span><span class="label">Лента</span></a>
+<a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span><span class="label">Друзья</span></a>
+<a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">💬</span><span class="label">Чаты</span></a>
+<a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span><span class="label">Профиль</span></a>
 </nav>
 </div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/feed.js') }}"></script>
 {% endblock %}
