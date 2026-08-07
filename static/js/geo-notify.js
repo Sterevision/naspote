@@ -42,7 +42,8 @@ function buildUI() {
     panel.id = 'geoNotifyPanel';
     panel.style.cssText = 'position:absolute; right:16px; bottom:170px; z-index:40; background:rgba(255,255,255,.97); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow-md); padding:16px; width:236px; display:none; backdrop-filter:blur(16px);';
     panel.innerHTML =
-        '<div style="font-weight:900; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:10px;">🔔 Друг рядом</div>' +
+        '<button type="button" id="geoCloseBtn" style="position:absolute; top:10px; right:10px; width:26px; height:26px; border:0; border-radius:50%; background:var(--surface-2); color:var(--muted); font-size:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;">✕</button>' +
+        '<div style="font-weight:900; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:10px; padding-right:26px;">🔔 Друг рядом</div>' +
         '<label style="display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700; margin-bottom:12px; cursor:pointer;"><input type="checkbox" id="geoEnabled" style="width:20px; height:20px;"> Уведомлять, когда друг рядом</label>' +
         '<div style="font-size:11px; font-weight:900; color:var(--muted); margin-bottom:6px;">РАДИУС</div>' +
         '<div style="display:flex; gap:6px; margin-bottom:12px;">' +
@@ -66,6 +67,9 @@ function buildUI() {
     btn.addEventListener('click', function () {
         panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         paint();
+    });
+    document.getElementById('geoCloseBtn').addEventListener('click', function () {
+        panel.style.display = 'none';
     });
     document.getElementById('geoEnabled').addEventListener('change', function () {
         settings.enabled = this.checked;

@@ -201,11 +201,14 @@ function renderOrganizations() {
         })
         .forEach(function (org) {
             var letter = esc((org.display_name || '?').charAt(0).toUpperCase());
+            var colors = org.is_verified
+                ? 'background:var(--primary); color:#fff;'
+                : 'background:#0f172a; color:#fff;';
             var icon = L.divIcon({
                 className: '',
                 iconSize: [30, 30],
                 iconAnchor: [15, 15],
-                html: '<div class="org-pin' + (org.is_verified ? ' verified' : '') + '" style="font-family:var(--font-display); font-weight:700; font-size:13px;">' + letter + '</div>'
+                html: '<div class="org-pin' + (org.is_verified ? ' verified' : '') + '" style="' + colors + 'font-family:var(--font-display); font-weight:700; font-size:13px;">' + letter + '</div>'
             });
             L.marker([org.lat, org.lng], {
                 icon: icon
