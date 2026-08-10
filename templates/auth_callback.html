@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Входим... — Картометр{% endblock %}
+{% block content %}
+<div class="auth-page">
+<div class="card auth-card" style="text-align:center;">
+<div class="logo" style="font-size:48px;">🪄</div>
+<h1 class="display">Подключаем...</h1>
+<p id="cb-status" style="color:var(--muted);">Проверяем ссылку и входим в аккаунт</p>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+'use strict';
+var statusEl = document.getElementById('cb-status');
+function setStatus(text, isError) {
+    if (statusEl) {
+        statusEl.textContent = text;
+        statusEl.style.color = isError ? 'var(--danger)' : 'var(--muted)';
+    }
+}
+async function handleCallback() {
+    var hash = window.location.hash.substring(1);
+    if (!hash) {
+        setStatus('Не найдены данные авторизации в ссылке', true);
+        setTimeout(function () { window.location.href = '/login'; }, 2000);
+        return;
+    }
+    var params = new URLSearchParams(hash);
+    var accessToken = params.get('access_token');
+    var refreshToken = params.get('refresh_token');
+    var error = params.get('error');
+    if (error) {
+        setStatus('Ошибка: ' + (params.get('error_description') || error), true);
+        setTimeout(function () { window.location.href = '/login'; }, 3000);
+        return;
+    }
+    if (!accessToken || !refreshToken) {
+        setStatus('Не удалось получить токен доступа', true);
+        setTimeout(function () { window.location.href = '/login'; }, 2000);
+        return;
+    }
+    try {
+        setStatus('Устанавливаем сессию...');
+        var res = await fetch('/api/auth/session', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                access_token: accessToken,
+                refresh_token: refreshToken
+            })
+        });
+        if (!res.ok) {
+            var data = await res.json().catch(function () { return {}; });
+            throw new Error(data.error || 'Не удалось установить сессию');
+        }
+        setStatus('Входим на карту...');
+        window.location.href = '/map';
+    } catch (err) {
+        setStatus('❌ ' + err.message, true);
+        setTimeout(function () { window.location.href = '/login'; }, 3000);
+    }
+}
+handleCallback();
+})();
+</script>
+{% endblock %}

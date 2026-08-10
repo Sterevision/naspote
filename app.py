@@ -239,6 +239,85 @@ def login():
         return redirect(url_for("login"))
 
 
+# ---------- MAGIC LINKS (НОВОЕ) ----------
+
+@app.route("/api/auth/magic-link", methods=["POST"])
+def api_magic_link():
+    """Отправить magic link на email."""
+    email = (request.json or {}).get("email", "").strip()
+    if not email:
+        return jsonify({"error": "Email обязателен"}), 400
+    
+    sb = get_supabase()
+    try:
+        # Supabase отправит письмо с ссылкой
+        # redirect_to указывает, куда перенаправить после клика
+        site_url = os.environ.get("SITE_URL", "https://kartometr.ru")
+        sb.auth.sign_in_with_otp({
+            "email": email,
+            "options": {
+                "email_redirect_to": f"{site_url}/auth/callback"
+            }
+        })
+        return jsonify({"ok": True, "message": "Ссылка отправлена на " + email})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/auth/session", methods=["POST"])
+def api_auth_session():
+    """Установить сессию по токенам из magic link."""
+    data = request.json or {}
+    access_token = data.get("access_token", "")
+    refresh_token = data.get("refresh_token", "")
+    if not access_token or not refresh_token:
+        return jsonify({"error": "Токены обязательны"}), 400
+    
+    try:
+        sb = get_supabase(access_token, refresh_token)
+        # проверяем, что токен валидный
+        user_res = sb.auth.get_user(access_token)
+        if not user_res or not user_res.user:
+            return jsonify({"error": "Невалидный токен"}), 401
+        
+        session["access_token"] = access_token
+        session["refresh_token"] = refresh_token
+        session["user_id"] = user_res.user.id
+        
+        # создаём профиль, если его нет
+        sb2 = get_supabase(access_token, refresh_token)
+        existing = sb2.table("profiles").select("id").eq("id", user_res.user.id).execute()
+        if not existing.data:
+            meta = user_res.user.user_metadata or {}
+            username = meta.get("username") or (user_res.user.email or "user").split("@")[0]
+            # проверяем уникальность username
+            existing_user = sb2.table("profiles").select("id").eq("username", username).execute()
+            if existing_user.data:
+                username = username + str(int(datetime.now().timestamp()))[-4:]
+            profile_data = {
+                "id": user_res.user.id,
+                "username": username,
+                "display_name": meta.get("display_name") or username,
+                "account_type": meta.get("account_type", "person"),
+            }
+            try:
+                sb2.table("profiles").insert(profile_data).execute()
+            except Exception as e:
+                return jsonify({"error": "Не удалось создать профиль: " + str(e)}), 500
+        
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/auth/callback")
+def auth_callback():
+    """Обработка redirect от Supabase после клика на magic link."""
+    # Supabase передаёт токены в URL fragment (#access_token=...&refresh_token=...)
+    # Но Flask не видит fragment, поэтому используем JS для извлечения
+    return render_template("auth_callback.html")
+
+
 @app.route("/logout")
 def logout():
     session.clear()
@@ -603,7 +682,6 @@ def api_spots_create():
     if photo and photo.filename:
         data["photo_url"] = upload_to_bucket(sb, "spot-photos", uid, photo)
 
-    # ---- АУДИО (НОВОЕ) ----
     audio = request.files.get("audio")
     if audio and audio.filename:
         data["audio_url"] = upload_to_bucket(sb, "spot-audio", uid, audio)

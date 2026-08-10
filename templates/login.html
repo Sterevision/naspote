@@ -3,23 +3,86 @@
 {% block content %}
 <div class="auth-page">
 <div class="card auth-card">
-<div class="logo">👋</div>
-<h1 class="display">С возвращением</h1>
-<p class="subtitle">Войдите, чтобы увидеть карту живого города</p>
-<form method="post" action="{{ url_for('login') }}">
-<div class="field">
-<label for="email">Email</label>
-<input class="input" type="email" id="email" name="email" autocomplete="email" required>
+<div class="logo">📍</div>
+<h1 class="display" style="text-align:center">С возвращением</h1>
+
+<div class="segmented" style="margin-bottom:18px;">
+<div class="segmented-item selected" data-tab="magic">🪄 Вход по ссылке</div>
+<div class="segmented-item" data-tab="password">🔑 По паролю</div>
 </div>
-<div class="field">
-<label for="password">Пароль</label>
-<input class="input" type="password" id="password" name="password" autocomplete="current-password" required>
-</div>
-<div class="auth-actions">
-<button class="btn btn-primary btn-block" type="submit">Войти</button>
-</div>
+
+<!-- ---- MAGIC LINK (НОВОЕ) ---- -->
+<div id="tab-magic">
+<form id="magicForm">
+<div class="field"><label>Email</label><input class="input" type="email" id="magicEmail" autocomplete="email" required></div>
+<button class="btn btn-primary btn-block" type="submit" id="magicBtn">📧 Отправить ссылку для входа</button>
 </form>
+<div id="magicStatus" style="margin-top:12px; font-size:13px; text-align:center; color:var(--muted);"></div>
+</div>
+
+<!-- ---- PASSWORD (старый) ---- -->
+<div id="tab-password" style="display:none;">
+<form method="post" action="{{ url_for('login') }}">
+<div class="field"><label>Email</label><input class="input" type="email" name="email" autocomplete="email" required></div>
+<div class="field"><label>Пароль</label><input class="input" type="password" name="password" autocomplete="current-password" required></div>
+<button class="btn btn-primary btn-block" type="submit">Войти</button>
+</form>
+</div>
+
 <div class="switch-link">Ещё нет аккаунта? <a href="{{ url_for('register') }}">Создать</a></div>
 </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+'use strict';
+var tabs = document.querySelectorAll('.segmented-item[data-tab]');
+tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+        tabs.forEach(function (x) { x.classList.remove('selected'); });
+        t.classList.add('selected');
+        var tab = t.dataset.tab;
+        document.getElementById('tab-magic').style.display = tab === 'magic' ? 'block' : 'none';
+        document.getElementById('tab-password').style.display = tab === 'password' ? 'block' : 'none';
+    });
+});
+var form = document.getElementById('magicForm');
+var btn = document.getElementById('magicBtn');
+var status = document.getElementById('magicStatus');
+var emailInput = document.getElementById('magicEmail');
+if (form && btn && status) {
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var email = emailInput.value.trim();
+        if (!email) return;
+        btn.disabled = true;
+        btn.textContent = 'Отправляем...';
+        status.textContent = '';
+        try {
+            var res = await fetch('/api/auth/magic-link', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (res.ok) {
+                status.style.color = 'var(--primary-dark)';
+                status.textContent = '✅ Письмо отправлено на ' + email + '. Проверьте почту и нажмите на ссылку.';
+            } else {
+                status.style.color = 'var(--danger)';
+                status.textContent = '❌ ' + (data.error || 'Не удалось отправить');
+            }
+        } catch (err) {
+            status.style.color = 'var(--danger)';
+            status.textContent = '❌ Ошибка сети';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '📧 Отправить ссылку для входа';
+        }
+    });
+}
+})();
+</script>
 {% endblock %}
