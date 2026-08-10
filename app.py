@@ -59,6 +59,25 @@ def login_required(view):
     return wrapped
 
 
+def admin_required(view):
+    @wraps(view)
+    @login_required
+    def wrapped(*args, **kwargs):
+        try:
+            sb = get_supabase(session["access_token"], session.get("refresh_token"))
+            result = sb.table("profiles").select("is_admin").eq("id", session["user_id"]).execute()
+            if not result.data or not result.data[0].get("is_admin"):
+                if request.path.startswith("/api/"):
+                    return jsonify({"error": "forbidden"}), 403
+                flash("Доступ запрещён")
+                return redirect(url_for("map_view"))
+        except Exception:
+            session.clear()
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
 def upload_to_bucket(sb, bucket, uid, file_storage):
     if not file_storage or not file_storage.filename:
         return None
@@ -84,7 +103,6 @@ def haversine(lat1, lng1, lat2, lng2):
 
 
 def parse_iso(value):
-    """Разбор даты из Supabase ('...+00:00' или с 'Z')."""
     if not value:
         return None
     try:
@@ -313,8 +331,9 @@ def profile_view(username):
             f"and(requester_id.eq.{profile['id']},addressee_id.eq.{session['user_id']})").execute()
         if f.data:
             friend_status = f.data[0]
+    my_profile = get_profile(sb, session["user_id"])
+    is_admin = bool(my_profile.get("is_admin"))
 
-    # ---------- статистика заведения (НОВОЕ) ----------
     org_stats = None
     if profile.get("account_type") == "organization":
         now = datetime.now(timezone.utc)
@@ -351,7 +370,7 @@ def profile_view(username):
     return render_template("profile.html", profile=profile, spots=spots_res.data,
                            is_me=is_me, friend_status=friend_status,
                            tagged_spots=tagged_spots, my_id=session["user_id"],
-                           org_stats=org_stats)
+                           org_stats=org_stats, is_admin=is_admin)
 
 
 @app.route("/friends")
@@ -441,6 +460,88 @@ def settings_view():
     return redirect(url_for("profile_view", username=profile.get("username", "")))
 
 
+# ---------- АДМИН-ПАНЕЛЬ ----------
+
+@app.route("/admin")
+@admin_required
+def admin_view():
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    profile = get_profile(sb, session["user_id"])
+    return render_template("admin.html", profile=profile)
+
+
+@app.route("/api/admin/users")
+@admin_required
+def api_admin_users():
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    q = request.args.get("q", "").strip().lower()
+    try:
+        res = sb.table("profiles") \
+            .select("id, username, display_name, avatar_url, account_type, category, "
+                    "is_verified, is_admin, created_at") \
+            .order("created_at", desc=True).limit(200).execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    users = res.data or []
+    if q:
+        users = [u for u in users
+                 if q in (u.get("username") or "").lower()
+                 or q in (u.get("display_name") or "").lower()]
+    return jsonify(users)
+
+
+@app.route("/api/admin/orgs/<user_id>/verify", methods=["POST"])
+@admin_required
+def api_admin_verify_org(user_id):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    value = (request.json or {}).get("value", True)
+    try:
+        sb.table("profiles").update({"is_verified": bool(value)}) \
+            .eq("id", user_id).eq("account_type", "organization").execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"ok": True, "is_verified": bool(value)})
+
+
+@app.route("/api/admin/users/<user_id>/admin", methods=["POST"])
+@admin_required
+def api_admin_toggle_admin(user_id):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    value = (request.json or {}).get("value", True)
+    if user_id == session["user_id"] and not value:
+        return jsonify({"error": "Нельзя снять админку с самого себя"}), 400
+    try:
+        sb.table("profiles").update({"is_admin": bool(value)}) \
+            .eq("id", user_id).execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"ok": True, "is_admin": bool(value)})
+
+
+@app.route("/api/admin/spots")
+@admin_required
+def api_admin_spots():
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    try:
+        res = sb.table("spots") \
+            .select("*, owner:owner_id(username, display_name)") \
+            .order("created_at", desc=True).limit(200).execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify(res.data or [])
+
+
+@app.route("/api/admin/spots/<int:spot_id>", methods=["DELETE"])
+@admin_required
+def api_admin_delete_spot(spot_id):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    try:
+        sb.table("spots").delete().eq("id", spot_id).execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"ok": True})
+
+
 # ---------- API: метки ----------
 
 @app.route("/api/spots", methods=["GET"])
@@ -502,6 +603,11 @@ def api_spots_create():
     if photo and photo.filename:
         data["photo_url"] = upload_to_bucket(sb, "spot-photos", uid, photo)
 
+    # ---- АУДИО (НОВОЕ) ----
+    audio = request.files.get("audio")
+    if audio and audio.filename:
+        data["audio_url"] = upload_to_bucket(sb, "spot-audio", uid, audio)
+
     try:
         res = sb.table("spots").insert(data).execute()
         return jsonify(res.data[0]), 201
@@ -544,7 +650,6 @@ def api_spot_comments(spot_id):
 @app.route("/api/organizations")
 @login_required
 def api_organizations_list():
-    """Организации с координатами — для вывода на карте как маркеров."""
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     res = sb.table("profiles") \
         .select("id, username, display_name, avatar_url, category, address, lat, lng, is_verified") \
@@ -562,7 +667,6 @@ def api_organizations_list():
 @app.route("/api/organizations/search")
 @login_required
 def api_organizations_search():
-    """Поиск заведений рядом с точкой — для привязки метки к заведению."""
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     q = request.args.get("q", "").strip().lower()
     try:
@@ -615,15 +719,14 @@ def api_friends_list():
     return jsonify(friends)
 
 
-# ---------- API: поиск людей ----------
-
 @app.route("/api/users/search")
 @login_required
 def api_users_search():
-    """Поиск людей по username или имени — для добавления в друзья."""
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
-    q = request.args.get("q", "").strip().replace("@", "", 1) if request.args.get("q", "").strip().startswith("@") else request.args.get("q", "").strip()
+    q = request.args.get("q", "").strip()
+    if q.startswith("@"):
+        q = q[1:]
     if len(q) < 2:
         return jsonify([])
     fields = "id, username, display_name, avatar_url, account_type"
@@ -770,7 +873,6 @@ def api_unread_count():
 @app.route("/api/spots/<int:spot_id>/reactions", methods=["GET"])
 @login_required
 def api_spot_reactions_get(spot_id):
-    """Получить все реакции на метку с подсчётом."""
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     try:
         res = sb.rpc("get_spot_reactions", {"p_spot_id": spot_id}).execute()
@@ -782,11 +884,10 @@ def api_spot_reactions_get(spot_id):
 @app.route("/api/spots/<int:spot_id>/reactions/<emoji>", methods=["POST", "DELETE"])
 @login_required
 def api_spot_reaction_toggle(spot_id, emoji):
-    """Поставить или убрать реакцию. POST = поставить, DELETE = убрать."""
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
 
-    valid_emojis = ['🔥', '❤️', '😂', '🎉']
+    valid_emojis = ['🔥', '❤️', '😂', '']
     if emoji not in valid_emojis:
         return jsonify({"error": "Недопустимая реакция"}), 400
 
