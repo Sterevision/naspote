@@ -25,6 +25,19 @@
     color: var(--muted);
     margin-top: 4px;
 }
+.badges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.badge-card {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.badge-emoji { font-size: 24px; flex-shrink: 0; }
+.badge-title { font-weight: 800; font-size: 13px; }
+.badge-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
 </style>
 {% endblock %}
 {% block content %}
@@ -51,6 +64,7 @@
 <div class="profile-actions">
 {% if is_me %}
 <a class="btn btn-soft" href="{{ url_for('settings_view') }}">⚙️ Настройки</a>
+{% if is_admin %}<a class="btn btn-primary" href="{{ url_for('admin_view') }}">🛠️ Админка</a>{% endif %}
 {% elif friend_status is none %}
 <button class="btn btn-primary" id="addFriendBtn">🤝 Добавить в друзья</button>
 {% elif friend_status.status == 'accepted' %}
@@ -62,6 +76,20 @@
 {% endif %}
 </div>
 </div>
+
+{% if badges %}
+<div class="card" style="margin-top:14px; padding:16px;">
+<div class="section-title" style="margin-top:0;">🏆 Достижения · {{ badges|length }}</div>
+<div class="badges-grid">
+{% for b in badges %}
+<div class="badge-card">
+<div class="badge-emoji">{{ b.emoji }}</div>
+<div><div class="badge-title">{{ b.title }}</div><div class="badge-desc">{{ b.desc }}</div></div>
+</div>
+{% endfor %}
+</div>
+</div>
+{% endif %}
 
 {% if is_me and org_stats %}
 <div class="card" style="margin-top:14px; padding:16px;">

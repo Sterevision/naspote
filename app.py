@@ -111,6 +111,51 @@ def parse_iso(value):
         return None
 
 
+# ---------- ДОСТИЖЕНИЯ (НОВОЕ) ----------
+
+def compute_badges(sb, uid):
+    """Вычисляет бейджи пользователя на лету из существующих данных."""
+    badges = []
+    try:
+        spots_res = sb.table("spots") \
+            .select("id, category, created_at, audio_url, photo_url, organization_id") \
+            .eq("owner_id", uid).execute()
+        spots = spots_res.data or []
+    except Exception:
+        spots = []
+    try:
+        friends_res = sb.table("friendships").select("id").eq("status", "accepted") \
+            .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
+        friends_count = len(friends_res.data or [])
+    except Exception:
+        friends_count = 0
+
+    night = any(parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")).hour < 5 for s in spots)
+    art = sum(1 for s in spots if s.get("category") == "Выставка/галерея")
+    bars = sum(1 for s in spots if s.get("category") == "Бар")
+    audio = any(s.get("audio_url") for s in spots)
+    photo = any(s.get("photo_url") for s in spots)
+    org = any(s.get("organization_id") for s in spots)
+
+    if night:
+        badges.append({"emoji": "🌙", "title": "Ночной житель", "desc": "Отметился с 00:00 до 05:00"})
+    if art >= 3:
+        badges.append({"emoji": "🎨", "title": "Ценитель искусства", "desc": "3 метки у выставок и галерей"})
+    if bars >= 3:
+        badges.append({"emoji": "🍸", "title": "Коллекционер баров", "desc": "3 метки в барах"})
+    if len(spots) >= 10:
+        badges.append({"emoji": "🔥", "title": "В центре событий", "desc": "10 меток на карте"})
+    if friends_count >= 3:
+        badges.append({"emoji": "🤝", "title": "Социальный", "desc": "3 и больше друзей"})
+    if audio:
+        badges.append({"emoji": "🎙️", "title": "Голос города", "desc": "Метка с аудио-атмосферой"})
+    if photo:
+        badges.append({"emoji": "📸", "title": "Фотограф", "desc": "Метка с фото"})
+    if org:
+        badges.append({"emoji": "🏢", "title": "Исследователь заведений", "desc": "Метка, привязанная к заведению"})
+    return badges
+
+
 # ---------- страницы ----------
 
 @app.route("/")
@@ -239,25 +284,17 @@ def login():
         return redirect(url_for("login"))
 
 
-# ---------- MAGIC LINKS (НОВОЕ) ----------
-
 @app.route("/api/auth/magic-link", methods=["POST"])
 def api_magic_link():
-    """Отправить magic link на email."""
     email = (request.json or {}).get("email", "").strip()
     if not email:
         return jsonify({"error": "Email обязателен"}), 400
-    
     sb = get_supabase()
     try:
-        # Supabase отправит письмо с ссылкой
-        # redirect_to указывает, куда перенаправить после клика
         site_url = os.environ.get("SITE_URL", "https://kartometr.ru")
         sb.auth.sign_in_with_otp({
             "email": email,
-            "options": {
-                "email_redirect_to": f"{site_url}/auth/callback"
-            }
+            "options": {"email_redirect_to": f"{site_url}/auth/callback"}
         })
         return jsonify({"ok": True, "message": "Ссылка отправлена на " + email})
     except Exception as e:
@@ -266,31 +303,24 @@ def api_magic_link():
 
 @app.route("/api/auth/session", methods=["POST"])
 def api_auth_session():
-    """Установить сессию по токенам из magic link."""
     data = request.json or {}
     access_token = data.get("access_token", "")
     refresh_token = data.get("refresh_token", "")
     if not access_token or not refresh_token:
         return jsonify({"error": "Токены обязательны"}), 400
-    
     try:
         sb = get_supabase(access_token, refresh_token)
-        # проверяем, что токен валидный
         user_res = sb.auth.get_user(access_token)
         if not user_res or not user_res.user:
             return jsonify({"error": "Невалидный токен"}), 401
-        
         session["access_token"] = access_token
         session["refresh_token"] = refresh_token
         session["user_id"] = user_res.user.id
-        
-        # создаём профиль, если его нет
         sb2 = get_supabase(access_token, refresh_token)
         existing = sb2.table("profiles").select("id").eq("id", user_res.user.id).execute()
         if not existing.data:
             meta = user_res.user.user_metadata or {}
             username = meta.get("username") or (user_res.user.email or "user").split("@")[0]
-            # проверяем уникальность username
             existing_user = sb2.table("profiles").select("id").eq("username", username).execute()
             if existing_user.data:
                 username = username + str(int(datetime.now().timestamp()))[-4:]
@@ -304,7 +334,6 @@ def api_auth_session():
                 sb2.table("profiles").insert(profile_data).execute()
             except Exception as e:
                 return jsonify({"error": "Не удалось создать профиль: " + str(e)}), 500
-        
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -312,9 +341,6 @@ def api_auth_session():
 
 @app.route("/auth/callback")
 def auth_callback():
-    """Обработка redirect от Supabase после клика на magic link."""
-    # Supabase передаёт токены в URL fragment (#access_token=...&refresh_token=...)
-    # Но Flask не видит fragment, поэтому используем JS для извлечения
     return render_template("auth_callback.html")
 
 
@@ -413,6 +439,9 @@ def profile_view(username):
     my_profile = get_profile(sb, session["user_id"])
     is_admin = bool(my_profile.get("is_admin"))
 
+    # ---- ДОСТИЖЕНИЯ (НОВОЕ) ----
+    badges = compute_badges(sb, profile["id"])
+
     org_stats = None
     if profile.get("account_type") == "organization":
         now = datetime.now(timezone.utc)
@@ -449,7 +478,7 @@ def profile_view(username):
     return render_template("profile.html", profile=profile, spots=spots_res.data,
                            is_me=is_me, friend_status=friend_status,
                            tagged_spots=tagged_spots, my_id=session["user_id"],
-                           org_stats=org_stats, is_admin=is_admin)
+                           org_stats=org_stats, is_admin=is_admin, badges=badges)
 
 
 @app.route("/friends")
@@ -965,7 +994,7 @@ def api_spot_reaction_toggle(spot_id, emoji):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
 
-    valid_emojis = ['🔥', '❤️', '😂', '']
+    valid_emojis = ['\U0001F525', '❤️', '\U0001F602', '\U0001F389']
     if emoji not in valid_emojis:
         return jsonify({"error": "Недопустимая реакция"}), 400
 

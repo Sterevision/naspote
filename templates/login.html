@@ -7,11 +7,10 @@
 <h1 class="display" style="text-align:center">С возвращением</h1>
 
 <div class="segmented" style="margin-bottom:18px;">
-<div class="segmented-item selected" data-tab="magic">🪄 Вход по ссылке</div>
+<div class="segmented-item selected" data-tab="magic">✉️ Вход по ссылке</div>
 <div class="segmented-item" data-tab="password">🔑 По паролю</div>
 </div>
 
-<!-- ---- MAGIC LINK (НОВОЕ) ---- -->
 <div id="tab-magic">
 <form id="magicForm">
 <div class="field"><label>Email</label><input class="input" type="email" id="magicEmail" autocomplete="email" required></div>
@@ -20,7 +19,6 @@
 <div id="magicStatus" style="margin-top:12px; font-size:13px; text-align:center; color:var(--muted);"></div>
 </div>
 
-<!-- ---- PASSWORD (старый) ---- -->
 <div id="tab-password" style="display:none;">
 <form method="post" action="{{ url_for('login') }}">
 <div class="field"><label>Email</label><input class="input" type="email" name="email" autocomplete="email" required></div>
