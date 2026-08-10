@@ -2,6 +2,7 @@
 'use strict';
 var map = null;
 var markersLayer = null;
+var heatmapLayer = null;
 var youMarker = null;
 var pendingLat = 55.75;
 var pendingLng = 37.62;
@@ -44,6 +45,11 @@ function timeLeft(iso) {
         return minutes + ' м';
     }
     return 'меньше минуты';
+}
+function minutesLeft(iso) {
+    if (!iso) return 999;
+    var diff = new Date(iso) - new Date();
+    return diff / 60000;
 }
 function showMapStatus(text, isError) {
     var el = $('mapStatus');
@@ -149,6 +155,7 @@ function initMap() {
         position: 'bottomleft'
     }).addTo(map);
     markersLayer = L.layerGroup().addTo(map);
+    heatmapLayer = L.layerGroup().addTo(map);
     orgMarkersLayer = L.layerGroup().addTo(map);
     if (home && home.lat !== null && home.lng !== null) {
         setYouMarker(pendingLat, pendingLng);
@@ -162,6 +169,60 @@ function initMap() {
         openAddSheet(event.latlng.lat, event.latlng.lng, 'manual');
     });
 }
+
+// ---------- ТЕПЛОВАЯ КАРТА (НОВОЕ) ----------
+function renderHeatmap() {
+    if (!heatmapLayer || !map) return;
+    heatmapLayer.clearLayers();
+    if (!allSpots.length) return;
+    
+    var gridSize = 0.003; // примерно 300 метров
+    var grid = {};
+    
+    allSpots.forEach(function (spot) {
+        if (spot.organization_id) return; // не считаем метки заведений
+        var key = Math.floor(spot.lat / gridSize) + ',' + Math.floor(spot.lng / gridSize);
+        if (!grid[key]) {
+            grid[key] = { count: 0, lat: 0, lng: 0 };
+        }
+        grid[key].count++;
+        grid[key].lat += spot.lat;
+        grid[key].lng += spot.lng;
+    });
+    
+    Object.keys(grid).forEach(function (key) {
+        var cell = grid[key];
+        var avgLat = cell.lat / cell.count;
+        var avgLng = cell.lng / cell.count;
+        var intensity = Math.min(cell.count / 5, 1); // нормализуем: 5+ меток = максимум
+        
+        if (cell.count < 2) return; // одиночные метки не подсвечиваем
+        
+        var color = intensity < 0.3 ? '#fbbf24' : intensity < 0.6 ? '#f97316' : '#ef4444';
+        var radius = 150 + intensity * 200; // 150-350 метров
+        
+        L.circle([avgLat, avgLng], {
+            radius: radius,
+            fillColor: color,
+            fillOpacity: 0.25 + intensity * 0.15,
+            stroke: false
+        }).addTo(heatmapLayer);
+    });
+}
+
+function checkDyingSpots() {
+    if (!markersLayer) return;
+    markersLayer.eachLayer(function (marker) {
+        if (!marker._spot) return;
+        var mins = minutesLeft(marker._spot.expires_at);
+        if (mins <= 10 && mins > 0) {
+            marker._container && marker._container.classList.add('dying');
+        } else if (mins <= 0) {
+            markersLayer.removeLayer(marker);
+        }
+    });
+}
+
 function applyFilter() {
     if (!markersLayer) {
         return;
@@ -177,20 +238,24 @@ function applyFilter() {
         .forEach(function (spot) {
             var color = pinColor(spot);
             var waveClass = isWaveActive(spot) ? ' wave' : '';
+            var mins = minutesLeft(spot.expires_at);
+            var dyingClass = (mins <= 10 && mins > 0) ? ' dying' : '';
             var icon = L.divIcon({
                 className: '',
-                html: '<div class="spot-pin' + waveClass + '" style="background:' + color + '; color:' + color + '"></div>',
+                html: '<div class="spot-pin' + waveClass + dyingClass + '" style="background:' + color + '; color:' + color + '"></div>',
                 iconSize: [30, 30],
                 iconAnchor: [15, 26]
             });
-            L.marker([spot.lat, spot.lng], {
+            var marker = L.marker([spot.lat, spot.lng], {
                 icon: icon
             })
                 .addTo(markersLayer)
                 .on('click', function () {
                     openSpot(spot);
                 });
+            marker._spot = spot;
         });
+    renderHeatmap();
     loadOrganizations();
 }
 function renderOrganizations() {
@@ -687,7 +752,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!document.hidden) {
             loadSpots();
             loadOrganizations();
+            checkDyingSpots();
         }
     }, 30000);
+    setInterval(function () {
+        if (!document.hidden) {
+            checkDyingSpots();
+        }
+    }, 10000);
 });
 })();

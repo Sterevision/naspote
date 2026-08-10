@@ -19,6 +19,8 @@
 <div class="legend-row"><span class="legend-dot public"></span> Видят все</div>
 <div class="legend-row"><span class="legend-dot manual"></span> Расставлено вручную</div>
 <div class="legend-row">⚡ Волна — пульсирует</div>
+<div class="legend-row">🔥 Горячие зоны — много меток</div>
+<div class="legend-row">⏳ Угасание — скоро исчезнет</div>
 </div>
 <div class="fab-column">
 <button class="fab-mini" id="manualToggle" type="button">✋</button>
@@ -76,7 +78,7 @@
 <script>
 window.MAP_HOME = {{ map_home|default({})|tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/map.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/map.js') }}?v=5"></script>
 <script src="{{ url_for('static', filename='js/geo-notify.js') }}?v=2"></script>
 <script>
 /* ---------- привязка метки к заведению ---------- */
