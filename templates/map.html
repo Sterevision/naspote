@@ -61,6 +61,15 @@
 <div class="field"><label>Сколько на карте?</label><div class="duration-toggle"><div class="duration-option" data-h="1">1 ч</div><div class="duration-option selected" data-h="3">3 ч</div><div class="duration-option" data-h="6">6 ч</div><div class="duration-option" data-h="24">сутки</div></div></div>
 <div class="field"><label>Кто увидит?</label><div class="segmented"><div class="segmented-item selected" data-vis="public">🌍 Все</div><div class="segmented-item" data-vis="friends">🤝 Друзья</div></div></div>
 <div class="field"><label>Фотография</label><label class="file-drop" for="spotPhoto"><span class="file-drop-text" id="photoDropText"><span>📷</span>Добавить фото к метке</span><img id="photoPreview" hidden></label><input type="file" id="spotPhoto" name="photo" accept="image/*" hidden></div>
+
+<!-- ---- АУДИО-ЗАПИСЬ (НОВОЕ) ---- -->
+<div class="field">
+<label>🎧 Атмосфера (звук)</label>
+<button type="button" class="btn btn-soft btn-block" id="recordAudioBtn" style="margin-bottom:8px;">🎙️ Записать атмосферу (10 сек)</button>
+<div id="audioRecordStatus" style="font-size:12px; color:var(--muted); text-align:center;"></div>
+<input type="file" id="audioInputHidden" name="audio" accept="audio/*" hidden>
+</div>
+
 <div class="field"><label>Привязать к заведению (необязательно)</label>
 <div class="org-search-box">
 <input class="input" type="text" id="orgSearch" placeholder="Название заведения..." autocomplete="off">
@@ -78,10 +87,9 @@
 <script>
 window.MAP_HOME = {{ map_home|default({})|tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/map.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/map.js') }}?v=6"></script>
 <script src="{{ url_for('static', filename='js/geo-notify.js') }}?v=2"></script>
 <script>
-/* ---------- привязка метки к заведению ---------- */
 (function () {
 'use strict';
 var searchInput = document.getElementById('orgSearch');
