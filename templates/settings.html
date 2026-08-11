@@ -1,10 +1,37 @@
 {% extends "base.html" %}
 {% from "_nav.html" import bottom_nav %}
 {% block title %}Настройки — Картометр{% endblock %}
+{% block head %}
+<style>
+.interests-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
+.interest-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all .15s ease;
+    user-select: none;
+}
+.interest-chip:hover { border-color: var(--line-strong); }
+.interest-chip.checked {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary-dark);
+    font-weight: 700;
+}
+.interest-chip input[type=checkbox] { display: none; }
+.interest-chip .emo { font-size: 18px; }
+.interest-chip .lab { font-size: 13px; flex: 1; }
+</style>
+{% endblock %}
 {% block content %}
 <div class="app-shell">
 <div class="list-page" style="flex:1; overflow-y:auto;">
-<div class="page-head"><div><h1 class="display" style="font-size:24px">⚙️ Настройки</h1><p class="subtitle">Профиль, контакты и точки на карте</p></div></div>
+<div class="page-head"><div><h1 class="display" style="font-size:24px">⚙️ Настройки</h1><p class="subtitle">Профиль, контакты, интересы и точки на карте</p></div></div>
 <form method="post" enctype="multipart/form-data" class="settings-form">
 
 <div class="section-title">Профиль и аватар</div>
@@ -21,6 +48,32 @@
 <img id="avatarPreview" src="{{ profile.avatar_url or '' }}" {% if not profile.avatar_url %}hidden{% endif %} style="width:100%; max-height:200px; object-fit:cover;">
 </label>
 <input type="file" id="avatarInput" name="avatar" accept="image/*" hidden>
+</div>
+
+<!-- ---- ИНТЕРЕСЫ (НОВОЕ) ---- -->
+<div class="section-title">🫶 Мои интересы</div>
+<p class="hint" style="margin:0 0 8px;">Отметьте, что вам интересно. Мы покажем ваши метки людям со схожими интересами и найдём для вас «своих».</p>
+<div class="interests-grid">
+{% set my_int = profile.interests or [] %}
+{% set all_interests = [
+    ('techno', '🎵', 'Техно / электроника'),
+    ('art', '🎨', 'Искусство / галереи'),
+    ('bars', '🍸', 'Бары / коктейли'),
+    ('coffee', '☕', 'Кофейни'),
+    ('sport', '🏃', 'Спорт'),
+    ('nature', '🌳', 'Природа'),
+    ('karaoke', '🎤', 'Караоке'),
+    ('games', '🎮', 'Игры / настолки'),
+    ('books', '📚', 'Книги / лекции'),
+    ('food', '🍕', 'Еда / рестораны')
+] %}
+{% for key, emo, label in all_interests %}
+<label class="interest-chip {% if key in my_int %}checked{% endif %}">
+<input type="checkbox" name="interests" value="{{ key }}" {% if key in my_int %}checked{% endif %}>
+<span class="emo">{{ emo }}</span>
+<span class="lab">{{ label }}</span>
+</label>
+{% endfor %}
 </div>
 
 <div class="section-title">Контакты</div>
@@ -72,18 +125,28 @@
 {% endblock %}
 {% block scripts %}
 <script>
+(function () {
+document.querySelectorAll('.interest-chip').forEach(function (chip) {
+    var cb = chip.querySelector('input[type=checkbox]');
+    chip.addEventListener('click', function (e) {
+        if (e.target === cb) return;
+        cb.checked = !cb.checked;
+        chip.classList.toggle('checked', cb.checked);
+    });
+});
 var avatarInput = document.getElementById('avatarInput');
 var avatarPreview = document.getElementById('avatarPreview');
 var avatarDropText = document.getElementById('avatarDropText');
 if (avatarInput && avatarPreview && avatarDropText) {
-avatarInput.addEventListener('change', function () {
-var file = this.files && this.files[0];
-if (!file) { return; }
-var url = URL.createObjectURL(file);
-avatarPreview.src = url;
-avatarPreview.hidden = false;
-avatarDropText.style.display = 'none';
-});
+    avatarInput.addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        if (!file) { return; }
+        var url = URL.createObjectURL(file);
+        avatarPreview.src = url;
+        avatarPreview.hidden = false;
+        avatarDropText.style.display = 'none';
+    });
 }
+})();
 </script>
 {% endblock %}

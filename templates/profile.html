@@ -11,20 +11,8 @@
     padding: 12px 8px;
     text-align: center;
 }
-.stat-num {
-    font-family: var(--font-display);
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--primary-dark);
-}
-.stat-label {
-    font-size: 11px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: var(--muted);
-    margin-top: 4px;
-}
+.stat-num { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--primary-dark); }
+.stat-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 4px; }
 .badges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .badge-card {
     background: var(--surface-2);
@@ -38,6 +26,19 @@
 .badge-emoji { font-size: 24px; flex-shrink: 0; }
 .badge-title { font-weight: 800; font-size: 13px; }
 .badge-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.interests-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; justify-content: center; }
+.interest-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -48,6 +49,29 @@
 <div class="profile-name-row"><h1 class="display" style="font-size:22px;">{{ profile.display_name }}</h1>{% if profile.is_verified %}<span class="verified">✅</span>{% endif %}</div>
 <div class="hint">@{{ profile.username }}{% if profile.age %} · {{ profile.age }}{% endif %}{% if profile.location %} · {{ profile.location }}{% endif %}</div>
 {% if profile.bio %}<p class="profile-bio">{{ profile.bio }}</p>{% endif %}
+
+{% set int_map = {
+    'techno': ('🎵', 'Техно'),
+    'art': ('🎨', 'Искусство'),
+    'bars': ('🍸', 'Бары'),
+    'coffee': ('☕', 'Кофейни'),
+    'sport': ('🏃', 'Спорт'),
+    'nature': ('🌳', 'Природа'),
+    'karaoke': ('🎤', 'Караоке'),
+    'games': ('🎮', 'Игры'),
+    'books': ('📚', 'Книги'),
+    'food': ('🍕', 'Еда')
+} %}
+{% set ints = profile.interests or [] %}
+{% if ints %}
+<div class="interests-row">
+{% for key in ints %}
+{% if key in int_map %}
+<span class="interest-pill">{{ int_map[key][0] }} {{ int_map[key][1] }}</span>
+{% endif %}
+{% endfor %}
+</div>
+{% endif %}
 
 {% if profile.telegram_username or profile.contact_phone or profile.contact_email %}
 <div style="display:flex; flex-direction:column; gap:6px; margin-top:14px; align-items:center;">
