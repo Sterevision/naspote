@@ -44,6 +44,12 @@ function minutesLeft(iso) {
     var diff = new Date(iso) - new Date();
     return diff / 60000;
 }
+function loadMyInterests(cb) {
+    fetch('/api/me', { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .then(function (d) { window.MY_INTERESTS = d.interests || []; if (cb) cb(); })
+        .catch(function () { window.MY_INTERESTS = []; if (cb) cb(); });
+}
 function showMapStatus(text, isError) {
     var el = $('mapStatus');
     if (!el) return;
@@ -570,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!$('map')) return;
     initMap();
     bindUI();
-    loadSpots();
+    loadMyInterests(function () { loadSpots(); });
     setInterval(function () {
         if (!document.hidden) { loadSpots(); loadOrganizations(); checkDyingSpots(); }
     }, 30000);

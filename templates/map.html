@@ -32,10 +32,7 @@
 <button type="button" id="manualBannerClose">✕</button>
 </div>
 <div id="mapStatus" class="map-status" style="display:none;"></div>
-
-<!-- ---- ЧИП "СВОИ" (НОВОЕ) ---- -->
-<button class="own-chip" id="ownToggle" type="button" style="position:absolute; top:110px; right:16px; z-index:25; background:rgba(255,255,255,.95); border:1.5px solid var(--line); border-radius:999px; padding:10px 16px; font-size:14px; font-weight:800; color:var(--text); cursor:pointer; box-shadow:0 8px 24px rgba(15,23,42,.12);">✨ Свои</button>
-
+<button class="own-chip" id="ownToggle" type="button" style="position:absolute; top:auto; bottom:230px; right:16px; z-index:25; background:rgba(255,255,255,.95); border:1.5px solid var(--line); border-radius:999px; padding:10px 16px; font-size:14px; font-weight:800; color:var(--text); cursor:pointer; box-shadow:0 8px 24px rgba(15,23,42,.12);">✨ Свои</button>
 </div>
 <nav class="bottom-nav">
 <a class="nav-item active" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span><span class="label">Карта</span></a>
@@ -45,7 +42,6 @@
 <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span><span class="label">Профиль</span></a>
 </nav>
 </div>
-
 <div class="sheet-overlay" id="addSpotOverlay">
 <div class="sheet">
 <div class="sheet-handle"></div>
@@ -65,14 +61,12 @@
 <div class="field"><label>Сколько на карте?</label><div class="duration-toggle"><div class="duration-option" data-h="1">1 ч</div><div class="duration-option selected" data-h="3">3 ч</div><div class="duration-option" data-h="6">6 ч</div><div class="duration-option" data-h="24">сутки</div></div></div>
 <div class="field"><label>Кто увидит?</label><div class="segmented"><div class="segmented-item selected" data-vis="public">🌍 Все</div><div class="segmented-item" data-vis="friends">🤝 Друзья</div></div></div>
 <div class="field"><label>Фотография</label><label class="file-drop" for="spotPhoto"><span class="file-drop-text" id="photoDropText"><span>📷</span>Добавить фото к метке</span><img id="photoPreview" hidden></label><input type="file" id="spotPhoto" name="photo" accept="image/*" hidden></div>
-
 <div class="field">
 <label>🎧 Атмосфера (звук)</label>
 <button type="button" class="btn btn-soft btn-block" id="recordAudioBtn" style="margin-bottom:8px;">🎙️ Записать атмосферу (10 сек)</button>
 <div id="audioRecordStatus" style="font-size:12px; color:var(--muted); text-align:center;"></div>
 <input type="file" id="audioInputHidden" name="audio" accept="audio/*" hidden>
 </div>
-
 <div class="field"><label>Привязать к заведению (необязательно)</label>
 <div class="org-search-box">
 <input class="input" type="text" id="orgSearch" placeholder="Название заведения..." autocomplete="off">
@@ -89,9 +83,8 @@
 {% block scripts %}
 <script>
 window.MAP_HOME = {{ map_home|default({})|tojson }};
-window.MY_INTERESTS = {{ profile.interests or []|tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/map.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/map.js') }}?v=10"></script>
 <script src="{{ url_for('static', filename='js/geo-notify.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/org-search.js') }}?v=1"></script>
 {% endblock %}

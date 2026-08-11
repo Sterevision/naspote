@@ -46,15 +46,22 @@ def login_required(view):
             if request.path.startswith("/api/"):
                 return jsonify({"error": "unauthorized"}), 401
             return redirect(url_for("login"))
+        sb = get_supabase(session["access_token"], session.get("refresh_token"))
         try:
-            sb = get_supabase(session["access_token"], session.get("refresh_token"))
             result = sb.table("profiles").select("id").eq("id", session["user_id"]).execute()
             if not result.data:
                 raise Exception("profile not found")
         except Exception:
-            session.clear()
-            flash("Сессия истекла. Войдите заново.")
-            return redirect(url_for("login"))
+            try:
+                refreshed = sb.auth.refresh_session()
+                session["access_token"] = refreshed.session.access_token
+                session["refresh_token"] = refreshed.session.refresh_token
+            except Exception:
+                session.clear()
+                if request.path.startswith("/api/"):
+                    return jsonify({"error": "unauthorized"}), 401
+                flash("Сессия истекла. Войдите заново.")
+                return redirect(url_for("login"))
         return view(*args, **kwargs)
     return wrapped
 
@@ -348,6 +355,17 @@ def logout():
     session.clear()
     return redirect(url_for("index"))
 
+
+@app.route("/api/me")
+@login_required
+def api_me():
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    prof = get_profile(sb, session["user_id"])
+    return jsonify({
+        "id": session["user_id"],
+        "username": prof.get("username"),
+        "interests": prof.get("interests") or [],
+    })
 
 @app.route("/map")
 @login_required
