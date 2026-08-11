@@ -528,3 +528,33 @@ PATCH — фиксы критики + механика заведений + ле
     0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
     50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
 }
+/* ---- 18. Подсветка "Своих" на карте (НОВОЕ) ---- */
+.spot-pin.own-highlight {
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.4), 0 0 0 8px rgba(139, 92, 246, 0.2);
+    animation: own-pulse 2s ease-in-out infinite;
+}
+@keyframes own-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.4), 0 0 0 8px rgba(139, 92, 246, 0.2); }
+    50% { box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.6), 0 0 0 12px rgba(139, 92, 246, 0.3); }
+}
+.own-chip {
+    position: absolute;
+    top: 110px;
+    right: 16px;
+    z-index: 20;
+    background: var(--surface-solid);
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    transition: all .15s ease;
+}
+.own-chip:hover { border-color: var(--primary); }
+.own-chip.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}

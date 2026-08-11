@@ -16,6 +16,7 @@ var targetSpotId = new URLSearchParams(window.location.search).get('spot');
 var audioBlob = null;
 var mediaRecorder = null;
 var recordTimer = null;
+var showOwn = false;
 
 function $(id) { return document.getElementById(id); }
 function esc(value) {
@@ -161,6 +162,16 @@ function checkDyingSpots() {
         else if (mins <= 0) markersLayer.removeLayer(marker);
     });
 }
+
+// ---------- СВОИ ЛЮДИ (НОВОЕ) ----------
+function hasCommonInterests(spot) {
+    if (!showOwn) return false;
+    var myInt = window.MY_INTERESTS || [];
+    var theirInt = (spot.owner && spot.owner.interests) || [];
+    if (!myInt.length || !theirInt.length) return false;
+    return myInt.some(function (i) { return theirInt.indexOf(i) !== -1; });
+}
+
 function applyFilter() {
     if (!markersLayer) return;
     markersLayer.clearLayers();
@@ -174,9 +185,10 @@ function applyFilter() {
             var waveClass = isWaveActive(spot) ? ' wave' : '';
             var mins = minutesLeft(spot.expires_at);
             var dyingClass = (mins <= 10 && mins > 0) ? ' dying' : '';
+            var ownClass = hasCommonInterests(spot) ? ' own-highlight' : '';
             var icon = L.divIcon({
                 className: '',
-                html: '<div class="spot-pin' + waveClass + dyingClass + '" style="background:' + color + '; color:' + color + '"></div>',
+                html: '<div class="spot-pin' + waveClass + dyingClass + ownClass + '" style="background:' + color + '; color:' + color + '"></div>',
                 iconSize: [30, 30],
                 iconAnchor: [15, 26]
             });
@@ -234,7 +246,6 @@ async function loadSpots() {
     } catch (error) { /* silent */ }
 }
 
-// ---------- АУДИО: запись с микрофона (НОВОЕ) ----------
 function initAudioRecorder() {
     var recordBtn = $('recordAudioBtn');
     var statusEl = $('audioRecordStatus');
@@ -318,7 +329,6 @@ function resetAddForm() {
     var dropText = $('photoDropText');
     if (preview) { preview.src = ''; preview.hidden = true; }
     if (dropText) dropText.style.display = 'flex';
-    // сброс аудио
     audioBlob = null;
     var audioStatus = $('audioRecordStatus');
     if (audioStatus) audioStatus.textContent = '';
@@ -394,7 +404,6 @@ function openSpot(spot) {
     if (spot.expires_at) meta.push('⏳ ' + timeLeft(spot.expires_at));
     if (meta.length) html += '<p class="hint" style="margin-bottom:14px;">' + meta.join(' · ') + '</p>';
     if (photoUrl) html += '<img src="' + esc(photoUrl) + '" alt="" style="width:100%; border-radius:22px; object-fit:cover; max-height:320px; margin-bottom:14px;">';
-    // ---- АУДИО-ПЛЕЕР (НОВОЕ) ----
     if (audioUrl) {
         html += '<div class="audio-player">' +
             '<div class="audio-head">' +
@@ -474,6 +483,19 @@ function bindUI() {
     var legendToggle = $('legendToggle');
     var legendPanel = $('legendPanel');
     if (legendToggle && legendPanel) legendToggle.addEventListener('click', function () { legendPanel.classList.toggle('open'); });
+    
+    // ---- ЧИП "СВОИ" (НОВОЕ) ----
+    var ownToggle = $('ownToggle');
+    if (ownToggle) {
+        ownToggle.addEventListener('click', function () {
+            showOwn = !showOwn;
+            ownToggle.classList.toggle('active', showOwn);
+            ownToggle.style.background = showOwn ? 'var(--primary)' : '';
+            ownToggle.style.color = showOwn ? '#fff' : '';
+            applyFilter();
+        });
+    }
+    
     document.querySelectorAll('#categoryScroller .chip').forEach(function (chip) {
         chip.addEventListener('click', function () {
             document.querySelectorAll('#categoryScroller .chip').forEach(function (item) { item.classList.remove('selected'); });

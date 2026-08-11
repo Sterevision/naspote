@@ -32,6 +32,10 @@
 <button type="button" id="manualBannerClose">✕</button>
 </div>
 <div id="mapStatus" class="map-status" style="display:none;"></div>
+
+<!-- ---- ЧИП "СВОИ" (НОВОЕ) ---- -->
+<button class="map-btn own-chip" id="ownToggle" type="button" style="top:110px; right:16px;">🫶 Свои</button>
+
 </div>
 <nav class="bottom-nav">
 <a class="nav-item active" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span><span class="label">Карта</span></a>
@@ -62,7 +66,6 @@
 <div class="field"><label>Кто увидит?</label><div class="segmented"><div class="segmented-item selected" data-vis="public">🌍 Все</div><div class="segmented-item" data-vis="friends">🤝 Друзья</div></div></div>
 <div class="field"><label>Фотография</label><label class="file-drop" for="spotPhoto"><span class="file-drop-text" id="photoDropText"><span>📷</span>Добавить фото к метке</span><img id="photoPreview" hidden></label><input type="file" id="spotPhoto" name="photo" accept="image/*" hidden></div>
 
-<!-- ---- АУДИО-ЗАПИСЬ (НОВОЕ) ---- -->
 <div class="field">
 <label>🎧 Атмосфера (звук)</label>
 <button type="button" class="btn btn-soft btn-block" id="recordAudioBtn" style="margin-bottom:8px;">🎙️ Записать атмосферу (10 сек)</button>
@@ -86,8 +89,9 @@
 {% block scripts %}
 <script>
 window.MAP_HOME = {{ map_home|default({})|tojson }};
+window.MY_INTERESTS = {{ profile.interests or []|tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/map.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/map.js') }}?v=7"></script>
 <script src="{{ url_for('static', filename='js/geo-notify.js') }}?v=2"></script>
 <script>
 (function () {
