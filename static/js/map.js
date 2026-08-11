@@ -490,8 +490,9 @@ function bindUI() {
         ownToggle.addEventListener('click', function () {
             showOwn = !showOwn;
             ownToggle.classList.toggle('active', showOwn);
-            ownToggle.style.background = showOwn ? 'var(--primary)' : '';
-            ownToggle.style.color = showOwn ? '#fff' : '';
+            ownToggle.style.background = showOwn ? 'var(--primary)' : 'rgba(255,255,255,.95)';
+            ownToggle.style.color = showOwn ? '#fff' : 'var(--text)';
+            ownToggle.style.borderColor = showOwn ? 'var(--primary)' : 'var(--line)';
             applyFilter();
         });
     }
