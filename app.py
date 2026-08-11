@@ -1069,7 +1069,16 @@ def api_flash_deals_list():
     else:
         q = q.eq("active", True)
     res = q.execute()
-    return jsonify(res.data or [])
+    deals = res.data or []
+    if deals:
+        ids = [d["id"] for d in deals]
+        claims = sb.table("flash_deal_claims").select("deal_id").in_("deal_id", ids).execute()
+        counts = {}
+        for c in (claims.data or []):
+            counts[c["deal_id"]] = counts.get(c["deal_id"], 0) + 1
+        for d in deals:
+            d["claimed"] = counts.get(d["id"], 0)
+    return jsonify(deals)
 
 
 @app.route("/api/flash-deals", methods=["POST"])
@@ -1119,17 +1128,18 @@ def api_flash_deals_claim(deal_id):
         return jsonify({"error": "Дил завершён"}), 400
     if d.get("ends_at") and parse_iso(d["ends_at"]) and parse_iso(d["ends_at"]) < datetime.now(timezone.utc):
         return jsonify({"error": "Время вышло"}), 400
-    if (d.get("claimed") or 0) >= (d.get("total_slots") or 0):
+    cur = sb.table("flash_deal_claims").select("id", count="exact").eq("deal_id", deal_id).execute()
+    claimed = cur.count or 0
+    if claimed >= (d.get("total_slots") or 0):
         return jsonify({"error": "Места закончились"}), 400
     already = sb.table("flash_deal_claims").select("id").eq("deal_id", deal_id).eq("user_id", uid).execute()
     if already.data:
         return jsonify({"error": "Вы уже участвуете"}), 400
     try:
         sb.table("flash_deal_claims").insert({"deal_id": deal_id, "user_id": uid}).execute()
-        sb.table("flash_deals").update({"claimed": (d.get("claimed") or 0) + 1}).eq("id", deal_id).execute()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    return jsonify({"ok": True, "claimed": (d.get("claimed") or 0) + 1})
+    return jsonify({"ok": True, "claimed": claimed + 1})
 
 
 if __name__ == "__main__":
