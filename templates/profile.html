@@ -129,6 +129,19 @@
 </div>
 {% endif %}
 
+{% if profile.account_type == 'organization' %}
+<div class="card" style="margin-top:14px; padding:16px;">
+<div class="section-title" style="margin-top:0;">⚡ Flash Deals</div>
+{% if is_me %}
+<div class="field"><label>Название акции</label><input class="input" id="fdTitle" maxlength="120" placeholder="Первым 10 — бесплатный коктейль"></div>
+<div class="field"><label>Описание</label><textarea class="input" id="fdDesc" maxlength="500"></textarea></div>
+<div class="field"><label>Сколько мест</label><input class="input" type="number" id="fdSlots" min="1" max="500" value="10"></div>
+<button class="btn btn-primary btn-block" id="fdCreate" type="button">⚡ Запустить акцию</button>
+{% endif %}
+<div id="fdList" data-org="{{ profile.id }}" data-me="{{ 1 if is_me else 0 }}" style="margin-top:12px;"></div>
+</div>
+{% endif %}
+
 <div class="section-title">Метки · {{ spots|length }}</div>
 {% if spots %}
 {% for spot in spots %}
@@ -175,5 +188,65 @@ acceptBtn.disabled = true; acceptBtn.textContent = 'Принимаем...';
 await fetch('/api/friends/{{ friend_status.id }}/accept', {method:'POST'});
 location.reload();
 };
+</script>
+<script>
+(function(){
+var list = document.getElementById('fdList');
+if(!list) return;
+var orgId = list.dataset.org;
+var isMe = list.dataset.me === '1';
+function esc(v){var d=document.createElement('div');d.textContent=v==null?'':String(v);return d.innerHTML;}
+function load(){
+  fetch('/api/flash-deals?org_id='+encodeURIComponent(orgId), {credentials:'same-origin'})
+   .then(function(r){return r.json();}).then(render).catch(function(){});
+}
+function render(deals){
+  if(!deals || !deals.length){ list.innerHTML = '<p class="hint">Активных акций нет</p>'; return; }
+  list.innerHTML = deals.map(function(d){
+    var left = (d.total_slots||0) - (d.claimed||0);
+    var btn = isMe
+      ? '<button class="btn btn-ghost btn-sm" data-del="'+d.id+'">🗑</button>'
+      : (left>0 && d.active ? '<button class="btn btn-primary btn-sm" data-claim="'+d.id+'">Занять место</button>' : '<button class="btn btn-ghost btn-sm" disabled>Мест нет</button>');
+    return '<div class="card row-card" style="margin-bottom:8px;">'+
+      '<div class="info"><div class="name">⚡ '+esc(d.title)+'</div>'+
+      (d.description ? '<div class="sub">'+esc(d.description)+'</div>' : '')+
+      '<div class="hint">Занято '+(d.claimed||0)+' из '+(d.total_slots||0)+(d.active?'':' · завершена')+'</div></div>'+
+      btn+'</div>';
+  }).join('');
+  list.querySelectorAll('[data-claim]').forEach(function(b){
+    b.onclick = function(){
+      b.disabled = true;
+      fetch('/api/flash-deals/'+b.dataset.claim+'/claim', {method:'POST', credentials:'same-origin'})
+        .then(function(r){return r.json();}).then(function(res){
+          if(res.ok){ alert('🎉 Место занято! Покажите это заведению.'); load(); }
+          else { alert(res.error||'Не получилось'); b.disabled=false; }
+        }).catch(function(){ b.disabled=false; });
+    };
+  });
+  list.querySelectorAll('[data-del]').forEach(function(b){
+    b.onclick = function(){
+      if(!confirm('Удалить акцию?')) return;
+      fetch('/api/flash-deals/'+b.dataset.del, {method:'DELETE', credentials:'same-origin'})
+        .then(function(){ load(); });
+    };
+  });
+}
+load();
+var create = document.getElementById('fdCreate');
+if(create){
+  create.onclick = function(){
+    var title = document.getElementById('fdTitle').value.trim();
+    if(!title){ alert('Введите название'); return; }
+    create.disabled = true;
+    fetch('/api/flash-deals', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ title:title, description:document.getElementById('fdDesc').value.trim(), total_slots:parseInt(document.getElementById('fdSlots').value||'10',10) })})
+      .then(function(r){return r.json();}).then(function(res){
+        create.disabled=false;
+        if(res.id){ document.getElementById('fdTitle').value=''; document.getElementById('fdDesc').value=''; load(); }
+        else alert(res.error||'Не получилось');
+      }).catch(function(){ create.disabled=false; });
+  };
+}
+})();
 </script>
 {% endblock %}
