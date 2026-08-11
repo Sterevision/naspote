@@ -50,7 +50,7 @@
 <input type="file" id="avatarInput" name="avatar" accept="image/*" hidden>
 </div>
 
-<!-- ---- ИНТЕРЕСЫ ---- -->
+<!-- ---- ИНТЕРЕСЫ (ИСПРАВЛЕНО) ---- -->
 <div class="section-title">🫶 Мои интересы</div>
 <p class="hint" style="margin:0 0 8px;">Отметьте, что вам интересно. Мы покажем ваши метки людям со схожими интересами и найдём для вас «своих».</p>
 <div class="interests-grid">
@@ -68,11 +68,11 @@
     ('food', '🍕', 'Еда / рестораны')
 ] %}
 {% for key, emo, label in all_interests %}
-<div class="interest-chip {% if key in my_int %}checked{% endif %}" data-key="{{ key }}">
+<label class="interest-chip {% if key in my_int %}checked{% endif %}">
 <input type="checkbox" name="interests" value="{{ key }}" {% if key in my_int %}checked{% endif %}>
 <span class="emo">{{ emo }}</span>
 <span class="lab">{{ label }}</span>
-</div>
+</label>
 {% endfor %}
 </div>
 
@@ -126,11 +126,9 @@
 {% block scripts %}
 <script>
 (function () {
-document.querySelectorAll('.interest-chip').forEach(function (chip) {
-    var cb = chip.querySelector('input[type=checkbox]');
-    chip.addEventListener('click', function (e) {
-        e.preventDefault();
-        cb.checked = !cb.checked;
+document.querySelectorAll('.interest-chip input[type=checkbox]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+        var chip = cb.closest('.interest-chip');
         chip.classList.toggle('checked', cb.checked);
     });
 });
