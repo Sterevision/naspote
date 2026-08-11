@@ -1056,5 +1056,81 @@ def api_spot_reaction_toggle(spot_id, emoji):
             return jsonify({"error": str(e)}), 400
 
 
+# ---------- FLASH DEALS (B2B) ----------
+
+@app.route("/api/flash-deals", methods=["GET"])
+@login_required
+def api_flash_deals_list():
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    org_id = request.args.get("org_id")
+    q = sb.table("flash_deals").select("*").order("created_at", desc=True)
+    if org_id:
+        q = q.eq("org_id", org_id)
+    else:
+        q = q.eq("active", True)
+    res = q.execute()
+    return jsonify(res.data or [])
+
+
+@app.route("/api/flash-deals", methods=["POST"])
+@login_required
+def api_flash_deals_create():
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    uid = session["user_id"]
+    prof = get_profile(sb, uid)
+    if prof.get("account_type") != "organization":
+        return jsonify({"error": "Только заведения могут создавать флеш-дилы"}), 403
+    data = request.json or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "Нужен заголовок"}), 400
+    insert = {
+        "org_id": uid,
+        "title": title,
+        "description": (data.get("description") or "").strip(),
+        "total_slots": int(data.get("total_slots") or 10),
+        "claimed": 0,
+        "active": True,
+    }
+    if data.get("ends_at"):
+        insert["ends_at"] = data["ends_at"]
+    res = sb.table("flash_deals").insert(insert).execute()
+    return jsonify(res.data[0]), 201
+
+
+@app.route("/api/flash-deals/<int:deal_id>", methods=["DELETE"])
+@login_required
+def api_flash_deals_delete(deal_id):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    sb.table("flash_deals").delete().eq("id", deal_id).eq("org_id", session["user_id"]).execute()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/flash-deals/<int:deal_id>/claim", methods=["POST"])
+@login_required
+def api_flash_deals_claim(deal_id):
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    uid = session["user_id"]
+    deal = sb.table("flash_deals").select("*").eq("id", deal_id).execute()
+    if not deal.data:
+        return jsonify({"error": "Дил не найден"}), 404
+    d = deal.data[0]
+    if not d.get("active"):
+        return jsonify({"error": "Дил завершён"}), 400
+    if d.get("ends_at") and parse_iso(d["ends_at"]) and parse_iso(d["ends_at"]) < datetime.now(timezone.utc):
+        return jsonify({"error": "Время вышло"}), 400
+    if (d.get("claimed") or 0) >= (d.get("total_slots") or 0):
+        return jsonify({"error": "Места закончились"}), 400
+    already = sb.table("flash_deal_claims").select("id").eq("deal_id", deal_id).eq("user_id", uid).execute()
+    if already.data:
+        return jsonify({"error": "Вы уже участвуете"}), 400
+    try:
+        sb.table("flash_deal_claims").insert({"deal_id": deal_id, "user_id": uid}).execute()
+        sb.table("flash_deals").update({"claimed": (d.get("claimed") or 0) + 1}).eq("id", deal_id).execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"ok": True, "claimed": (d.get("claimed") or 0) + 1})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
