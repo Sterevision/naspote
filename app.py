@@ -111,10 +111,9 @@ def parse_iso(value):
         return None
 
 
-# ---------- ДОСТИЖЕНИЯ (НОВОЕ) ----------
+# ---------- ДОСТИЖЕНИЯ ----------
 
 def compute_badges(sb, uid):
-    """Вычисляет бейджи пользователя на лету из существующих данных."""
     badges = []
     try:
         spots_res = sb.table("spots") \
@@ -382,7 +381,25 @@ def feed_view():
         .select("*, owner:owner_id(username, display_name, avatar_url)") \
         .in_("owner_id", friend_ids) \
         .order("created_at", desc=True).limit(50).execute()
-    return render_template("feed.html", spots=spots_res.data or [], profile=profile)
+
+    my_interests = profile.get("interests") or []
+    own_spots = []
+    if my_interests:
+        try:
+            ppl_res = sb.table("profiles").select("id") \
+                .neq("id", uid).overlaps("interests", my_interests).limit(100).execute()
+            ppl_ids = [p["id"] for p in (ppl_res.data or []) if p["id"] not in friend_ids]
+            if ppl_ids:
+                own_res = sb.table("spots") \
+                    .select("*, owner:owner_id(username, display_name, avatar_url)") \
+                    .in_("owner_id", ppl_ids).eq("visibility", "public") \
+                    .order("created_at", desc=True).limit(20).execute()
+                own_spots = own_res.data or []
+        except Exception:
+            own_spots = []
+
+    return render_template("feed.html", spots=spots_res.data or [], profile=profile,
+                           own_spots=own_spots, my_interests=my_interests)
 
 
 @app.route("/messages")
@@ -439,7 +456,6 @@ def profile_view(username):
     my_profile = get_profile(sb, session["user_id"])
     is_admin = bool(my_profile.get("is_admin"))
 
-    # ---- ДОСТИЖЕНИЯ (НОВОЕ) ----
     badges = compute_badges(sb, profile["id"])
 
     org_stats = None
@@ -529,6 +545,8 @@ def settings_view():
     update_data["contact_phone"] = request.form.get("contact_phone", "").strip() or None
     update_data["contact_email"] = request.form.get("contact_email", "").strip() or None
     update_data["home_location_name"] = request.form.get("home_location_name", "").strip() or None
+
+    update_data["interests"] = request.form.getlist("interests")
 
     hlat = request.form.get("home_lat", "").strip()
     hlng = request.form.get("home_lng", "").strip()
@@ -663,7 +681,7 @@ def api_spots_list():
     except Exception:
         pass
     res = sb.table("spots") \
-        .select("*, owner:owner_id(username, display_name, avatar_url), "
+        .select("*, owner:owner_id(username, display_name, avatar_url, interests), "
                 "organization:organization_id(username, display_name, category, is_verified)") \
         .or_(f"expires_at.is.null,expires_at.gt.{now_iso}") \
         .order("created_at", desc=True).execute()
