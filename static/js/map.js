@@ -494,6 +494,8 @@ function bindUI() {
             ownToggle.style.color = showOwn ? '#fff' : 'var(--text)';
             ownToggle.style.borderColor = showOwn ? 'var(--primary)' : 'var(--line)';
             applyFilter();
+            var ownCount = allSpots.filter(function (s) { return hasCommonInterests(s); }).length;
+            showMapStatus(showOwn ? ('✨ Своих меток на карте: ' + ownCount) : 'Режим «Свои» выключен');
         });
     }
     
