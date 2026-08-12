@@ -65,100 +65,70 @@
         return diff / 60000;
     }
 
-    function loadMyInterests(cb) {
-        fetch('/api/me', { credentials: 'same-origin' })
-            .then(function (r) {
-                return r.ok ? r.json() : {};
-            })
-            .then(function (d) {
-                window.MY_INTERESTS = d.interests || [];
-                if (cb) cb();
-            })
-            .catch(function () {
-                window.MY_INTERESTS = [];
-                if (cb) cb();
-            });
+    /* =========================================================
+    TASK 5 — POETIC EPHEMERALITY
+    ========================================================= */
+
+    function lifeFraction(spot) {
+        if (!spot || !spot.expires_at) return 1;
+
+        var end = new Date(spot.expires_at).getTime();
+        if (isNaN(end)) return 1;
+
+        var now = Date.now();
+
+        if (now >= end) return 0;
+
+        var start = spot.created_at ? new Date(spot.created_at).getTime() : NaN;
+
+        if (isNaN(start) || start >= end) {
+            // Если вдруг created_at отсутствует, предполагаем жизненный цикл 6 часов
+            start = end - 6 * 3600000;
+        }
+
+        var total = end - start;
+        if (total <= 0) return 1;
+
+        var remaining = end - now;
+        return Math.max(0, Math.min(1, remaining / total));
     }
 
-    function showMapStatus(text, isError) {
-        var el = $('mapStatus');
+    function lifeState(spot) {
+        var fraction = lifeFraction(spot);
+
+        if (fraction > 0.5) {
+            return 'life-fresh';
+        }
+
+        if (fraction > 0.2) {
+            return 'life-dim';
+        }
+
+        return 'life-ember';
+    }
+
+    function lifeClass(spot) {
+        var state = lifeState(spot);
+        return state ? ' ' + state : '';
+    }
+
+    function setMarkerLifeClasses(marker) {
+        if (!marker || !marker._spot) return;
+
+        var el = marker.getElement ? marker.getElement() : marker._container;
         if (!el) return;
 
-        el.textContent = text;
-        el.className = 'map-status' + (isError ? ' error' : '');
-        el.style.display = 'block';
+        var state = lifeState(marker._spot);
+        var targets = [el, el.querySelector ? el.querySelector('.spot-pin') : null];
 
-        clearTimeout(el._timer);
-        el._timer = setTimeout(function () {
-            el.style.display = 'none';
-        }, 5000);
-    }
+        targets.forEach(function (target) {
+            if (!target) return;
 
-    function isWaveActive(spot) {
-        return !!spot.wave_ends_at && new Date(spot.wave_ends_at) > new Date();
-    }
+            target.classList.remove('life-fresh', 'life-dim', 'life-ember');
 
-    function pinColor(spot) {
-        if (spot.placement_type === 'manual') return 'var(--manual)';
-        if (String(spot.owner_id) === String(window.CURRENT_USER_ID || '')) return 'var(--mine)';
-        if (spot.visibility === 'friends') return 'var(--friends)';
-        return 'var(--public)';
-    }
-
-    function setYouMarker(lat, lng) {
-        var icon = L.divIcon({
-            className: '',
-            html: '<div class="you-dot"></div>',
-            iconSize: [18, 18],
-            iconAnchor: [9, 9]
-        });
-
-        if (youMarker) {
-            youMarker.setLatLng([lat, lng]);
-        } else {
-            youMarker = L.marker([lat, lng], {
-                icon: icon,
-                zIndexOffset: 1200
-            }).addTo(map);
-        }
-    }
-
-    function locateUser(isAuto) {
-        if (!navigator.geolocation) {
-            if (!isAuto) showMapStatus('Геолокация недоступна в этом браузере', true);
-            return;
-        }
-
-        if (!window.isSecureContext) {
-            showMapStatus('Геолокация работает только по HTTPS или на localhost', true);
-            return;
-        }
-
-        showMapStatus('Определяем местоположение...');
-
-        navigator.geolocation.getCurrentPosition(function (position) {
-            pendingLat = position.coords.latitude;
-            pendingLng = position.coords.longitude;
-
-            if (map) map.setView([pendingLat, pendingLng], 15);
-            setYouMarker(pendingLat, pendingLng);
-            showMapStatus('Вы здесь');
-        }, function (error) {
-            var message = 'Не удалось определить местоположение';
-
-            if (error.code === 1) {
-                message = 'Доступ к геолокации запрещён. Разрешите доступ в браузере.';
-            } else if (error.code === 2) {
-                message = 'Геолокация недоступна на этом устройстве.';
-            } else if (error.code === 3) {
-                message = 'Время ожидания геолокации истекло.';
+            if (state) {
+                target.classList.add(state);
             }
-
-            showMapStatus(message, true);
-        }, {
-            enableHighAccuracy: true,
-            timeout: 12000,
-            maximumAge: 60000
         });
     }
 
@@ -309,6 +279,103 @@
     MAP CORE
     ========================================================= */
 
+    function loadMyInterests(cb) {
+        fetch('/api/me', { credentials: 'same-origin' })
+            .then(function (r) {
+                return r.ok ? r.json() : {};
+            })
+            .then(function (d) {
+                window.MY_INTERESTS = d.interests || [];
+                if (cb) cb();
+            })
+            .catch(function () {
+                window.MY_INTERESTS = [];
+                if (cb) cb();
+            });
+    }
+
+    function showMapStatus(text, isError) {
+        var el = $('mapStatus');
+        if (!el) return;
+
+        el.textContent = text;
+        el.className = 'map-status' + (isError ? ' error' : '');
+        el.style.display = 'block';
+
+        clearTimeout(el._timer);
+        el._timer = setTimeout(function () {
+            el.style.display = 'none';
+        }, 5000);
+    }
+
+    function isWaveActive(spot) {
+        return !!spot.wave_ends_at && new Date(spot.wave_ends_at) > new Date();
+    }
+
+    function pinColor(spot) {
+        if (spot.placement_type === 'manual') return 'var(--manual)';
+        if (String(spot.owner_id) === String(window.CURRENT_USER_ID || '')) return 'var(--mine)';
+        if (spot.visibility === 'friends') return 'var(--friends)';
+        return 'var(--public)';
+    }
+
+    function setYouMarker(lat, lng) {
+        var icon = L.divIcon({
+            className: '',
+            html: '<div class="you-dot"></div>',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
+        });
+
+        if (youMarker) {
+            youMarker.setLatLng([lat, lng]);
+        } else {
+            youMarker = L.marker([lat, lng], {
+                icon: icon,
+                zIndexOffset: 1200
+            }).addTo(map);
+        }
+    }
+
+    function locateUser(isAuto) {
+        if (!navigator.geolocation) {
+            if (!isAuto) showMapStatus('Геолокация недоступна в этом браузере', true);
+            return;
+        }
+
+        if (!window.isSecureContext) {
+            showMapStatus('Геолокация работает только по HTTPS или на localhost', true);
+            return;
+        }
+
+        showMapStatus('Определяем местоположение...');
+
+        navigator.geolocation.getCurrentPosition(function (position) {
+            pendingLat = position.coords.latitude;
+            pendingLng = position.coords.longitude;
+
+            if (map) map.setView([pendingLat, pendingLng], 15);
+            setYouMarker(pendingLat, pendingLng);
+            showMapStatus('Вы здесь');
+        }, function (error) {
+            var message = 'Не удалось определить местоположение';
+
+            if (error.code === 1) {
+                message = 'Доступ к геолокации запрещён. Разрешите доступ в браузере.';
+            } else if (error.code === 2) {
+                message = 'Геолокация недоступна на этом устройстве.';
+            } else if (error.code === 3) {
+                message = 'Время ожидания геолокации истекло.';
+            }
+
+            showMapStatus(message, true);
+        }, {
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 60000
+        });
+    }
+
     function initMap() {
         var mapElement = $('map');
         if (!mapElement) return;
@@ -437,13 +504,14 @@
         markersLayer.eachLayer(function (marker) {
             if (!marker._spot) return;
 
-            var mins = minutesLeft(marker._spot.expires_at);
+            var fraction = lifeFraction(marker._spot);
 
-            if (mins <= 10 && mins > 0) {
-                if (marker._container) marker._container.classList.add('dying');
-            } else if (mins <= 0) {
+            if (fraction <= 0) {
                 markersLayer.removeLayer(marker);
+                return;
             }
+
+            setMarkerLifeClasses(marker);
         });
     }
 
@@ -473,13 +541,12 @@
             .forEach(function (spot) {
                 var color = pinColor(spot);
                 var waveClass = isWaveActive(spot) ? ' wave' : '';
-                var mins = minutesLeft(spot.expires_at);
-                var dyingClass = (mins <= 10 && mins > 0) ? ' dying' : '';
                 var ownClass = hasCommonInterests(spot) ? ' own-highlight' : '';
+                var stateClass = lifeClass(spot);
 
                 var icon = L.divIcon({
                     className: '',
-                    html: '<div class="spot-pin' + waveClass + dyingClass + ownClass + '" style="background:' + color + '; color:' + color + ';"></div>',
+                    html: '<div class="spot-pin' + waveClass + stateClass + ownClass + '" style="background:' + color + '; color:' + color + ';"></div>',
                     iconSize: [30, 30],
                     iconAnchor: [15, 26]
                 });

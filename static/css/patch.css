@@ -723,3 +723,51 @@ TASK 4 — Секретные моменты
   opacity: 1;
   user-select: auto;
 }
+
+/* =========================================================
+TASK 5 — Поэтичная эфемерность
+========================================================= */
+
+.spot-pin {
+  transition: opacity 0.6s ease, filter 0.6s ease;
+}
+
+/* Метка молодая: яркая */
+.spot-pin.life-fresh,
+.leaflet-marker-icon.life-fresh .spot-pin {
+  opacity: 1;
+  filter: none;
+}
+
+/* Метка уже пожила: чуть тусклее */
+.spot-pin.life-dim,
+.leaflet-marker-icon.life-dim .spot-pin {
+  opacity: 0.78;
+  filter: saturate(0.82);
+}
+
+/* Метка догорает: медленное тление */
+.spot-pin.life-ember,
+.leaflet-marker-icon.life-ember .spot-pin {
+  opacity: 0.5;
+  animation: spot-ember 3.4s ease-in-out infinite;
+}
+
+/* Если метка одновременно «своя» и догорает, сохраняем обе пульсации */
+.spot-pin.own-highlight.life-ember,
+.leaflet-marker-icon.life-ember .spot-pin.own-highlight {
+  animation:
+    own-pulse 2s ease-in-out infinite,
+    spot-ember 3.4s ease-in-out infinite;
+}
+
+@keyframes spot-ember {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.28;
+    transform: scale(0.92);
+  }
+}
