@@ -23,6 +23,11 @@
     var legendLongTapFired = false;
     var legendLongTapTimer = null;
 
+    // Task 2: spot audio magic
+    var spotAudio = null;
+    var spotAudioToggle = null;
+    var spotAudioFadeTimer = null;
+
     function $(id) {
         return document.getElementById(id);
     }
@@ -41,6 +46,7 @@
 
     function timeLeft(iso) {
         if (!iso) return '';
+
         var diff = new Date(iso) - new Date();
         if (diff <= 0) return 'завершилась';
 
@@ -49,6 +55,7 @@
 
         if (hours > 0) return hours + ' ч ' + minutes + ' м';
         if (minutes > 0) return minutes + ' м';
+
         return 'меньше минуты';
     }
 
@@ -154,6 +161,153 @@
             maximumAge: 60000
         });
     }
+
+    /* =========================================================
+    TASK 2 — AUDIO MAGIC
+    ========================================================= */
+
+    function clearSpotAudioFade() {
+        if (spotAudioFadeTimer) {
+            clearInterval(spotAudioFadeTimer);
+            spotAudioFadeTimer = null;
+        }
+    }
+
+    function setSpotAudioUI(playing) {
+        if (!spotAudioToggle) return;
+
+        spotAudioToggle.textContent = playing ? '⏸' : '▶';
+        spotAudioToggle.classList.toggle('playing', playing);
+    }
+
+    function fadeSpotAudioIn() {
+        clearSpotAudioFade();
+
+        if (!spotAudio) return;
+
+        var stepMs = 50;
+        var durationMs = 1500;
+        var targetVolume = 0.7;
+        var stepVolume = targetVolume / (durationMs / stepMs);
+
+        spotAudio.volume = 0;
+
+        spotAudioFadeTimer = setInterval(function () {
+            if (!spotAudio) {
+                clearSpotAudioFade();
+                return;
+            }
+
+            var nextVolume = Math.min(targetVolume, spotAudio.volume + stepVolume);
+            spotAudio.volume = nextVolume;
+
+            if (nextVolume >= targetVolume) {
+                clearSpotAudioFade();
+            }
+        }, stepMs);
+    }
+
+    function playSpotAudio() {
+        if (!spotAudio) return;
+
+        var promise = spotAudio.play();
+
+        if (promise && typeof promise.then === 'function') {
+            promise.then(function () {
+                setSpotAudioUI(true);
+                fadeSpotAudioIn();
+            }).catch(function () {
+                setSpotAudioUI(false);
+                clearSpotAudioFade();
+            });
+        } else {
+            setSpotAudioUI(true);
+            fadeSpotAudioIn();
+        }
+    }
+
+    function pauseSpotAudio() {
+        if (!spotAudio) return;
+
+        try {
+            spotAudio.pause();
+        } catch (e) {
+            // silent
+        }
+
+        clearSpotAudioFade();
+        setSpotAudioUI(false);
+    }
+
+    function toggleSpotAudio() {
+        if (!spotAudio) return;
+
+        if (spotAudio.paused) {
+            playSpotAudio();
+        } else {
+            pauseSpotAudio();
+        }
+    }
+
+    function stopSpotAudio() {
+        clearSpotAudioFade();
+
+        if (spotAudio) {
+            try {
+                spotAudio.pause();
+            } catch (e) {
+                // silent
+            }
+
+            try {
+                spotAudio.removeAttribute('src');
+                spotAudio.load();
+            } catch (e) {
+                // silent
+            }
+        }
+
+        spotAudio = null;
+        setSpotAudioUI(false);
+        spotAudioToggle = null;
+    }
+
+    function initSpotAudio(audioEl) {
+        if (!audioEl) return;
+
+        spotAudio = audioEl;
+        spotAudioToggle = $('spotAudioToggle');
+
+        if (spotAudioToggle) {
+            spotAudioToggle.addEventListener('click', function (event) {
+                event.preventDefault();
+                toggleSpotAudio();
+            });
+        }
+
+        audioEl.addEventListener('play', function () {
+            setSpotAudioUI(true);
+        });
+
+        audioEl.addEventListener('pause', function () {
+            if (!audioEl.ended) {
+                clearSpotAudioFade();
+                setSpotAudioUI(false);
+            }
+        });
+
+        audioEl.addEventListener('ended', function () {
+            clearSpotAudioFade();
+            setSpotAudioUI(false);
+        });
+
+        audioEl.volume = 0;
+        playSpotAudio();
+    }
+
+    /* =========================================================
+    MAP CORE
+    ========================================================= */
 
     function initMap() {
         var mapElement = $('map');
@@ -498,6 +652,8 @@
     }
 
     function closeSpotSheet() {
+        stopSpotAudio();
+
         if ($('spotSheetOverlay')) $('spotSheetOverlay').classList.remove('open');
     }
 
@@ -647,6 +803,8 @@
     }
 
     function openSpot(spot) {
+        stopSpotAudio();
+
         var content = $('spotSheetContent');
         if (!content) return;
 
@@ -689,15 +847,15 @@
         }
 
         if (audioUrl) {
-            html += '<div class="audio-player">' +
+            html += '<div class="audio-player audio-player-magic">' +
                 '<div class="audio-head">' +
-                '<span class="audio-ico">🎧</span>' +
+                '<button type="button" class="audio-play-btn" id="spotAudioToggle" aria-label="Слушать атмосферу">▶</button>' +
                 '<div>' +
                 '<div class="audio-title">Атмосфера места</div>' +
-                '<div class="audio-hint">Нажмите ▶, чтобы послушать</div>' +
+                '<div class="audio-hint">Звук начнётся сам</div>' +
                 '</div>' +
                 '</div>' +
-                '<audio controls preload="none" src="' + esc(audioUrl) + '" style="width:100%; margin-top:8px;"></audio>' +
+                '<audio id="spotAudio" preload="auto" src="' + esc(audioUrl) + '"></audio>' +
                 '</div>';
         }
 
@@ -722,6 +880,20 @@
 
         var closeButton = $('spotSheetClose');
         if (closeButton) closeButton.onclick = closeSpotSheet;
+
+        // Task 2: вибрация и автозапуск аудио, если звук есть
+        if (audioUrl) {
+            if (navigator.vibrate) {
+                try {
+                    navigator.vibrate(30);
+                } catch (e) {
+                    // silent
+                }
+            }
+
+            var audioEl = $('spotAudio');
+            if (audioEl) initSpotAudio(audioEl);
+        }
 
         loadComments(spot.id);
 
