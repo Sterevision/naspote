@@ -706,3 +706,20 @@ FIX — минимальный attribution в углу карты
 .leaflet-control-attribution svg {
   display: none !important;
 }
+
+/* =========================================================
+TASK 4 — Секретные моменты
+========================================================= */
+
+.secret-deal-desc {
+  filter: blur(8px);
+  opacity: 0.8;
+  user-select: none;
+  transition: filter 0.35s ease, opacity 0.35s ease;
+}
+
+.secret-deal-desc.secret-revealed {
+  filter: blur(0);
+  opacity: 1;
+  user-select: auto;
+}
