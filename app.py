@@ -368,6 +368,14 @@ def logout():
     return redirect(url_for("index"))
 
 
+@app.route("/sw.js")
+def service_worker():
+    response = app.send_static_file("sw.js")
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @app.route("/api/me")
 @login_required
 def api_me():
