@@ -367,6 +367,29 @@ def api_me():
         "interests": prof.get("interests") or [],
     })
 
+@app.route("/api/me")
+@login_required
+def api_me():
+    ...
+    return jsonify({
+        "id": session["user_id"],
+        "username": prof.get("username"),
+        "interests": prof.get("interests") or [],
+    })
+
+
+@app.route("/api/own-spots")          ← НОВЫЙ БЛОК (целиком, как я присылал)
+@login_required
+def api_own_spots():
+    ...
+    return jsonify(res.data or [])
+
+
+@app.route("/map")                    ← следующая функция осталась ниже
+@login_required
+def map_view():
+    ...
+
 @app.route("/map")
 @login_required
 def map_view():
@@ -476,6 +499,16 @@ def profile_view(username):
 
     badges = compute_badges(sb, profile["id"])
 
+    new_claims = 0
+    if is_me and profile.get("account_type") == "organization":
+        try:
+            my_deals = sb.table("flash_deals").select("id").eq("org_id", profile["id"]).execute()
+            deal_ids = [d["id"] for d in (my_deals.data or [])]
+            if deal_ids:
+                qc = sb.table("flash_deal_claims").select("id", count="exact").in_("deal_id", deal_ids)
+                if profile.get("deals_seen_at"):
+                    qc = qc
+
     org_stats = None
     if profile.get("account_type") == "organization":
         now = datetime.now(timezone.utc)
@@ -512,7 +545,8 @@ def profile_view(username):
     return render_template("profile.html", profile=profile, spots=spots_res.data,
                            is_me=is_me, friend_status=friend_status,
                            tagged_spots=tagged_spots, my_id=session["user_id"],
-                           org_stats=org_stats, is_admin=is_admin, badges=badges)
+                           org_stats=org_stats, is_admin=is_admin, badges=badges,
+                           new_claims=new_claims)
 
 
 @app.route("/friends")

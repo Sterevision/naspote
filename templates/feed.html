@@ -124,4 +124,25 @@
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/feed.js') }}"></script>
+<script>
+(function(){
+  function esc(v){var d=document.createElement('div');d.textContent=v==null?'':String(v);return d.innerHTML;}
+  var shell = document.querySelector('.list-page') || document.querySelector('.app-shell');
+  if(!shell) return;
+  fetch('/api/own-spots', {credentials:'same-origin'})
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(spots){
+      if(!spots || !spots.length) return;
+      var box = document.createElement('div');
+      box.innerHTML = '<div class="section-title">🫶 Свои люди</div>' + spots.map(function(s){
+        var name = s.owner ? (s.owner.display_name || s.owner.username) : '';
+        return '<div class="card row-card" style="margin-bottom:8px;">' +
+          '<div class="spot-thumb">'+(s.photo_url ? '<img src="'+esc(s.photo_url)+'">' : '📍')+'</div>' +
+          '<div class="info"><div class="name">'+esc(name)+'</div><div class="sub">'+esc(s.title)+'</div></div></div>';
+      }).join('');
+      var anchor = shell.querySelector('.section-title');
+      if(anchor) shell.insertBefore(box, anchor); else shell.appendChild(box);
+    }).catch(function(){});
+})();
+</script>
 {% endblock %}
