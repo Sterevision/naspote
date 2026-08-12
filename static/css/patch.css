@@ -771,3 +771,47 @@ TASK 5 — Поэтичная эфемерность
     transform: scale(0.92);
   }
 }
+
+/* =========================================================
+ПОЛИРОВКА 1 — Магический отклик
+========================================================= */
+
+/* Лёгкое дыхание шторки при открытии метки со звуком */
+.magic-open-pulse {
+  animation: magic-open-pulse 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes magic-open-pulse {
+  0% {
+    transform: scale(0.985);
+    opacity: 0.9;
+  }
+  60% {
+    transform: scale(1.004);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Короткий стартовый импульс кнопки звука */
+.audio-play-btn.magic-start-pulse {
+  animation: magic-start-pulse 0.9s ease;
+}
+
+@keyframes magic-start-pulse {
+  0% {
+    transform: scale(0.92);
+    box-shadow: 0 0 0 0 rgba(109, 92, 255, 0.35);
+  }
+  70% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 14px rgba(109, 92, 255, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 10px 24px rgba(109, 92, 255, 0.32);
+  }
+}

@@ -958,8 +958,32 @@
         var closeButton = $('spotSheetClose');
         if (closeButton) closeButton.onclick = closeSpotSheet;
 
-        // Task 2: вибрация и автозапуск аудио, если звук есть
+        // Task 2 + polish: вибрация, автозапуск аудио и визуальный отклик
         if (audioUrl) {
+            // Визуальный отклик делаем всегда:
+            // на Android он дополняет вибрацию,
+            // на iPhone заменяет её как ощущаемый момент.
+            if (content) {
+                content.classList.remove('magic-open-pulse');
+                void content.offsetWidth;
+                content.classList.add('magic-open-pulse');
+
+                setTimeout(function () {
+                    if (content) content.classList.remove('magic-open-pulse');
+                }, 900);
+            }
+
+            var audioBtn = $('spotAudioToggle');
+            if (audioBtn) {
+                audioBtn.classList.remove('magic-start-pulse');
+                void audioBtn.offsetWidth;
+                audioBtn.classList.add('magic-start-pulse');
+
+                setTimeout(function () {
+                    if (audioBtn) audioBtn.classList.remove('magic-start-pulse');
+                }, 1000);
+            }
+
             if (navigator.vibrate) {
                 try {
                     navigator.vibrate(30);
