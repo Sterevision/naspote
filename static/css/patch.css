@@ -850,6 +850,6 @@ FIX — карта не должна уходить под нижнюю нави
 /* Современные браузеры: точная высота, минимум пустоты */
 @supports (height: 100dvh) {
   .map-wrap {
-    height: calc(100dvh - var(--nav-height) - 30px - env(safe-area-inset-bottom));
+    height: calc(100dvh - var(--nav-height) - 25px - env(safe-area-inset-bottom));
   }
 }
