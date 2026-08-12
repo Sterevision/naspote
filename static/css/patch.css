@@ -558,3 +558,54 @@ PATCH — фиксы критики + механика заведений + ле
     color: #fff;
     border-color: var(--primary);
 }
+
+/* =========================================================
+TASK 1 — Невидимый интерфейс
+========================================================= */
+
+/* Прячем лишние кнопки, но не удаляем их из DOM */
+#legendToggle,
+#manualToggle {
+  display: none !important;
+}
+
+/* Легенда становится нижним sheet, а не панелью сверху */
+.legend-panel {
+  display: flex !important;
+  flex-direction: column;
+  gap: 10px;
+  position: absolute !important;
+  top: auto !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  min-width: 0;
+  width: 100%;
+  padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 26px 26px 0 0;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(115%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+  z-index: 70;
+}
+
+/* Ручка sheet, чтобы визуально это выглядело как шторка */
+.legend-panel::before {
+  content: '';
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  margin: 0 auto 4px;
+}
+
+.legend-panel.open {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}

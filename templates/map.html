@@ -11,7 +11,7 @@
 <div class="chip" data-cat="{{ c }}">{{ c }}</div>
 {% endfor %}
 </div>
-<button class="map-btn" id="legendToggle" type="button">🎨</button>
+<button class="map-btn" id="legendToggle" type="button" hidden aria-hidden="true" tabindex="-1">🎨</button>
 </div>
 <div class="legend-panel" id="legendPanel">
 <div class="legend-row"><span class="legend-dot mine"></span> Ваши метки</div>
@@ -23,7 +23,7 @@
 <div class="legend-row">⏳ Угасание — скоро исчезнет</div>
 </div>
 <div class="fab-column">
-<button class="fab-mini" id="manualToggle" type="button">✋</button>
+<button class="fab-mini" id="manualToggle" type="button" hidden aria-hidden="true" tabindex="-1">✋</button>
 <button class="fab-mini" id="locateMe" type="button">📍</button>
 <button class="big-add" id="openAddSpot" type="button">+</button>
 </div>
