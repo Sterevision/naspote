@@ -334,12 +334,22 @@
             }
         }
 
-        map = L.map('map', { zoomControl: false }).setView(center, zoom);
+        map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView(center, zoom);
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
-            attribution: '© OpenStreetMap, © CARTO'
+            attribution: ''
         }).addTo(map);
+
+        var attributionControl = L.control.attribution({
+            position: 'bottomright',
+            prefix: false
+        }).addTo(map);
+
+        attributionControl.addAttribution('© OpenStreetMap · © CARTO');
 
         L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
