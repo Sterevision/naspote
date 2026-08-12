@@ -367,28 +367,31 @@ def api_me():
         "interests": prof.get("interests") or [],
     })
 
-@app.route("/api/me")
-@login_required
-def api_me():
-    ...
-    return jsonify({
-        "id": session["user_id"],
-        "username": prof.get("username"),
-        "interests": prof.get("interests") or [],
-    })
 
-
-@app.route("/api/own-spots")          ← НОВЫЙ БЛОК (целиком, как я присылал)
+@app.route("/api/own-spots")
 @login_required
 def api_own_spots():
-    ...
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+    uid = session["user_id"]
+    profile = get_profile(sb, uid)
+    my_interests = profile.get("interests") or []
+    if not my_interests:
+        return jsonify([])
+    friends_res = sb.table("friendships").select("requester_id, addressee_id") \
+        .eq("status", "accepted").or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
+    friend_ids = [uid] + [f["requester_id"] if f["requester_id"] != uid else f["addressee_id"]
+                          for f in (friends_res.data or [])]
+    ppl_res = sb.table("profiles").select("id").neq("id", uid) \
+        .overlaps("interests", my_interests).limit(100).execute()
+    ppl_ids = [p["id"] for p in (ppl_res.data or []) if p["id"] not in friend_ids]
+    if not ppl_ids:
+        return jsonify([])
+    res = sb.table("spots") \
+        .select("*, owner:owner_id(username, display_name, avatar_url)") \
+        .in_("owner_id", ppl_ids).eq("visibility", "public") \
+        .order("created_at", desc=True).limit(20).execute()
     return jsonify(res.data or [])
 
-
-@app.route("/map")                    ← следующая функция осталась ниже
-@login_required
-def map_view():
-    ...
 
 @app.route("/map")
 @login_required
@@ -423,24 +426,7 @@ def feed_view():
         .in_("owner_id", friend_ids) \
         .order("created_at", desc=True).limit(50).execute()
 
-    my_interests = profile.get("interests") or []
-    own_spots = []
-    if my_interests:
-        try:
-            ppl_res = sb.table("profiles").select("id") \
-                .neq("id", uid).overlaps("interests", my_interests).limit(100).execute()
-            ppl_ids = [p["id"] for p in (ppl_res.data or []) if p["id"] not in friend_ids]
-            if ppl_ids:
-                own_res = sb.table("spots") \
-                    .select("*, owner:owner_id(username, display_name, avatar_url)") \
-                    .in_("owner_id", ppl_ids).eq("visibility", "public") \
-                    .order("created_at", desc=True).limit(20).execute()
-                own_spots = own_res.data or []
-        except Exception:
-            own_spots = []
-
-    return render_template("feed.html", spots=spots_res.data or [], profile=profile,
-                           own_spots=own_spots, my_interests=my_interests)
+    return render_template("feed.html", spots=spots_res.data or [], profile=profile)
 
 
 @app.route("/messages")
@@ -507,7 +493,12 @@ def profile_view(username):
             if deal_ids:
                 qc = sb.table("flash_deal_claims").select("id", count="exact").in_("deal_id", deal_ids)
                 if profile.get("deals_seen_at"):
-                    qc = qc
+                    qc = qc.gt("created_at", profile["deals_seen_at"])
+                new_claims = qc.execute().count or 0
+            sb.table("profiles").update({"deals_seen_at": datetime.now(timezone.utc).isoformat()}) \
+                .eq("id", profile["id"]).execute()
+        except Exception:
+            new_claims = 0
 
     org_stats = None
     if profile.get("account_type") == "organization":
