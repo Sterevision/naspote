@@ -1019,7 +1019,7 @@
                     return hasCommonInterests(s);
                 }).length;
 
-                showMapStatus(showOwn ? ('✨ Своих меток на карте: ' + ownCount) : 'Режим «Свои» выключен');
+                showMapStatus(showOwn ? ('🌊 На одной волне: ' + ownCount) : 'Режим «Свои» выключен');
             });
         }
 

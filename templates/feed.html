@@ -134,7 +134,7 @@
     .then(function(spots){
       if(!spots || !spots.length) return;
       var box = document.createElement('div');
-      box.innerHTML = '<div class="section-title">🫶 Свои люди</div>' + spots.map(function(s){
+      box.innerHTML = '<div class="section-title">🌊 Вы на одной волне</div>' + spots.map(function(s){
         var name = s.owner ? (s.owner.display_name || s.owner.username) : '';
         return '<div class="card row-card" style="margin-bottom:8px;">' +
           '<div class="spot-thumb">'+(s.photo_url ? '<img src="'+esc(s.photo_url)+'">' : '📍')+'</div>' +

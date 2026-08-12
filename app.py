@@ -22,6 +22,18 @@ CATEGORIES = ["Бар", "Клуб", "Кофейня", "Ресторан", "Ко�
               "Караоке", "Спорт", "Вечеринка", "Природа", "Выставка/галерея", "Другое"]
 
 
+CATEGORY_TO_INTEREST = {
+    "Бар": "bars",
+    "Кофейня": "coffee",
+    "Выставка/галерея": "art",
+    "Клуб": "techno",
+    "Вечеринка": "techno",
+    "Караоке": "techno",
+    "Спорт": "sport",
+    "Природа": "nature",
+    "Ресторан": "food",
+}
+
 # ---------- helpers ----------
 
 def get_supabase(access_token=None, refresh_token=None):
@@ -778,6 +790,26 @@ def api_spots_create():
 
     try:
         res = sb.table("spots").insert(data).execute()
+
+        if acc_type == "person":
+            category_clean = (data.get("category") or "").strip()
+            interest_key = CATEGORY_TO_INTEREST.get(category_clean)
+
+            if interest_key:
+                try:
+                    fresh_profile = get_profile(sb, uid)
+                    current_interests = fresh_profile.get("interests") or []
+
+                    if interest_key not in current_interests:
+                        updated_interests = list(current_interests)
+                        updated_interests.append(interest_key)
+
+                        sb.table("profiles").update({
+                            "interests": updated_interests
+                        }).eq("id", uid).execute()
+                except Exception:
+                    pass
+
         return jsonify(res.data[0]), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
