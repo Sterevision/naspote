@@ -21,7 +21,6 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-in-prod")
 CATEGORIES = ["Бар", "Клуб", "Кофейня", "Ресторан", "Коворкинг",
               "Караоке", "Спорт", "Вечеринка", "Природа", "Выставка/галерея", "Другое"]
 
-
 CATEGORY_TO_INTEREST = {
     "Бар": "bars",
     "Кофейня": "coffee",
@@ -58,6 +57,7 @@ def login_required(view):
             if request.path.startswith("/api/"):
                 return jsonify({"error": "unauthorized"}), 401
             return redirect(url_for("login"))
+
         sb = get_supabase(session["access_token"], session.get("refresh_token"))
         try:
             result = sb.table("profiles").select("id").eq("id", session["user_id"]).execute()
@@ -74,6 +74,7 @@ def login_required(view):
                     return jsonify({"error": "unauthorized"}), 401
                 flash("Сессия истекла. Войдите заново.")
                 return redirect(url_for("login"))
+
         return view(*args, **kwargs)
     return wrapped
 
@@ -129,11 +130,11 @@ def parse_iso(value):
     except Exception:
         return None
 
-
 # ---------- ДОСТИЖЕНИЯ ----------
 
 def compute_badges(sb, uid):
     badges = []
+
     try:
         spots_res = sb.table("spots") \
             .select("id, category, created_at, audio_url, photo_url, organization_id") \
@@ -141,6 +142,7 @@ def compute_badges(sb, uid):
         spots = spots_res.data or []
     except Exception:
         spots = []
+
     try:
         friends_res = sb.table("friendships").select("id").eq("status", "accepted") \
             .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
@@ -171,8 +173,8 @@ def compute_badges(sb, uid):
         badges.append({"emoji": "📸", "title": "Фотограф", "desc": "Метка с фото"})
     if org:
         badges.append({"emoji": "🏢", "title": "Исследователь заведений", "desc": "Метка, привязанная к заведению"})
-    return badges
 
+    return badges
 
 # ---------- страницы ----------
 
@@ -203,6 +205,7 @@ def register():
         "display_name": display_name,
         "account_type": account_type,
     }
+
     if account_type == "organization":
         signup_meta["org_category"] = request.form.get("org_category", "").strip() or None
         signup_meta["org_address"] = request.form.get("org_address", "").strip() or None
@@ -210,6 +213,7 @@ def register():
         signup_meta["org_lng"] = request.form.get("org_lng", "").strip() or None
 
     sb = get_supabase()
+
     try:
         auth_res = sb.auth.sign_up({
             "email": email,
@@ -226,17 +230,21 @@ def register():
 
     if auth_res.session:
         sb2 = get_supabase(auth_res.session.access_token, auth_res.session.refresh_token)
+
         profile_data = {
             "id": auth_res.user.id,
             "username": username,
             "display_name": display_name,
             "account_type": account_type,
         }
+
         if account_type == "organization":
             profile_data["category"] = request.form.get("org_category", "").strip() or None
             profile_data["address"] = request.form.get("org_address", "").strip() or None
+
             org_lat = request.form.get("org_lat", "").strip()
             org_lng = request.form.get("org_lng", "").strip()
+
             if org_lat and org_lng:
                 try:
                     profile_data["lat"] = float(org_lat)
@@ -247,6 +255,7 @@ def register():
         # Город, выбранный при регистрации (автозаполнение)
         home_lat = request.form.get("home_lat", "").strip()
         home_lng = request.form.get("home_lng", "").strip()
+
         if home_lat and home_lng:
             try:
                 profile_data["home_lat"] = float(home_lat)
@@ -270,17 +279,36 @@ def register():
 
     return redirect(url_for("login"))
 
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        return render_template("login.html")
+
+    try:
+        res = get_supabase().auth.sign_in_with_password({
+            "email": request.form.get("email", "").strip(),
+            "password": request.form.get("password", "")
+        })
+
+        session["access_token"] = res.session.access_token
+        session["refresh_token"] = res.session.refresh_token
+        session["user_id"] = res.user.id
+
         sb2 = get_supabase(res.session.access_token, res.session.refresh_token)
         existing = sb2.table("profiles").select("id").eq("id", res.user.id).execute()
+
         if not existing.data:
             meta = res.user.user_metadata or {}
             username = meta.get("username") or (res.user.email or "user").split("@")[0]
+
             profile_data = {
                 "id": res.user.id,
                 "username": username,
                 "display_name": meta.get("display_name") or username,
                 "account_type": meta.get("account_type", "person"),
             }
+
             if profile_data["account_type"] == "organization":
                 if meta.get("org_category"):
                     profile_data["category"] = meta["org_category"]
@@ -292,6 +320,7 @@ def register():
                         profile_data["lng"] = float(meta["org_lng"])
                 except ValueError:
                     pass
+
             try:
                 sb2.table("profiles").insert(profile_data).execute()
             except Exception as e:
@@ -308,6 +337,7 @@ def api_magic_link():
     email = (request.json or {}).get("email", "").strip()
     if not email:
         return jsonify({"error": "Email обязателен"}), 400
+
     sb = get_supabase()
     try:
         site_url = os.environ.get("SITE_URL", "https://kartometr.ru")
@@ -325,34 +355,44 @@ def api_auth_session():
     data = request.json or {}
     access_token = data.get("access_token", "")
     refresh_token = data.get("refresh_token", "")
+
     if not access_token or not refresh_token:
         return jsonify({"error": "Токены обязательны"}), 400
+
     try:
         sb = get_supabase(access_token, refresh_token)
         user_res = sb.auth.get_user(access_token)
+
         if not user_res or not user_res.user:
             return jsonify({"error": "Невалидный токен"}), 401
+
         session["access_token"] = access_token
         session["refresh_token"] = refresh_token
         session["user_id"] = user_res.user.id
+
         sb2 = get_supabase(access_token, refresh_token)
         existing = sb2.table("profiles").select("id").eq("id", user_res.user.id).execute()
+
         if not existing.data:
             meta = user_res.user.user_metadata or {}
             username = meta.get("username") or (user_res.user.email or "user").split("@")[0]
+
             existing_user = sb2.table("profiles").select("id").eq("username", username).execute()
             if existing_user.data:
                 username = username + str(int(datetime.now().timestamp()))[-4:]
+
             profile_data = {
                 "id": user_res.user.id,
                 "username": username,
                 "display_name": meta.get("display_name") or username,
                 "account_type": meta.get("account_type", "person"),
             }
+
             try:
                 sb2.table("profiles").insert(profile_data).execute()
             except Exception as e:
                 return jsonify({"error": "Не удалось создать профиль: " + str(e)}), 500
+
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -394,23 +434,32 @@ def api_me():
 def api_own_spots():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     profile = get_profile(sb, uid)
     my_interests = profile.get("interests") or []
+
     if not my_interests:
         return jsonify([])
+
     friends_res = sb.table("friendships").select("requester_id, addressee_id") \
         .eq("status", "accepted").or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
+
     friend_ids = [uid] + [f["requester_id"] if f["requester_id"] != uid else f["addressee_id"]
                           for f in (friends_res.data or [])]
+
     ppl_res = sb.table("profiles").select("id").neq("id", uid) \
         .overlaps("interests", my_interests).limit(100).execute()
+
     ppl_ids = [p["id"] for p in (ppl_res.data or []) if p["id"] not in friend_ids]
+
     if not ppl_ids:
         return jsonify([])
+
     res = sb.table("spots") \
         .select("*, owner:owner_id(username, display_name, avatar_url)") \
         .in_("owner_id", ppl_ids).eq("visibility", "public") \
         .order("created_at", desc=True).limit(20).execute()
+
     return jsonify(res.data or [])
 
 
@@ -419,15 +468,19 @@ def api_own_spots():
 def map_view():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     result = sb.table("profiles").select("*").eq("id", session["user_id"]).execute()
+
     if not result.data:
         session.clear()
         return redirect(url_for("login"))
+
     profile = result.data[0]
+
     map_home = {
         "lat": profile.get("home_lat"),
         "lng": profile.get("home_lng"),
         "name": profile.get("home_location_name"),
     }
+
     return render_template("map.html", profile=profile, categories=CATEGORIES, map_home=map_home)
 
 
@@ -436,12 +489,16 @@ def map_view():
 def feed_view():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     profile = get_profile(sb, uid)
+
     friends_res = sb.table("friendships").select("requester_id, addressee_id") \
         .eq("status", "accepted") \
         .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
+
     friend_ids = [uid] + [f["requester_id"] if f["requester_id"] != uid else f["addressee_id"]
                           for f in (friends_res.data or [])]
+
     spots_res = sb.table("spots") \
         .select("*, owner:owner_id(username, display_name, avatar_url)") \
         .in_("owner_id", friend_ids) \
@@ -463,16 +520,22 @@ def messages_view():
 def chat_view(username):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     profile = get_profile(sb, session["user_id"])
+
     friend_res = sb.table("profiles").select("id, username, display_name, avatar_url") \
         .eq("username", username).execute()
+
     if not friend_res.data:
         return "Пользователь не найден", 404
+
     friend = friend_res.data[0]
+
     fs = sb.table("friendships").select("id").eq("status", "accepted").or_(
         f"and(requester_id.eq.{session['user_id']},addressee_id.eq.{friend['id']}),"
         f"and(requester_id.eq.{friend['id']},addressee_id.eq.{session['user_id']})"
     ).execute()
+
     is_friend = bool(fs.data)
+
     return render_template("chat.html", profile=profile, friend=friend, is_friend=is_friend)
 
 
@@ -480,12 +543,16 @@ def chat_view(username):
 @login_required
 def profile_view(username):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
+
     prof_res = sb.table("profiles").select("*").eq("username", username).execute()
     if not prof_res.data:
         return "Пользователь не найден", 404
+
     profile = prof_res.data[0]
+
     spots_res = sb.table("spots").select("*").eq("owner_id", profile["id"]) \
         .order("created_at", desc=True).execute()
+
     tagged_spots = []
     if profile.get("account_type") == "organization":
         tagged_res = sb.table("spots") \
@@ -493,7 +560,9 @@ def profile_view(username):
             .eq("organization_id", profile["id"]) \
             .order("created_at", desc=True).execute()
         tagged_spots = tagged_res.data or []
+
     is_me = profile["id"] == session["user_id"]
+
     friend_status = None
     if not is_me:
         f = sb.table("friendships").select("*").or_(
@@ -501,6 +570,7 @@ def profile_view(username):
             f"and(requester_id.eq.{profile['id']},addressee_id.eq.{session['user_id']})").execute()
         if f.data:
             friend_status = f.data[0]
+
     my_profile = get_profile(sb, session["user_id"])
     is_admin = bool(my_profile.get("is_admin"))
 
@@ -526,10 +596,13 @@ def profile_view(username):
         now = datetime.now(timezone.utc)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         week_start = now - timedelta(days=7)
+
         spot_ids = [s["id"] for s in tagged_spots]
         unique_people = set(s.get("owner_id") for s in tagged_spots if s.get("owner_id"))
+
         comments_count = 0
         reactions_count = 0
+
         if spot_ids:
             try:
                 c_res = sb.table("spot_comments").select("id", count="exact") \
@@ -537,12 +610,14 @@ def profile_view(username):
                 comments_count = c_res.count or 0
             except Exception:
                 comments_count = 0
+
             try:
                 r_res = sb.table("spot_reactions").select("id", count="exact") \
                     .in_("spot_id", spot_ids).execute()
                 reactions_count = r_res.count or 0
             except Exception:
                 reactions_count = 0
+
         org_stats = {
             "total": len(tagged_spots),
             "today": sum(1 for s in tagged_spots
@@ -566,24 +641,30 @@ def profile_view(username):
 def friends_view():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     try:
         sb.table("profiles").update({
             "friends_seen_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", uid).execute()
     except Exception:
         pass
+
     incoming = sb.table("friendships") \
         .select("*, requester:requester_id(username, display_name, avatar_url)") \
         .eq("addressee_id", uid).eq("status", "pending").execute()
+
     outgoing = sb.table("friendships") \
         .select("*, addressee:addressee_id(username, display_name, avatar_url)") \
         .eq("requester_id", uid).eq("status", "pending").execute()
+
     accepted = sb.table("friendships") \
         .select("*, requester:requester_id(username, display_name, avatar_url), "
                 "addressee:addressee_id(username, display_name, avatar_url)") \
         .eq("status", "accepted") \
         .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
+
     profile = get_profile(sb, uid)
+
     return render_template("friends.html", incoming=incoming.data or [],
                            outgoing=outgoing.data or [],
                            accepted=accepted.data or [], my_id=uid, profile=profile)
@@ -600,16 +681,17 @@ def settings_view():
         return render_template("settings.html", profile=profile, categories=CATEGORIES)
 
     profile = get_profile(sb, uid)
+
     update_data = {
         "display_name": request.form.get("display_name", "").strip(),
         "bio": request.form.get("bio", "").strip(),
         "location": request.form.get("location", "").strip(),
     }
+
     update_data["telegram_username"] = request.form.get("telegram_username", "").strip() or None
     update_data["contact_phone"] = request.form.get("contact_phone", "").strip() or None
     update_data["contact_email"] = request.form.get("contact_email", "").strip() or None
     update_data["home_location_name"] = request.form.get("home_location_name", "").strip() or None
-
     update_data["interests"] = request.form.getlist("interests")
 
     hlat = request.form.get("home_lat", "").strip()
@@ -622,9 +704,11 @@ def settings_view():
             pass
 
     account_type = profile.get("account_type", "person")
+
     if account_type == "organization":
         update_data["category"] = request.form.get("org_category", "").strip() or None
         update_data["address"] = request.form.get("org_address", "").strip() or None
+
         olat = request.form.get("org_lat", "").strip()
         olng = request.form.get("org_lng", "").strip()
         if olat and olng:
@@ -649,7 +733,6 @@ def settings_view():
 
     return redirect(url_for("profile_view", username=profile.get("username", "")))
 
-
 # ---------- АДМИН-ПАНЕЛЬ ----------
 
 @app.route("/admin")
@@ -665,6 +748,7 @@ def admin_view():
 def api_admin_users():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     q = request.args.get("q", "").strip().lower()
+
     try:
         res = sb.table("profiles") \
             .select("id, username, display_name, avatar_url, account_type, category, "
@@ -672,11 +756,14 @@ def api_admin_users():
             .order("created_at", desc=True).limit(200).execute()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
     users = res.data or []
+
     if q:
         users = [u for u in users
                  if q in (u.get("username") or "").lower()
                  or q in (u.get("display_name") or "").lower()]
+
     return jsonify(users)
 
 
@@ -685,11 +772,13 @@ def api_admin_users():
 def api_admin_verify_org(user_id):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     value = (request.json or {}).get("value", True)
+
     try:
         sb.table("profiles").update({"is_verified": bool(value)}) \
             .eq("id", user_id).eq("account_type", "organization").execute()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
     return jsonify({"ok": True, "is_verified": bool(value)})
 
 
@@ -698,13 +787,16 @@ def api_admin_verify_org(user_id):
 def api_admin_toggle_admin(user_id):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     value = (request.json or {}).get("value", True)
+
     if user_id == session["user_id"] and not value:
         return jsonify({"error": "Нельзя снять админку с самого себя"}), 400
+
     try:
         sb.table("profiles").update({"is_admin": bool(value)}) \
             .eq("id", user_id).execute()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
     return jsonify({"ok": True, "is_admin": bool(value)})
 
 
@@ -712,12 +804,14 @@ def api_admin_toggle_admin(user_id):
 @admin_required
 def api_admin_spots():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
+
     try:
         res = sb.table("spots") \
             .select("*, owner:owner_id(username, display_name)") \
             .order("created_at", desc=True).limit(200).execute()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
     return jsonify(res.data or [])
 
 
@@ -725,12 +819,13 @@ def api_admin_spots():
 @admin_required
 def api_admin_delete_spot(spot_id):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
+
     try:
         sb.table("spots").delete().eq("id", spot_id).execute()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    return jsonify({"ok": True})
 
+    return jsonify({"ok": True})
 
 # ---------- API: метки ----------
 
@@ -739,16 +834,19 @@ def api_admin_delete_spot(spot_id):
 def api_spots_list():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     now_iso = datetime.now(timezone.utc).isoformat()
+
     try:
         sb.table("spots").delete().eq("owner_id", session["user_id"]) \
             .lt("expires_at", now_iso).execute()
     except Exception:
         pass
+
     res = sb.table("spots") \
         .select("*, owner:owner_id(username, display_name, avatar_url, interests), "
                 "organization:organization_id(username, display_name, category, is_verified)") \
         .or_(f"expires_at.is.null,expires_at.gt.{now_iso}") \
         .order("created_at", desc=True).execute()
+
     return jsonify(res.data or [])
 
 
@@ -757,6 +855,7 @@ def api_spots_list():
 def api_spots_create():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     title = request.form.get("title", "").strip()
     lat = request.form.get("lat")
     lng = request.form.get("lng")
@@ -769,6 +868,7 @@ def api_spots_create():
 
     profile = get_profile(sb, uid)
     acc_type = profile.get("account_type", "person")
+
     if acc_type == "person":
         sb.table("spots").delete().eq("owner_id", uid).execute()
 
@@ -842,17 +942,19 @@ def api_spot_comments(spot_id):
         text = (request.json or {}).get("text", "").strip()
         if not text:
             return jsonify({"error": "Текст обязателен"}), 400
+
         try:
             sb.table("spot_comments").insert({"spot_id": spot_id, "user_id": uid, "text": text}).execute()
         except Exception as e:
             return jsonify({"error": str(e)}), 400
+
         return jsonify({"ok": True}), 201
 
     res = sb.table("spot_comments") \
         .select("*, user:user_id(username, display_name, avatar_url)") \
         .eq("spot_id", spot_id).order("created_at").execute()
-    return jsonify(res.data or [])
 
+    return jsonify(res.data or [])
 
 # ---------- API: организации ----------
 
@@ -860,16 +962,20 @@ def api_spot_comments(spot_id):
 @login_required
 def api_organizations_list():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
+
     res = sb.table("profiles") \
         .select("id, username, display_name, avatar_url, category, address, lat, lng, is_verified") \
         .eq("account_type", "organization") \
         .not_.is_("lat", "null") \
         .not_.is_("lng", "null") \
         .execute()
+
     orgs = res.data or []
+
     cat = request.args.get("category", "").strip()
     if cat:
         orgs = [o for o in orgs if o.get("category") == cat]
+
     return jsonify(orgs)
 
 
@@ -878,6 +984,7 @@ def api_organizations_list():
 def api_organizations_search():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     q = request.args.get("q", "").strip().lower()
+
     try:
         lat = float(request.args.get("lat", 0))
         lng = float(request.args.get("lng", 0))
@@ -890,23 +997,28 @@ def api_organizations_search():
         .not_.is_("lat", "null") \
         .not_.is_("lng", "null") \
         .execute()
+
     orgs = res.data or []
     out = []
+
     for o in orgs:
         name = (o.get("display_name") or "").lower()
         uname = (o.get("username") or "").lower()
         cat = (o.get("category") or "").lower()
+
         if q and not (q in name or q in uname or q in cat):
             continue
+
         try:
             dist = haversine(lat, lng, float(o["lat"]), float(o["lng"]))
         except Exception:
             dist = 99999
+
         o["distance_km"] = round(dist, 2)
         out.append(o)
+
     out.sort(key=lambda x: x["distance_km"])
     return jsonify(out[:10])
-
 
 # ---------- API: друзья / сообщения ----------
 
@@ -915,9 +1027,11 @@ def api_organizations_search():
 def api_friends_list():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     res = sb.table("friendships").select("requester_id, addressee_id") \
         .eq("status", "accepted") \
         .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
+
     friends = []
     for f in (res.data or []):
         fid = f["requester_id"] if f["requester_id"] != uid else f["addressee_id"]
@@ -925,6 +1039,7 @@ def api_friends_list():
             .eq("id", fid).execute()
         if prof.data:
             friends.append(prof.data[0])
+
     return jsonify(friends)
 
 
@@ -933,22 +1048,29 @@ def api_friends_list():
 def api_users_search():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     q = request.args.get("q", "").strip()
     if q.startswith("@"):
         q = q[1:]
+
     if len(q) < 2:
         return jsonify([])
+
     fields = "id, username, display_name, avatar_url, account_type"
+
     try:
         res1 = sb.table("profiles").select(fields).ilike("username", f"%{q}%").limit(10).execute()
         res2 = sb.table("profiles").select(fields).ilike("display_name", f"%{q}%").limit(10).execute()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
     merged = {}
     for row in (res1.data or []) + (res2.data or []):
         merged[row["id"]] = row
+
     people = [p for p in merged.values() if p["id"] != uid]
     people.sort(key=lambda p: (p.get("username") or "").lower())
+
     return jsonify(people[:10])
 
 
@@ -957,10 +1079,13 @@ def api_users_search():
 def api_friend_add(username):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     target = sb.table("profiles").select("id").eq("username", username).execute()
     if not target.data:
         return jsonify({"error": "Пользователь не найден"}), 404
+
     target_id = target.data[0]["id"]
+
     if target_id == uid:
         return jsonify({"error": "Нельзя добавить самого себя"}), 400
 
@@ -968,6 +1093,7 @@ def api_friend_add(username):
         f"and(requester_id.eq.{uid},addressee_id.eq.{target_id}),"
         f"and(requester_id.eq.{target_id},addressee_id.eq.{uid})"
     ).execute()
+
     if existing.data:
         row = existing.data[0]
         if row["status"] == "accepted":
@@ -982,6 +1108,7 @@ def api_friend_add(username):
         res = sb.table("friendships").insert({"requester_id": uid, "addressee_id": target_id}).execute()
     except Exception:
         return jsonify({"error": "Не удалось отправить заявку"}), 400
+
     return jsonify({"ok": True, "status": "pending", "friendship": res.data[0]}), 201
 
 
@@ -1020,6 +1147,7 @@ def api_messages(friend_id):
 
     if request.method == "POST":
         image = request.files.get("image")
+
         if image or request.form:
             text = request.form.get("text", "").strip()
         else:
@@ -1038,14 +1166,17 @@ def api_messages(friend_id):
             sb.table("messages").insert(insert_data).execute()
         except Exception:
             return jsonify({"error": "Не удалось отправить. Возможно, вы ещё не друзья."}), 400
+
         return jsonify({"ok": True}), 201
 
     res = sb.table("messages").select("*") \
         .or_(f"and(sender_id.eq.{uid},receiver_id.eq.{friend_id}),"
              f"and(sender_id.eq.{friend_id},receiver_id.eq.{uid})") \
         .order("created_at").execute()
+
     sb.table("messages").update({"is_read": True}) \
         .eq("sender_id", friend_id).eq("receiver_id", uid).eq("is_read", False).execute()
+
     return jsonify(res.data or [])
 
 
@@ -1053,10 +1184,12 @@ def api_messages(friend_id):
 @login_required
 def api_conversations():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
+
     try:
         res = sb.rpc("get_conversations", {}).execute()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
     return jsonify(res.data or [])
 
 
@@ -1065,17 +1198,22 @@ def api_conversations():
 def api_unread_count():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     res = sb.table("messages").select("id", count="exact") \
         .eq("receiver_id", uid).eq("is_read", False).execute()
+
     profile = get_profile(sb, uid)
     seen_at = profile.get("friends_seen_at")
+
     q = sb.table("friendships").select("id", count="exact") \
         .eq("addressee_id", uid).eq("status", "pending")
+
     if seen_at:
         q = q.gt("created_at", seen_at)
-    incoming = q.execute()
-    return jsonify({"messages": res.count or 0, "friend_requests": incoming.count or 0})
 
+    incoming = q.execute()
+
+    return jsonify({"messages": res.count or 0, "friend_requests": incoming.count or 0})
 
 # ---------- API: реакции на метки ----------
 
@@ -1083,6 +1221,7 @@ def api_unread_count():
 @login_required
 def api_spot_reactions_get(spot_id):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
+
     try:
         res = sb.rpc("get_spot_reactions", {"p_spot_id": spot_id}).execute()
         return jsonify(res.data or [])
@@ -1096,7 +1235,7 @@ def api_spot_reaction_toggle(spot_id, emoji):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
 
-    valid_emojis = ['\U0001F525', '❤️', '\U0001F602', '\U0001F389']
+    valid_emojis = ['🔥', '❤️', '😂', '🎉']
     if emoji not in valid_emojis:
         return jsonify({"error": "Недопустимая реакция"}), 400
 
@@ -1110,7 +1249,6 @@ def api_spot_reaction_toggle(spot_id, emoji):
             return jsonify({"ok": True, "action": "added"}), 201
         except Exception:
             return jsonify({"ok": True, "action": "already_exists"})
-
     else:
         try:
             sb.table("spot_reactions").delete() \
@@ -1121,7 +1259,6 @@ def api_spot_reaction_toggle(spot_id, emoji):
         except Exception as e:
             return jsonify({"error": str(e)}), 400
 
-
 # ---------- FLASH DEALS (B2B) ----------
 
 @app.route("/api/flash-deals", methods=["GET"])
@@ -1129,21 +1266,28 @@ def api_spot_reaction_toggle(spot_id, emoji):
 def api_flash_deals_list():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     org_id = request.args.get("org_id")
+
     q = sb.table("flash_deals").select("*").order("created_at", desc=True)
+
     if org_id:
         q = q.eq("org_id", org_id)
     else:
         q = q.eq("active", True)
+
     res = q.execute()
     deals = res.data or []
+
     if deals:
         ids = [d["id"] for d in deals]
         claims = sb.table("flash_deal_claims").select("deal_id").in_("deal_id", ids).execute()
+
         counts = {}
         for c in (claims.data or []):
             counts[c["deal_id"]] = counts.get(c["deal_id"], 0) + 1
+
         for d in deals:
             d["claimed"] = counts.get(d["id"], 0)
+
     return jsonify(deals)
 
 
@@ -1152,13 +1296,17 @@ def api_flash_deals_list():
 def api_flash_deals_create():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     prof = get_profile(sb, uid)
     if prof.get("account_type") != "organization":
         return jsonify({"error": "Только заведения могут создавать флеш-дилы"}), 403
+
     data = request.json or {}
     title = (data.get("title") or "").strip()
+
     if not title:
         return jsonify({"error": "Нужен заголовок"}), 400
+
     insert = {
         "org_id": uid,
         "title": title,
@@ -1167,8 +1315,10 @@ def api_flash_deals_create():
         "claimed": 0,
         "active": True,
     }
+
     if data.get("ends_at"):
         insert["ends_at"] = data["ends_at"]
+
     res = sb.table("flash_deals").insert(insert).execute()
     return jsonify(res.data[0]), 201
 
@@ -1186,25 +1336,34 @@ def api_flash_deals_delete(deal_id):
 def api_flash_deals_claim(deal_id):
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     uid = session["user_id"]
+
     deal = sb.table("flash_deals").select("*").eq("id", deal_id).execute()
     if not deal.data:
         return jsonify({"error": "Дил не найден"}), 404
+
     d = deal.data[0]
+
     if not d.get("active"):
         return jsonify({"error": "Дил завершён"}), 400
+
     if d.get("ends_at") and parse_iso(d["ends_at"]) and parse_iso(d["ends_at"]) < datetime.now(timezone.utc):
         return jsonify({"error": "Время вышло"}), 400
+
     cur = sb.table("flash_deal_claims").select("id", count="exact").eq("deal_id", deal_id).execute()
     claimed = cur.count or 0
+
     if claimed >= (d.get("total_slots") or 0):
         return jsonify({"error": "Места закончились"}), 400
+
     already = sb.table("flash_deal_claims").select("id").eq("deal_id", deal_id).eq("user_id", uid).execute()
     if already.data:
         return jsonify({"error": "Вы уже участвуете"}), 400
+
     try:
         sb.table("flash_deal_claims").insert({"deal_id": deal_id, "user_id": uid}).execute()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
     return jsonify({"ok": True, "claimed": claimed + 1})
 
 
