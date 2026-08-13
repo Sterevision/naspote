@@ -74,6 +74,20 @@
 </div>
 {% endif %}
 
+{% if common_interests %}
+<div class="wave-banner">
+  <div class="wave-title">🌊 Вы на одной волне</div>
+  <div class="wave-pills">
+    {% for key in common_interests %}
+    {% if key in int_map %}
+    <span class="interest-pill">{{ int_map[key][0] }} {{ int_map[key][1] }}</span>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <p class="wave-hint">Общие интересы — повод поздороваться 👋</p>
+</div>
+{% endif %}
+
 {% if profile.telegram_username or profile.contact_phone or profile.contact_email %}
 <div style="display:flex; flex-direction:column; gap:6px; margin-top:14px; align-items:center;">
 {% if profile.telegram_username %}<a href="https://t.me/{{ profile.telegram_username }}" target="_blank" class="hint" style="color:var(--primary-dark);">✈️ @{{ profile.telegram_username }}</a>{% endif %}

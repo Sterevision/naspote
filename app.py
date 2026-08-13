@@ -629,11 +629,17 @@ def profile_view(username):
             "reactions": reactions_count,
         }
 
+    common_interests = []
+    if not is_me and profile.get("account_type") == "person":
+        my_ints = my_profile.get("interests") or []
+        their_ints = profile.get("interests") or []
+        common_interests = [i for i in my_ints if i in their_ints]
+
     return render_template("profile.html", profile=profile, spots=spots_res.data,
                            is_me=is_me, friend_status=friend_status,
                            tagged_spots=tagged_spots, my_id=session["user_id"],
                            org_stats=org_stats, is_admin=is_admin, badges=badges,
-                           new_claims=new_claims)
+                           new_claims=new_claims, common_interests=common_interests)
 
 
 @app.route("/friends")
