@@ -243,6 +243,21 @@ def register():
                     profile_data["lng"] = float(org_lng)
                 except ValueError:
                     pass
+
+        # Город, выбранный при регистрации (автозаполнение)
+        home_lat = request.form.get("home_lat", "").strip()
+        home_lng = request.form.get("home_lng", "").strip()
+        if home_lat and home_lng:
+            try:
+                profile_data["home_lat"] = float(home_lat)
+                profile_data["home_lng"] = float(home_lng)
+
+                home_name = request.form.get("home_location_name", "").strip()
+                if home_name:
+                    profile_data["home_location_name"] = home_name
+            except ValueError:
+                pass
+
         try:
             sb2.table("profiles").insert(profile_data).execute()
         except Exception as e:
@@ -254,20 +269,6 @@ def register():
         return redirect(url_for("map_view"))
 
     return redirect(url_for("login"))
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "GET":
-        return render_template("login.html")
-    try:
-        res = get_supabase().auth.sign_in_with_password({
-            "email": request.form.get("email", "").strip(),
-            "password": request.form.get("password", "")
-        })
-        session["access_token"] = res.session.access_token
-        session["refresh_token"] = res.session.refresh_token
-        session["user_id"] = res.user.id
 
         sb2 = get_supabase(res.session.access_token, res.session.refresh_token)
         existing = sb2.table("profiles").select("id").eq("id", res.user.id).execute()
