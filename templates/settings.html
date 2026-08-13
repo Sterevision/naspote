@@ -30,7 +30,6 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
   padding: 8px 14px;
   border-radius: 999px;
   background: var(--primary-soft);
@@ -38,13 +37,23 @@
   font-size: 13px;
   font-weight: 700;
 }
-/* Интересы: сетка */
+/* Ряд: чип + кнопка геолокации */
+.home-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.home-actions-row .city-chip { margin-top: 0; }
+/* Интересы: сетка пилюль БЕЗ квадратиков */
 .interests-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 .interest-check {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -56,11 +65,13 @@
   font-weight: 700;
   cursor: pointer;
 }
+/* Сам чекбокс невидим, но работает */
 .interest-check input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primary);
-  flex-shrink: 0;
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 .interest-check:has(input:checked) {
   background: #fff;
@@ -155,13 +166,15 @@
              value="{{ profile.home_location_name or '' }}"
              placeholder="Начните вводить: Москва, Казань..." autocomplete="off">
       <div class="city-suggestions" id="citySuggestionsHome"></div>
-      <div class="city-chip" id="cityChipHome" hidden></div>
     </div>
 
     <input type="hidden" name="home_lat" id="homeLatInput" value="{{ profile.home_lat or '' }}">
     <input type="hidden" name="home_lng" id="homeLngInput" value="{{ profile.home_lng or '' }}">
 
-    <button type="button" class="btn btn-soft btn-sm" id="homeLocateBtn">📍 Определить по текущему месту</button>
+    <div class="home-actions-row">
+      <div class="city-chip" id="cityChipHome" hidden></div>
+      <button type="button" class="btn btn-soft btn-sm" id="homeLocateBtn">📍 Определить по текущему месту</button>
+    </div>
 
     {% if profile.account_type == 'organization' %}
     <div class="settings-subtitle">🏢 Данные заведения</div>
@@ -186,7 +199,7 @@
       <input class="input" type="text" id="cityInputOrg"
              placeholder="Начните вводить город..." autocomplete="off">
       <div class="city-suggestions" id="citySuggestionsOrg"></div>
-      <div class="city-chip" id="cityChipOrg" hidden></div>
+      <div class="city-chip" id="cityChipOrg" hidden style="margin-top:8px;"></div>
     </div>
 
     <input type="hidden" name="org_lat" id="orgLatInput" value="{{ profile.lat or '' }}">
