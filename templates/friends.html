@@ -56,6 +56,70 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<style>
+.wave-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: middle;
+}
+</style>
+<script>
+(function () {
+    var waveUsernames = {{ wave_usernames | tojson }};
+
+    if (!waveUsernames || !waveUsernames.length) return;
+
+    function escapeRegExp(s) {
+        return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function addPills() {
+        waveUsernames.forEach(function (username) {
+            var re = new RegExp('@' + escapeRegExp(username) + '(?![a-zA-Z0-9_])');
+
+            var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                acceptNode: function (node) {
+                    if (!node.nodeValue || !re.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+
+                    var parent = node.parentElement;
+                    if (!parent) return NodeFilter.FILTER_REJECT;
+                    if (parent.closest('script, style')) return NodeFilter.FILTER_REJECT;
+
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            });
+
+            var nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+
+            nodes.forEach(function (node) {
+                var parent = node.parentElement;
+                if (!parent || parent.dataset.wavePill) return;
+                parent.dataset.wavePill = '1';
+
+                var pill = document.createElement('span');
+                pill.className = 'wave-pill';
+                pill.textContent = '🌊 свой';
+                parent.appendChild(pill);
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', addPills);
+    } else {
+        addPills();
+    }
+})();
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.accept-friend-btn').forEach(function (btn) {

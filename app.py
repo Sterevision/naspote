@@ -670,10 +670,29 @@ def friends_view():
         .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
 
     profile = get_profile(sb, uid)
+    my_ints = profile.get("interests") or []
+
+    wave_usernames = []
+    if my_ints:
+        ids = []
+        for row in (incoming.data or []):
+            ids.append(row["requester_id"])
+        for row in (outgoing.data or []):
+            ids.append(row["addressee_id"])
+        for row in (accepted.data or []):
+            ids.append(row["requester_id"] if row["requester_id"] != uid else row["addressee_id"])
+
+        if ids:
+            pr = sb.table("profiles").select("username, interests").in_("id", ids).execute()
+            for p in (pr.data or []):
+                their = p.get("interests") or []
+                if any(i in their for i in my_ints):
+                    wave_usernames.append(p.get("username"))
 
     return render_template("friends.html", incoming=incoming.data or [],
                            outgoing=outgoing.data or [],
-                           accepted=accepted.data or [], my_id=uid, profile=profile)
+                           accepted=accepted.data or [], my_id=uid, profile=profile,
+                           wave_usernames=wave_usernames)
 
 
 @app.route("/settings", methods=["GET", "POST"])
