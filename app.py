@@ -1215,6 +1215,26 @@ def api_unread_count():
 
     return jsonify({"messages": res.count or 0, "friend_requests": incoming.count or 0})
 
+@app.route("/api/friend_requests")
+@login_required
+def api_friend_requests():
+    sb = get_supabase(session["access_token"], session.get("refresh_token"))
+
+    res = sb.table("friendships") \
+        .select("id, requester:requester_id(username, display_name)") \
+        .eq("addressee_id", session["user_id"]).eq("status", "pending").execute()
+
+    out = []
+    for row in (res.data or []):
+        req = row.get("requester") or {}
+        out.append({
+            "id": row["id"],
+            "username": req.get("username"),
+            "display_name": req.get("display_name"),
+        })
+
+    return jsonify(out)
+
 # ---------- API: реакции на метки ----------
 
 @app.route("/api/spots/<int:spot_id>/reactions", methods=["GET"])
