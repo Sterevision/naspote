@@ -599,17 +599,28 @@ def profile_view(username):
     if not is_me:
         f = sb.table("friendships").select("*").or_(
             f"and(requester_id.eq.{session['user_id']},addressee_id.eq.{profile['id']}),"
-            f"and(requester_id.eq.{profile['id']},addressee_id.eq.{session['user_id']})").execute()
+            f"and(requester_id.eq.{profile['id']},addressee_id.eq.{session['user_id']})"
+        ).execute()
         if f.data:
             friend_status = f.data[0]
 
     my_profile = get_profile(sb, session["user_id"])
     is_admin = bool(my_profile.get("is_admin"))
-
     badges = compute_badges(sb, profile["id"])
 
+    # --- БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ ВСЕХ ПЕРЕМЕННЫХ ---
     new_claims = 0
     deals_summary = []
+    org_stats = None
+    common_interests = []
+
+    # --- ОБЩИЕ ИНТЕРЕСЫ (для чужих профилей людей) ---
+    if not is_me and profile.get("account_type") == "person":
+        my_ints = my_profile.get("interests") or []
+        their_ints = profile.get("interests") or []
+        common_interests = [i for i in my_ints if i in their_ints]
+
+    # --- СЕКРЕТНЫЕ МОМЕНТЫ (только для владельца заведения) ---
     if is_me and profile.get("account_type") == "organization":
         try:
             my_deals = sb.table("flash_deals").select("id, title, total_slots") \
@@ -645,12 +656,11 @@ def profile_view(username):
         except Exception:
             new_claims = 0
 
-    org_stats = None
+    # --- СТАТИСТИКА ЗАВЕДЕНИЯ (для любого заведения) ---
     if profile.get("account_type") == "organization":
         now = datetime.now(timezone.utc)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         week_start = now - timedelta(days=7)
-
         spot_ids = [s["id"] for s in tagged_spots]
         unique_people = set(s.get("owner_id") for s in tagged_spots if s.get("owner_id"))
 
@@ -672,51 +682,43 @@ def profile_view(username):
             except Exception:
                 reactions_count = 0
 
-        # Магические метрики: постоянные гости, пиковый час, секретные моменты
+        org_stats = {
+            "total": len(tagged_spots),
+            "today": sum(1 for s in tagged_spots
+                         if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= today_start),
+            "week": sum(1 for s in tagged_spots
+                        if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= week_start),
+            "people": len(unique_people),
+            "comments": comments_count,
+            "reactions": reactions_count,
+            "regulars": 0,
+            "peak_hour": None,
+            "deals_claims": 0,
+        }
+
         owner_counts = {}
         for s in tagged_spots:
             oid = s.get("owner_id")
             if oid:
                 owner_counts[oid] = owner_counts.get(oid, 0) + 1
-        regulars = sum(1 for c in owner_counts.values() if c >= 2)
+        org_stats["regulars"] = sum(1 for c in owner_counts.values() if c >= 2)
 
         hour_counts = {}
         for s in tagged_spots:
             d = parse_iso(s.get("created_at"))
             if d:
                 hour_counts[d.hour] = hour_counts.get(d.hour, 0) + 1
-        peak_hour = max(hour_counts, key=hour_counts.get) if hour_counts else None
+        org_stats["peak_hour"] = max(hour_counts, key=hour_counts.get) if hour_counts else None
 
-        deals_claims = 0
         try:
             deals_res = sb.table("flash_deals").select("id").eq("org_id", profile["id"]).execute()
             deals_ids = [d["id"] for d in (deals_res.data or [])]
             if deals_ids:
                 dcc = sb.table("flash_deal_claims").select("id", count="exact") \
                     .in_("deal_id", deals_ids).execute()
-                deals_claims = dcc.count or 0
+                org_stats["deals_claims"] = dcc.count or 0
         except Exception:
-            deals_claims = 0
-
-    org_stats = {
-        "total": len(tagged_spots),
-        "today": sum(1 for s in tagged_spots
-                     if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= today_start),
-        "week": sum(1 for s in tagged_spots
-                    if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= week_start),
-        "people": len(unique_people),
-        "comments": comments_count,
-        "reactions": reactions_count,
-        "regulars": regulars,
-        "peak_hour": peak_hour,
-        "deals_claims": deals_claims,
-    }
-
-    common_interests = []
-    if not is_me and profile.get("account_type") == "person":
-        my_ints = my_profile.get("interests") or []
-        their_ints = profile.get("interests") or []
-        common_interests = [i for i in my_ints if i in their_ints]
+            pass
 
     return render_template("profile.html", profile=profile, spots=spots_res.data,
                            is_me=is_me, friend_status=friend_status,
