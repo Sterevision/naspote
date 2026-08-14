@@ -40,7 +40,6 @@ window.CURRENT_USER_ID = "{{ profile.id }}";
 </div>
 <nav class="bottom-nav">
 <a class="nav-item active" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span><span class="label">Карта</span></a>
-<a class="nav-item" href="{{ url_for('feed_view') }}"><span class="ic">📰</span><span class="label">Лента</span></a>
 <a class="nav-item" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span><span class="label">Друзья</span></a>
 <a class="nav-item" href="{{ url_for('messages_view') }}"><span class="ic">💬</span><span class="label">Чаты</span></a>
 <a class="nav-item" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span><span class="label">Профиль</span></a>

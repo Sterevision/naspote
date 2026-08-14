@@ -519,24 +519,10 @@ def map_view():
 @app.route("/feed")
 @login_required
 def feed_view():
+    # Ленты больше нет: история живёт в профиле
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
-    uid = session["user_id"]
-
-    profile = get_profile(sb, uid)
-
-    friends_res = sb.table("friendships").select("requester_id, addressee_id") \
-        .eq("status", "accepted") \
-        .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}").execute()
-
-    friend_ids = [uid] + [f["requester_id"] if f["requester_id"] != uid else f["addressee_id"]
-                          for f in (friends_res.data or [])]
-
-    spots_res = sb.table("spots") \
-        .select("*, owner:owner_id(username, display_name, avatar_url)") \
-        .in_("owner_id", friend_ids) \
-        .order("created_at", desc=True).limit(50).execute()
-
-    return render_template("feed.html", spots=spots_res.data or [], profile=profile)
+    profile = get_profile(sb, session["user_id"])
+    return redirect(url_for("profile_view", username=profile.get("username", "")))
 
 
 @app.route("/messages")

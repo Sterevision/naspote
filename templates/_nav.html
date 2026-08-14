@@ -1,7 +1,6 @@
 {% macro bottom_nav(active, profile) %}
 <nav class="bottom-nav">
 <a class="nav-item{% if active == 'map' %} active{% endif %}" href="{{ url_for('map_view') }}"><span class="ic">🗺️</span><span class="label">Карта</span></a>
-<a class="nav-item{% if active == 'feed' %} active{% endif %}" href="{{ url_for('feed_view') }}"><span class="ic">📰</span><span class="label">Лента</span></a>
 <a class="nav-item{% if active == 'friends' %} active{% endif %}" href="{{ url_for('friends_view') }}"><span class="ic">🤝</span><span class="label">Друзья</span></a>
 <a class="nav-item{% if active == 'messages' %} active{% endif %}" href="{{ url_for('messages_view') }}"><span class="ic">💬</span><span class="label">Чаты</span></a>
 <a class="nav-item{% if active == 'profile' %} active{% endif %}" href="{{ url_for('profile_view', username=profile.username) }}"><span class="ic">👤</span><span class="label">Профиль</span></a>
