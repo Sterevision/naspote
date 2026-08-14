@@ -618,16 +618,45 @@ def profile_view(username):
             except Exception:
                 reactions_count = 0
 
-        org_stats = {
-            "total": len(tagged_spots),
-            "today": sum(1 for s in tagged_spots
-                         if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= today_start),
-            "week": sum(1 for s in tagged_spots
-                        if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= week_start),
-            "people": len(unique_people),
-            "comments": comments_count,
-            "reactions": reactions_count,
-        }
+        # Магические метрики: постоянные гости, пиковый час, секретные моменты
+        owner_counts = {}
+        for s in tagged_spots:
+            oid = s.get("owner_id")
+            if oid:
+                owner_counts[oid] = owner_counts.get(oid, 0) + 1
+        regulars = sum(1 for c in owner_counts.values() if c >= 2)
+
+        hour_counts = {}
+        for s in tagged_spots:
+            d = parse_iso(s.get("created_at"))
+            if d:
+                hour_counts[d.hour] = hour_counts.get(d.hour, 0) + 1
+        peak_hour = max(hour_counts, key=hour_counts.get) if hour_counts else None
+
+        deals_claims = 0
+        try:
+            deals_res = sb.table("flash_deals").select("id").eq("org_id", profile["id"]).execute()
+            deals_ids = [d["id"] for d in (deals_res.data or [])]
+            if deals_ids:
+                dcc = sb.table("flash_deal_claims").select("id", count="exact") \
+                    .in_("deal_id", deals_ids).execute()
+                deals_claims = dcc.count or 0
+        except Exception:
+            deals_claims = 0
+
+    org_stats = {
+        "total": len(tagged_spots),
+        "today": sum(1 for s in tagged_spots
+                     if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= today_start),
+        "week": sum(1 for s in tagged_spots
+                    if parse_iso(s.get("created_at")) and parse_iso(s.get("created_at")) >= week_start),
+        "people": len(unique_people),
+        "comments": comments_count,
+        "reactions": reactions_count,
+        "regulars": regulars,
+        "peak_hour": peak_hour,
+        "deals_claims": deals_claims,
+    }
 
     common_interests = []
     if not is_me and profile.get("account_type") == "person":

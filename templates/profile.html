@@ -144,6 +144,24 @@
 </div>
 {% endif %}
 
+{% if is_me and org_stats %}
+<div class="section-title">🌡️ Как вас чувствуют</div>
+<div class="inline-card">
+  {% if org_stats.peak_hour is not none %}
+  <p style="margin:6px 0;font-size:14px;">🔥 Оживлённее всего у вас обычно около {{ '%02d:00'|format(org_stats.peak_hour) }}.</p>
+  {% endif %}
+  {% if org_stats.regulars %}
+  <p style="margin:6px 0;font-size:14px;">💜 {{ org_stats.regulars }} чел. возвращались несколько раз — это ваши постоянные.</p>
+  {% endif %}
+  {% if org_stats.deals_claims %}
+  <p style="margin:6px 0;font-size:14px;">🤫 На «секретные моменты» записались {{ org_stats.deals_claims }} раз.</p>
+  {% endif %}
+  {% if not org_stats.regulars and not org_stats.deals_claims %}
+  <p style="margin:6px 0;font-size:14px;">🌱 Сейчас тихо, но каждая метка — чей-то живой момент у вас.</p>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if profile.account_type == 'organization' %}
 <div class="card" style="margin-top:14px; padding:16px;">
 <div class="section-title" style="margin-top:0;">⚡ Flash Deals</div>
