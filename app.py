@@ -577,15 +577,37 @@ def profile_view(username):
     badges = compute_badges(sb, profile["id"])
 
     new_claims = 0
+    deals_summary = []
     if is_me and profile.get("account_type") == "organization":
         try:
-            my_deals = sb.table("flash_deals").select("id").eq("org_id", profile["id"]).execute()
+            my_deals = sb.table("flash_deals").select("id, title, total_slots") \
+                .eq("org_id", profile["id"]).execute()
             deal_ids = [d["id"] for d in (my_deals.data or [])]
+
+            counts = {}
             if deal_ids:
-                qc = sb.table("flash_deal_claims").select("id", count="exact").in_("deal_id", deal_ids)
+                claims_res = sb.table("flash_deal_claims").select("deal_id") \
+                    .in_("deal_id", deal_ids).execute()
+                for c in (claims_res.data or []):
+                    counts[c["deal_id"]] = counts.get(c["deal_id"], 0) + 1
+
+                qc = sb.table("flash_deal_claims").select("id", count="exact") \
+                    .in_("deal_id", deal_ids)
                 if profile.get("deals_seen_at"):
                     qc = qc.gt("created_at", profile["deals_seen_at"])
                 new_claims = qc.execute().count or 0
+
+            for d in (my_deals.data or []):
+                claimed = counts.get(d["id"], 0)
+                total = d.get("total_slots") or 0
+                fill = int(claimed * 100 / total) if total else 0
+                deals_summary.append({
+                    "title": d.get("title"),
+                    "claimed": claimed,
+                    "total": total,
+                    "fill": fill,
+                })
+
             sb.table("profiles").update({"deals_seen_at": datetime.now(timezone.utc).isoformat()}) \
                 .eq("id", profile["id"]).execute()
         except Exception:
@@ -668,8 +690,8 @@ def profile_view(username):
                            is_me=is_me, friend_status=friend_status,
                            tagged_spots=tagged_spots, my_id=session["user_id"],
                            org_stats=org_stats, is_admin=is_admin, badges=badges,
-                           new_claims=new_claims, common_interests=common_interests)
-
+                           new_claims=new_claims, common_interests=common_interests,
+                           deals_summary=deals_summary)
 
 @app.route("/friends")
 @login_required

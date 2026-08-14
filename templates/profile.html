@@ -162,6 +162,21 @@
 </div>
 {% endif %}
 
+{% if is_me and deals_summary %}
+<div class="section-title">🤫 Как звучат ваши моменты</div>
+<div class="inline-card">
+  {% for d in deals_summary %}
+  <p style="margin:6px 0;font-size:14px;">
+    {% if d.fill >= 100 %}🔥 «{{ d.title }}» — полный дом, момент удался!
+    {% elif d.fill >= 60 %}💜 «{{ d.title }}» — почти аншлаг: {{ d.claimed }} из {{ d.total }} уже в деле.
+    {% elif d.claimed > 0 %}🌱 «{{ d.title }}» — началось: {{ d.claimed }} уже в деле.
+    {% else %}🤫 «{{ d.title }}» — пока тихо. Первые участники скоро будут.
+    {% endif %}
+  </p>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if profile.account_type == 'organization' %}
 <div class="card" style="margin-top:14px; padding:16px;">
 <div class="section-title" style="margin-top:0;">⚡ Flash Deals</div>
