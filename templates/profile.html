@@ -1,54 +1,401 @@
-<div class="section-title">📍 Сейчас на карте · {{ live_spots|length }}</div>
-{% if live_spots %}
-{% for spot in live_spots %}
-<div class="inline-card spot-thumb-row" data-spot-card="{{ spot.id }}">
-  <div class="spot-thumb">{% if spot.photo_url %}<img src="{{ spot.photo_url }}" alt="">{% else %}📍{% endif %}</div>
-  <div style="flex:1;min-width:0;">
-    <div class="name">{{ spot.title }}</div>
-    <div class="sub">{{ spot.created_at[:16].replace('T', ' ') if spot.created_at else '' }} · {% if spot.visibility == 'friends' %}🤝 Только друзья{% else %}🌍 Видят все{% endif %}</div>
-  </div>
-  {% if is_me %}
-  <button type="button" class="spot-delete-btn" data-spot-id="{{ spot.id }}" title="Удалить метку" style="border:0;background:transparent;font-size:16px;cursor:pointer;opacity:.55;flex-shrink:0;">🗑</button>
-  {% endif %}
-</div>
-{% endfor %}
-{% else %}
-<div class="inline-card"><p class="hint">Сейчас активных меток нет.</p></div>
-{% endif %}
+{% extends "base.html" %}
+{% from "_nav.html" import bottom_nav %}
+{% block title %}{{ profile.display_name }} — Картометр{% endblock %}
+{% block head %}
+<style>
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat-box {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 8px;
+    text-align: center;
+}
+.stat-num { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--primary-dark); }
+.stat-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 4px; }
+.badges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.badge-card {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.badge-emoji { font-size: 24px; flex-shrink: 0; }
+.badge-title { font-weight: 800; font-size: 13px; }
+.badge-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.interests-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; justify-content: center; }
+.interest-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+}
+</style>
+<script src="{{ url_for('static', filename='js/secret-deals.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="card profile-card">
+    <div class="avatar avatar-lg">
+      {% if profile.avatar_url %}<img src="{{ profile.avatar_url }}" alt="">{% else %}{{ profile.display_name[:1]|upper }}{% endif %}
+    </div>
+    <div class="profile-name-row">
+      <div class="profile-name display">{{ profile.display_name }}</div>
+      {% if profile.is_verified %}<span class="verified">✅</span>{% endif %}
+    </div>
+    <div class="hint">@{{ profile.username }}{% if profile.age %} · {{ profile.age }}{% endif %}{% if profile.location %} · {{ profile.location }}{% endif %}</div>
+    {% if profile.bio %}
+    <p class="profile-bio">{{ profile.bio }}</p>
+    {% endif %}
 
-<div class="section-title">🗂 Архив моментов · {{ archive_spots|length }}</div>
-{% if archive_spots %}
-{% for spot in archive_spots %}
-<div class="inline-card spot-thumb-row" data-spot-card="{{ spot.id }}" style="opacity:.75;">
-  <div class="spot-thumb">{% if spot.photo_url %}<img src="{{ spot.photo_url }}" alt="">{% else %}📍{% endif %}</div>
-  <div style="flex:1;min-width:0;">
-    <div class="name">{{ spot.title }}</div>
-    <div class="sub">{{ spot.created_at[:16].replace('T', ' ') if spot.created_at else '' }} · архив</div>
-  </div>
-  {% if is_me %}
-  <button type="button" class="spot-delete-btn" data-spot-id="{{ spot.id }}" title="Удалить метку" style="border:0;background:transparent;font-size:16px;cursor:pointer;opacity:.55;flex-shrink:0;">🗑</button>
-  {% endif %}
-</div>
-{% endfor %}
-{% else %}
-<div class="inline-card"><p class="hint">Архив пока пуст. Когда метка исчезнет с карты, она останется здесь — как момент твоей истории.</p></div>
-{% endif %}
+    {% set int_map = {
+        'techno': ('🎵', 'Техно'),
+        'art': ('🎨', 'Искусство'),
+        'bars': ('🍸', 'Бары'),
+        'coffee': ('☕', 'Кофейни'),
+        'sport': ('🏃', 'Спорт'),
+        'nature': ('🌳', 'Природа'),
+        'karaoke': ('🎤', 'Караоке'),
+        'games': ('🎮', 'Игры'),
+        'books': ('📚', 'Книги'),
+        'food': ('🍕', 'Еда')
+    } %}
+    {% set ints = profile.interests or [] %}
+    {% if ints %}
+    <div class="interests-row">
+      {% for key in ints %}
+      {% if key in int_map %}
+      <span class="interest-pill">{{ int_map[key][0] }} {{ int_map[key][1] }}</span>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
 
+    {% if common_interests %}
+    <div class="wave-banner" style="margin-top:14px;padding:14px 16px;border-radius:18px;background:linear-gradient(135deg,rgba(109,92,255,.10),rgba(59,130,246,.08));border:1px solid rgba(109,92,255,.25);text-align:left;">
+      <div style="font-weight:900;font-size:14px;color:var(--primary-dark);margin-bottom:10px;">🌊 Вы на одной волне</div>
+      <div class="interests-row" style="justify-content:flex-start;margin-top:0;">
+        {% for key in common_interests %}
+        {% if key in int_map %}
+        <span class="interest-pill">{{ int_map[key][0] }} {{ int_map[key][1] }}</span>
+        {% endif %}
+        {% endfor %}
+      </div>
+      <p class="hint" style="margin-top:10px;">Общие интересы — повод поздороваться 👋</p>
+    </div>
+    {% endif %}
+
+    {% if profile.telegram_username or profile.contact_phone or profile.contact_email %}
+    <div class="interests-row">
+      {% if profile.telegram_username %}
+      <a class="interest-pill" href="https://t.me/{{ profile.telegram_username }}">✈️ @{{ profile.telegram_username }}</a>
+      {% endif %}
+      {% if profile.contact_phone %}
+      <a class="interest-pill" href="tel:{{ profile.contact_phone }}">📞 {{ profile.contact_phone }}</a>
+      {% endif %}
+      {% if profile.contact_email %}
+      <a class="interest-pill" href="mailto:{{ profile.contact_email }}">✉️ {{ profile.contact_email }}</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if profile.account_type != 'organization' %}
+    <div class="level-badge"><span class="level-num">{{ profile.level or 1 }}</span> Уровень · {{ profile.xp or 0 }} XP</div>
+    {% endif %}
+
+    <div class="profile-actions">
+      {% if is_me %}
+      <a class="btn btn-soft" href="{{ url_for('settings_view') }}">⚙️ Настройки</a>
+      {% if is_admin %}
+      <a class="btn btn-soft" href="{{ url_for('admin_view') }}">🛠️ Админка</a>
+      {% endif %}
+      {% elif friend_status is none %}
+      <button class="btn btn-primary" id="addFriendBtn" data-username="{{ profile.username }}">🤝 Добавить в друзья</button>
+      {% elif friend_status.status == 'accepted' %}
+      <a class="btn btn-primary" href="{{ url_for('chat_view', username=profile.username) }}">💬 Написать</a>
+      {% elif friend_status.addressee_id == my_id %}
+      <button class="btn btn-success" id="acceptFriendBtn" data-id="{{ friend_status.id }}">✓ Принять заявку</button>
+      {% else %}
+      <span class="btn btn-soft">Заявка отправлена</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if badges %}
+  <div class="section-title">🏆 Достижения · {{ badges|length }}</div>
+  <div class="badges-grid">
+    {% for b in badges %}
+    <div class="badge-card">
+      <div class="badge-emoji">{{ b.emoji }}</div>
+      <div>
+        <div class="badge-title">{{ b.title }}</div>
+        <div class="badge-desc">{{ b.desc }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if is_me and org_stats %}
+  <div class="section-title">📊 Статистика заведения</div>
+  <div class="stats-grid">
+    <div class="stat-box"><div class="stat-num">{{ org_stats.total }}</div><div class="stat-label">Меток всего</div></div>
+    <div class="stat-box"><div class="stat-num">{{ org_stats.today }}</div><div class="stat-label">Сегодня</div></div>
+    <div class="stat-box"><div class="stat-num">{{ org_stats.week }}</div><div class="stat-label">За 7 дней</div></div>
+    <div class="stat-box"><div class="stat-num">{{ org_stats.people }}</div><div class="stat-label">Людей</div></div>
+    <div class="stat-box"><div class="stat-num">{{ org_stats.comments }}</div><div class="stat-label">Комментариев</div></div>
+    <div class="stat-box"><div class="stat-num">{{ org_stats.reactions }}</div><div class="stat-label">Реакций</div></div>
+  </div>
+
+  <div class="section-title">🌡️ Как вас чувствуют</div>
+  <div class="inline-card">
+    {% if org_stats.peak_hour is not none %}
+    <p style="margin:6px 0;font-size:14px;">🔥 Оживлённее всего у вас обычно около {{ '%02d:00'|format(org_stats.peak_hour) }}.</p>
+    {% endif %}
+    {% if org_stats.regulars %}
+    <p style="margin:6px 0;font-size:14px;">💜 {{ org_stats.regulars }} чел. возвращались несколько раз — это ваши постоянные.</p>
+    {% endif %}
+    {% if org_stats.deals_claims %}
+    <p style="margin:6px 0;font-size:14px;">🤫 На «секретные моменты» записались {{ org_stats.deals_claims }} раз.</p>
+    {% endif %}
+    {% if not org_stats.regulars and not org_stats.deals_claims %}
+    <p style="margin:6px 0;font-size:14px;">🌱 Сейчас тихо, но каждая метка — чей-то живой момент у вас.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if is_me and deals_summary %}
+  <div class="section-title">🤫 Как звучат ваши моменты</div>
+  <div class="inline-card">
+    {% for d in deals_summary %}
+    <p style="margin:6px 0;font-size:14px;">
+      {% if d.fill >= 100 %}🔥 «{{ d.title }}» — полный дом, момент удался!
+      {% elif d.fill >= 60 %}💜 «{{ d.title }}» — почти аншлаг: {{ d.claimed }} из {{ d.total }} уже в деле.
+      {% elif d.claimed > 0 %}🌱 «{{ d.title }}» — началось: {{ d.claimed }} уже в деле.
+      {% else %}🤫 «{{ d.title }}» — пока тихо. Первые участники скоро будут.
+      {% endif %}
+    </p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if profile.account_type == 'organization' %}
+  <div class="section-title">⚡ Flash Deals</div>
+  {% if is_me %}
+  <form id="dealForm" class="inline-card">
+    <div class="field"><label>Название акции</label><input class="input" id="dealTitle" required maxlength="120"></div>
+    <div class="field"><label>Описание</label><textarea class="input" id="dealDesc" maxlength="500"></textarea></div>
+    <div class="field"><label>Сколько мест</label><input class="input" id="dealSlots" type="number" min="1" max="500" value="10"></div>
+    <button class="btn btn-primary btn-block" type="submit">⚡ Запустить акцию</button>
+  </form>
+  {% endif %}
+  {% if is_me and new_claims %}<p class="hint">🔔 Новых заявок: {{ new_claims }}</p>{% endif %}
+  <div id="dealsList"></div>
+  {% endif %}
+
+  <div class="section-title">📍 Сейчас на карте · {{ live_spots|length }}</div>
+  {% if live_spots %}
+  {% for spot in live_spots %}
+  <div class="inline-card spot-thumb-row" data-spot-card="{{ spot.id }}">
+    <div class="spot-thumb">{% if spot.photo_url %}<img src="{{ spot.photo_url }}" alt="">{% else %}📍{% endif %}</div>
+    <div style="flex:1;min-width:0;">
+      <div class="name" style="font-weight:800;">{{ spot.title }}</div>
+      <div class="sub hint">{{ spot.created_at[:16].replace('T', ' ') if spot.created_at else '' }} · {% if spot.visibility == 'friends' %}🤝 Только друзья{% else %}🌍 Видят все{% endif %}</div>
+    </div>
+    {% if is_me %}
+    <button type="button" class="spot-delete-btn" data-spot-id="{{ spot.id }}" title="Удалить метку" style="border:0;background:transparent;font-size:16px;cursor:pointer;opacity:.55;flex-shrink:0;">🗑</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="inline-card"><p class="hint">Сейчас активных меток нет.</p></div>
+  {% endif %}
+
+  <div class="section-title">🗂 Архив моментов · {{ archive_spots|length }}</div>
+  {% if archive_spots %}
+  {% for spot in archive_spots %}
+  <div class="inline-card spot-thumb-row" data-spot-card="{{ spot.id }}" style="opacity:.75;">
+    <div class="spot-thumb">{% if spot.photo_url %}<img src="{{ spot.photo_url }}" alt="">{% else %}📍{% endif %}</div>
+    <div style="flex:1;min-width:0;">
+      <div class="name" style="font-weight:800;">{{ spot.title }}</div>
+      <div class="sub hint">{{ spot.created_at[:16].replace('T', ' ') if spot.created_at else '' }} · архив</div>
+    </div>
+    {% if is_me %}
+    <button type="button" class="spot-delete-btn" data-spot-id="{{ spot.id }}" title="Удалить метку" style="border:0;background:transparent;font-size:16px;cursor:pointer;opacity:.55;flex-shrink:0;">🗑</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="inline-card"><p class="hint">Архив пока пуст. Когда метка исчезнет с карты, она останется здесь — как момент твоей истории.</p></div>
+  {% endif %}
+
+  {% if tagged_spots %}
+  <div class="section-title">Люди отмечались здесь · {{ tagged_spots|length }}</div>
+  {% for spot in tagged_spots %}
+  <div class="inline-card spot-thumb-row">
+    <div class="avatar" style="width:40px;height:40px;font-size:14px;">
+      {% if spot.owner and spot.owner.avatar_url %}<img src="{{ spot.owner.avatar_url }}" alt="">{% else %}{{ (spot.owner.display_name[:1] if spot.owner and spot.owner.display_name else '?')|upper }}{% endif %}
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div class="name" style="font-weight:800;">{{ spot.owner.display_name if spot.owner else 'Кто-то' }}</div>
+      <div class="sub hint">{{ spot.title }}</div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {{ bottom_nav('profile', profile) }}
+</div>
+{% endblock %}
+{% block scripts %}
 <script>
-document.querySelectorAll('.spot-delete-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-        var id = btn.dataset.spotId;
-        if (!confirm('Удалить метку безвозвратно?')) return;
+(function () {
+    'use strict';
 
-        fetch('/api/spots/' + id, { method: 'DELETE', credentials: 'same-origin' })
-            .then(function (r) {
-                if (!r.ok) throw new Error('fail');
-                var card = document.querySelector('[data-spot-card="' + id + '"]');
-                if (card) card.remove();
+    var IS_ME = {{ 'true' if is_me else 'false' }};
+    var PROFILE_ID = '{{ profile.id }}';
+    var IS_ORG = {{ 'true' if profile.account_type == 'organization' else 'false' }};
+
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s === null || s === undefined ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    // ---------- друзья ----------
+    var addBtn = document.getElementById('addFriendBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', function () {
+            fetch('/api/friends/' + encodeURIComponent(addBtn.dataset.username) + '/add', {
+                method: 'POST', credentials: 'same-origin'
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (d.ok) { location.reload(); } else { alert(d.error || 'Не удалось отправить заявку'); }
+            }).catch(function () { alert('Ошибка сети'); });
+        });
+    }
+
+    var acceptBtn = document.getElementById('acceptFriendBtn');
+    if (acceptBtn) {
+        acceptBtn.addEventListener('click', function () {
+            fetch('/api/friends/' + acceptBtn.dataset.id + '/accept', {
+                method: 'POST', credentials: 'same-origin'
+            }).then(function (r) { return r.json(); }).then(function () {
+                location.reload();
+            }).catch(function () { alert('Ошибка сети'); });
+        });
+    }
+
+    // ---------- секретные моменты ----------
+    var dealsBox = document.getElementById('dealsList');
+
+    function loadDeals() {
+        if (!dealsBox || !IS_ORG) return;
+
+        fetch('/api/flash-deals?org_id=' + encodeURIComponent(PROFILE_ID), { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (deals) {
+                if (!IS_ME) {
+                    deals = (deals || []).filter(function (d) { return d.active; });
+                }
+
+                if (!deals.length) {
+                    dealsBox.innerHTML = '<div class="inline-card"><p class="hint">Пока нет секретных моментов.</p></div>';
+                    return;
+                }
+
+                dealsBox.innerHTML = deals.map(function (d) {
+                    var actions = '';
+                    if (IS_ME) {
+                        actions = '<button type="button" class="btn btn-ghost btn-sm deal-delete" data-id="' + d.id + '">🗑 Удалить</button>';
+                    } else {
+                        actions = '<button type="button" class="btn btn-primary btn-sm claim-btn" data-id="' + d.id + '">Занять место</button>';
+                    }
+
+                    return '<div class="inline-card" data-deal-id="' + d.id + '">' +
+                        '<div style="font-weight:800;">' + escHtml(d.title) + '</div>' +
+                        (d.description ? '<p style="margin:6px 0;">' + escHtml(d.description) + '</p>' : '') +
+                        '<div class="hint" style="margin:6px 0;">Занято ' + (d.claimed || 0) + ' из ' + d.total_slots + '</div>' +
+                        actions +
+                        '</div>';
+                }).join('');
             })
             .catch(function () {
-                alert('Не удалось удалить метку');
+                dealsBox.innerHTML = '<div class="inline-card"><p class="hint">Не удалось загрузить акции.</p></div>';
             });
+    }
+
+    if (dealsBox) {
+        dealsBox.addEventListener('click', function (e) {
+            var claim = e.target.closest('.claim-btn');
+            if (claim) {
+                fetch('/api/flash-deals/' + claim.dataset.id + '/claim', {
+                    method: 'POST', credentials: 'same-origin'
+                }).then(function (r) { return r.json(); }).then(function (d) {
+                    if (d.error) { alert(d.error); } else { loadDeals(); }
+                }).catch(function () { alert('Ошибка сети'); });
+                return;
+            }
+
+            var del = e.target.closest('.deal-delete');
+            if (del) {
+                if (!confirm('Удалить акцию?')) return;
+                fetch('/api/flash-deals/' + del.dataset.id, {
+                    method: 'DELETE', credentials: 'same-origin'
+                }).then(function () { loadDeals(); });
+            }
+        });
+    }
+
+    var dealForm = document.getElementById('dealForm');
+    if (dealForm) {
+        dealForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            var payload = {
+                title: document.getElementById('dealTitle').value.trim(),
+                description: document.getElementById('dealDesc').value.trim(),
+                total_slots: parseInt(document.getElementById('dealSlots').value || '10', 10)
+            };
+
+            fetch('/api/flash-deals', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (d.error) { alert(d.error); } else { dealForm.reset(); loadDeals(); }
+            }).catch(function () { alert('Ошибка сети'); });
+        });
+    }
+
+    // ---------- удаление своих меток ----------
+    document.querySelectorAll('.spot-delete-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = btn.dataset.spotId;
+            if (!confirm('Удалить метку безвозвратно?')) return;
+
+            fetch('/api/spots/' + id, { method: 'DELETE', credentials: 'same-origin' })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('fail');
+                    var card = document.querySelector('[data-spot-card="' + id + '"]');
+                    if (card) card.remove();
+                })
+                .catch(function () { alert('Не удалось удалить метку'); });
+        });
     });
-});
+
+    document.addEventListener('DOMContentLoaded', function () {
+        loadDeals();
+    });
+})();
 </script>
+{% endblock %}
