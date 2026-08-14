@@ -1089,14 +1089,29 @@ def api_users_search():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-    merged = {}
+        merged = {}
     for row in (res1.data or []) + (res2.data or []):
         merged[row["id"]] = row
 
     people = [p for p in merged.values() if p["id"] != uid]
     people.sort(key=lambda p: (p.get("username") or "").lower())
+    people = people[:10]
 
-    return jsonify(people[:10])
+    my_ints = (get_profile(sb, uid).get("interests") or [])
+    if my_ints and people:
+        ids = [p["id"] for p in people]
+        pr = sb.table("profiles").select("id, interests").in_("id", ids).execute()
+
+        wave_ids = set()
+        for r in (pr.data or []):
+            their = r.get("interests") or []
+            if any(i in their for i in my_ints):
+                wave_ids.add(r["id"])
+
+        for p in people:
+            p["wave"] = p["id"] in wave_ids
+
+    return jsonify(people)
 
 
 @app.route("/api/friends/<username>/add", methods=["POST"])

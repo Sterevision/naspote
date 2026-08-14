@@ -121,6 +121,68 @@
 })();
 </script>
 <script>
+(function () {
+    var waveSearch = {};
+
+    function escapeRegExp(s) {
+        return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function addSearchPills() {
+        Object.keys(waveSearch).forEach(function (username) {
+            var re = new RegExp('@' + escapeRegExp(username) + '(?![a-zA-Z0-9_])');
+
+            var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                acceptNode: function (node) {
+                    if (!node.nodeValue || !re.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+
+                    var parent = node.parentElement;
+                    if (!parent) return NodeFilter.FILTER_REJECT;
+                    if (parent.closest('script, style')) return NodeFilter.FILTER_REJECT;
+
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            });
+
+            var nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+
+            nodes.forEach(function (node) {
+                var parent = node.parentElement;
+                if (!parent || parent.dataset.wavePill) return;
+                parent.dataset.wavePill = '1';
+
+                var pill = document.createElement('span');
+                pill.className = 'wave-pill';
+                pill.textContent = '🌊 свой';
+                parent.appendChild(pill);
+            });
+        });
+    }
+
+    // Перехватываем ответ поиска людей и запоминаем, кто «на волне»
+    var origFetch = window.fetch;
+    if (origFetch) {
+        window.fetch = function () {
+            var p = origFetch.apply(this, arguments);
+            var url = arguments[0];
+
+            if (typeof url === 'string' && url.indexOf('/api/users/search') !== -1) {
+                p.then(function (r) { return r.clone().json(); }).then(function (people) {
+                    (people || []).forEach(function (person) {
+                        if (person.wave && person.username) waveSearch[person.username] = true;
+                    });
+                    setTimeout(addSearchPills, 80);
+                    setTimeout(addSearchPills, 400);
+                }).catch(function () {});
+            }
+
+            return p;
+        };
+    }
+})();
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.accept-friend-btn').forEach(function (btn) {
         btn.onclick = async function () { await fetch('/api/friends/' + btn.dataset.id + '/accept', {method: 'POST'}); location.reload(); };
