@@ -17,6 +17,34 @@ if not SUPABASE_URL or not SUPABASE_ANON_KEY:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-in-prod")
+app.permanent_session_lifetime = timedelta(days=365)
+
+
+@app.before_request
+def _make_session_permanent():
+    # Сессия живёт до выхода, а не до закрытия браузера
+    session.permanent = True
+
+
+def _token_expires_soon(access_token, seconds=300):
+    try:
+        import base64
+        import json as _json
+        payload = (access_token or "").split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        data = _json.loads(base64.urlsafe_b64decode(payload))
+        exp = data.get("exp", 0)
+        return (exp - datetime.now(timezone.utc).timestamp()) < seconds
+    except Exception:
+        return True
+
+
+def _refresh_tokens(sb):
+    refreshed = sb.auth.refresh_session()
+    # библиотека может вернуть либо объект с .session, либо саму сессию
+    sess = getattr(refreshed, "session", None) or refreshed
+    session["access_token"] = sess.access_token
+    session["refresh_token"] = sess.refresh_token
 
 CATEGORIES = ["Бар", "Клуб", "Кофейня", "Ресторан", "Коворкинг",
               "Караоке", "Спорт", "Вечеринка", "Природа", "Выставка/галерея", "Другое"]
@@ -58,6 +86,12 @@ def login_required(view):
                 return jsonify({"error": "unauthorized"}), 401
             return redirect(url_for("login"))
 
+        if _token_expires_soon(session["access_token"]):
+            try:
+                _refresh_tokens(get_supabase(session["access_token"], session.get("refresh_token")))
+            except Exception:
+                pass
+
         sb = get_supabase(session["access_token"], session.get("refresh_token"))
         try:
             result = sb.table("profiles").select("id").eq("id", session["user_id"]).execute()
@@ -65,9 +99,7 @@ def login_required(view):
                 raise Exception("profile not found")
         except Exception:
             try:
-                refreshed = sb.auth.refresh_session()
-                session["access_token"] = refreshed.session.access_token
-                session["refresh_token"] = refreshed.session.refresh_token
+                _refresh_tokens(sb)
             except Exception:
                 session.clear()
                 if request.path.startswith("/api/"):

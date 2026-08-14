@@ -4,6 +4,10 @@
 <div class="app-shell">
 <div class="map-wrap">
 <div id="map"></div>
+<script>
+window.MAP_HOME = {{ map_home | tojson }};
+window.CURRENT_USER_ID = "{{ profile.id }}";
+</script>
 <div class="map-top">
 <div class="category-scroller" id="categoryScroller">
 <div class="chip selected" data-cat="">Все</div>
