@@ -945,12 +945,6 @@ def api_spots_list():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    try:
-        sb.table("spots").delete().eq("owner_id", session["user_id"]) \
-            .lt("expires_at", now_iso).execute()
-    except Exception:
-        pass
-
     res = sb.table("spots") \
         .select("*, owner:owner_id(username, display_name, avatar_url, interests), "
                 "organization:organization_id(username, display_name, category, is_verified)") \
@@ -978,9 +972,15 @@ def api_spots_create():
 
     profile = get_profile(sb, uid)
     acc_type = profile.get("account_type", "person")
-
     if acc_type == "person":
-        sb.table("spots").delete().eq("owner_id", uid).execute()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        try:
+            sb.table("spots").update({"expires_at": now_iso}) \
+                .eq("owner_id", uid) \
+                .or_(f"expires_at.is.null,expires_at.gt.{now_iso}") \
+                .execute()
+        except Exception:
+            pass
 
     data = {
         "owner_id": uid,
