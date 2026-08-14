@@ -3,6 +3,7 @@
 
     var POLL_INTERVAL = 25000;
     var LS_KEY = 'kartometr_notified_v1';
+    var LS_PROMPT = 'kartometr_notify_prompt_shown';
 
     // ---------- бейджи в навигации ----------
 
@@ -54,6 +55,76 @@
         }
     }
 
+    // ---------- системные уведомления ----------
+
+    function canNotify() {
+        return 'Notification' in window && Notification.permission === 'granted';
+    }
+
+    function systemNotify(title, body) {
+        if (!canNotify()) return;
+        try {
+            new Notification(title, { body: body, icon: '/static/icon.svg' });
+        } catch (e) {
+            // silent
+        }
+    }
+
+    function getStack() {
+        var stack = document.querySelector('.toast-stack');
+        if (!stack) {
+            stack = document.createElement('div');
+            stack.className = 'toast-stack';
+            document.body.appendChild(stack);
+        }
+        return stack;
+    }
+
+    function toast(text, withSystem) {
+        var stack = getStack();
+
+        var el = document.createElement('div');
+        el.className = 'toast';
+        el.textContent = text;
+        stack.appendChild(el);
+
+        setTimeout(function () { el.classList.add('toast-out'); }, 4200);
+        setTimeout(function () { el.remove(); }, 4700);
+
+        if (withSystem) systemNotify('Картометр', text);
+    }
+
+    // Мягкий одноразовый запрос разрешения —
+    // только когда пришло новое личное сообщение
+    function askPermissionSoft() {
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'default') return;
+
+        try {
+            if (localStorage.getItem(LS_PROMPT)) return;
+            localStorage.setItem(LS_PROMPT, '1');
+        } catch (e) {
+            return;
+        }
+
+        var el = document.createElement('div');
+        el.className = 'toast';
+        el.style.cursor = 'pointer';
+        el.textContent = '🔔 Включить уведомления, чтобы не пропускать своих?';
+
+        el.addEventListener('click', function () {
+            Notification.requestPermission().then(function (p) {
+                if (p === 'granted') {
+                    systemNotify('Картометр', 'Уведомления включены. Свои рядом!');
+                }
+            });
+            el.remove();
+        });
+
+        getStack().appendChild(el);
+        setTimeout(function () { el.remove(); }, 8000);
+    }
+
     // ---------- тихие уведомления ----------
 
     function saveState(state) {
@@ -70,24 +141,6 @@
         } catch (e) {
             // silent
         }
-    }
-
-    function toast(text) {
-        var stack = document.querySelector('.toast-stack');
-
-        if (!stack) {
-            stack = document.createElement('div');
-            stack.className = 'toast-stack';
-            document.body.appendChild(stack);
-        }
-
-        var el = document.createElement('div');
-        el.className = 'toast';
-        el.textContent = text;
-        stack.appendChild(el);
-
-        setTimeout(function () { el.classList.add('toast-out'); }, 4200);
-        setTimeout(function () { el.remove(); }, 4700);
     }
 
     async function collectMarkers() {
@@ -170,27 +223,33 @@
             }
 
             var shown = 0;
+            var hadNewMessage = false;
 
             Object.keys(markers).forEach(function (k) {
                 if (prev[k] === markers[k]) return;
 
                 prev[k] = markers[k];
 
+                if (k.indexOf('msg:') === 0) hadNewMessage = true;
+
                 if (shown >= 2) return;
                 shown++;
 
                 if (k.indexOf('msg:') === 0) {
                     var p1 = markers[k].split('|');
-                    toast('💬 ' + p1[0] + ': ' + (p1[1] || 'новое сообщение'));
+                    toast('💬 ' + p1[0] + ': ' + (p1[1] || 'новое сообщение'), true);
                 } else if (k.indexOf('req:') === 0) {
-                    toast('🤝 ' + markers[k] + ' — хочет добавить вас в друзья');
+                    toast('🤝 ' + markers[k] + ' — хочет добавить вас в друзья', true);
                 } else if (k.indexOf('spot:') === 0) {
                     var p2 = markers[k].split('|');
-                    toast('📍 ' + p2[0] + ' отметил(а): «' + (p2[1] || 'метка') + '»');
+                    toast('📍 ' + p2[0] + ' отметил(а): «' + (p2[1] || 'метка') + '»', true);
                 }
             });
 
             saveState(prev);
+
+            // Мягко предлагаем уведомления — только при новом сообщении
+            if (hadNewMessage) askPermissionSoft();
         } catch (e) {
             // silent
         }
