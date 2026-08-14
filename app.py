@@ -571,6 +571,17 @@ def profile_view(username):
     spots_res = sb.table("spots").select("*").eq("owner_id", profile["id"]) \
         .order("created_at", desc=True).execute()
 
+    now_dt = datetime.now(timezone.utc)
+    all_spots = spots_res.data or []
+    live_spots = []
+    archive_spots = []
+    for s in all_spots:
+        exp = parse_iso(s.get("expires_at"))
+        if exp is not None and exp <= now_dt:
+            archive_spots.append(s)
+        else:
+            live_spots.append(s)
+
     tagged_spots = []
     if profile.get("account_type") == "organization":
         tagged_res = sb.table("spots") \
@@ -711,7 +722,8 @@ def profile_view(username):
                            tagged_spots=tagged_spots, my_id=session["user_id"],
                            org_stats=org_stats, is_admin=is_admin, badges=badges,
                            new_claims=new_claims, common_interests=common_interests,
-                           deals_summary=deals_summary)
+                           deals_summary=deals_summary,
+                           live_spots=live_spots, archive_spots=archive_spots)
 
 @app.route("/friends")
 @login_required
