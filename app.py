@@ -1018,7 +1018,7 @@ def api_organizations_list():
     sb = get_supabase(session["access_token"], session.get("refresh_token"))
 
     res = sb.table("profiles") \
-        .select("id, username, display_name, avatar_url, category, address, lat, lng, is_verified") \
+        .select("id, username, display_name, category, address, lat, lng, is_verified") \
         .eq("account_type", "organization") \
         .not_.is_("lat", "null") \
         .not_.is_("lng", "null") \
@@ -1071,7 +1071,7 @@ def api_organizations_search():
         o["distance_km"] = round(dist, 2)
         out.append(o)
 
-    out.sort(key=lambda x: x["distance_km"])
+    out.sort(key=lambda x: x["distance_km"] - (0.3 if x.get("is_verified") else 0))
     return jsonify(out[:10])
 
 # ---------- API: друзья / сообщения ----------

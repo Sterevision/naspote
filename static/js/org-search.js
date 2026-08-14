@@ -46,12 +46,13 @@ searchInput.addEventListener('input', function () {
                 return;
             }
             resultsBox.innerHTML = orgs.map(function (o) {
-                return '<div class="org-result-row" data-id="' + esc(o.id) + '">' + esc(o.display_name) +
-                    ' <span style="color:var(--muted);font-size:12px;">' +
-                    (o.category ? esc(o.category) : '') +
-                    (o.distance_km !== null && o.distance_km !== undefined ? ' \u00b7 ' + o.distance_km + ' км' : '') +
-                    '</span></div>';
-            }).join('');
+                    return '<div class="org-result-row" data-id="' + esc(o.id) + '">' +
+                        (o.is_verified ? '✅ ' : '') + esc(o.display_name) +
+                        ' <span style="color:var(--muted);font-size:12px;">' +
+                        (o.category ? esc(o.category) : '') +
+                        (o.distance_km !== null && o.distance_km !== undefined ? ' · ' + o.distance_km + ' км' : '') +
+                        '</span></div>';
+                }).join('');
             resultsBox.querySelectorAll('.org-result-row[data-id]').forEach(function (row) {
                 row.addEventListener('click', function () {
                     var org = null;
